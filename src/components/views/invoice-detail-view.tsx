@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { chargesFromJson } from '@/lib/db/row-types'
 import { cancelInvoice, finalizeInvoice, recordPayment, softDeleteInvoiceDraft } from '@/lib/db/repositories'
 import { buildInvoiceModel } from '@/lib/pdf/document-model'
@@ -28,7 +29,7 @@ import { formatDateDisplay, todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { navigate } from '@/lib/router'
 import {
-  ArrowLeft, BadgeCheck, Ban, Copy, FileDown, History, MessageCircle, Pencil, Printer, Trash2, Wallet, XCircle,
+  ArrowLeft, BadgeCheck, Ban, ChevronDown, Copy, FileDown, History, MessageCircle, MessageSquareText, Pencil, Phone, Printer, Trash2, Wallet, XCircle,
 } from 'lucide-react'
 import type { PaymentMethod } from '@/lib/domain/types'
 
@@ -139,10 +140,10 @@ export function InvoiceDetailView({ id }: { id: string }) {
   }
 
   /** WhatsApp-ready payment reminder text (India use case): polite, factual, copy-to-clipboard. */
-  const doCopyReminder = async () => {
+  const buildReminderText = () => {
     const cust = data.customer
     const days = inv.due_date ? Math.max(0, Math.round((Date.parse(todayStr()) - Date.parse(inv.due_date)) / 86_400_000)) : 0
-    const lines = [
+    return [
       `Hello ${cust?.contact_person || cust?.business_name || 'there'},`,
       '',
       overdue
@@ -156,13 +157,26 @@ export function InvoiceDetailView({ id }: { id: string }) {
       '',
       'Kindly arrange the payment at your earliest convenience. Please ignore if already paid — thank you!',
       company?.name ? `— ${company.name}` : '',
-    ].filter((l) => l !== '')
+    ].filter((l) => l !== '').join('\n')
+  }
+
+  const doCopyReminder = async () => {
     try {
-      await navigator.clipboard.writeText(lines.join('\n'))
+      await navigator.clipboard.writeText(buildReminderText())
       toast.success('Reminder copied', { description: 'Paste it into WhatsApp, SMS or email.' })
     } catch {
       toast.error('Could not access the clipboard in this browser')
     }
+  }
+
+  /** Open WhatsApp with the reminder pre-filled (wa.me deep link; works on mobile + WhatsApp Web). */
+  const doWhatsAppReminder = () => {
+    const phone = data.customer?.phone?.replace(/[^0-9]/g, '')
+    // wa.me needs country code; assume Indian number when 10 digits (local convention).
+    const target = phone && phone.length === 10 ? `91${phone}` : phone ?? ''
+    const url = `https://wa.me/${target}?text=${encodeURIComponent(buildReminderText())}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    toast.success('Opening WhatsApp', { description: target ? 'The reminder is pre-filled — just press send.' : 'No number saved on the customer — choose the contact in WhatsApp.' })
   }
 
   return (
@@ -215,9 +229,28 @@ export function InvoiceDetailView({ id }: { id: string }) {
             </Button>
           )}
           {!isDraft && balance > 0 && inv.status !== 'CANCELLED' && (
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void doCopyReminder()}>
-              <MessageCircle className="h-3.5 w-3.5" /> Reminder
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <MessageCircle className="h-3.5 w-3.5" /> Reminder <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs">Send payment reminder</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void doWhatsAppReminder()} className="gap-2">
+                  <MessageSquareText className="h-4 w-4 text-emerald-600" />
+                  <span>Open in WhatsApp{data.customer?.phone ? ' (has number)' : ''}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void doCopyReminder()} className="gap-2">
+                  <Copy className="h-4 w-4" /> Copy reminder text
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled className="gap-2 text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5" /> {data.customer?.phone ? `To: ${data.customer.phone}` : 'No phone saved for customer'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPdfOpen(true)}>
             <Printer className="h-3.5 w-3.5" /> PDF

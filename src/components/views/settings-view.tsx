@@ -5,6 +5,7 @@
 // against Dexie; cloud actions (sync, account) degrade gracefully per CANON §9/§11.
 
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { APP_VERSION } from '@/lib/version'
 import type { Table as DexieTable } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTheme } from 'next-themes'
@@ -74,7 +75,6 @@ import { apiDeleteAccount, apiLogout } from '@/lib/sync/client'
 import type { SyncOpStatus, SyncOperation } from '@/lib/domain/types'
 import { cn } from '@/lib/utils'
 
-const APP_VERSION = '0.1.0'
 const BACKUP_FORMAT_VERSION = 1
 const OUTBOX_RENDER_LIMIT = 100
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { APP_VERSION } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -130,7 +131,7 @@ export function AuthView() {
         </Card>
       </div>
       <footer className="border-t bg-card/60 px-4 py-3 text-center text-xs text-muted-foreground">
-        InvoiceFlow v0.1.0 · Sessions are protected with httpOnly cookies · Passwords hashed with scrypt
+        InvoiceFlow v{APP_VERSION} · Sessions are protected with httpOnly cookies · Passwords hashed with scrypt
       </footer>
     </div>
   )

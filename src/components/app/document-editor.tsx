@@ -22,7 +22,7 @@ import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateCodeFromGstin
 import { todayStr } from '@/lib/date'
 import type { CompanyProfile, Customer, DocCharge, Product } from '@/lib/domain/types'
 import { toast } from 'sonner'
-import { Package, Percent, Plus, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, Package, Percent, Plus, Trash2, UserPlus } from 'lucide-react'
 
 export interface DocEditorItem {
   id: string
@@ -198,6 +198,17 @@ export function DocumentEditor({
     setItems((list) => list.map((it) => (it.id === id ? { ...it, ...patch } : it)))
   }
 
+  /** Reorder line items (line order matters on the printed document). */
+  const moveItem = (from: number, to: number) => {
+    setItems((list) => {
+      if (to < 0 || to >= list.length || from === to) return list
+      const next = [...list]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
   const applyProduct = async (itemId: string, productId: string) => {
     const prod = products?.find((p) => p.id === productId) as Product | undefined
     if (!prod) return
@@ -344,14 +355,61 @@ export function DocumentEditor({
             </Button>
           </div>
 
-          {/* desktop header */}
-          <div className="hidden gap-2 px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[16px_1.9fr_1fr_72px_1fr_96px_72px_32px]">
-            <span /><span>Product / description</span><span>HSN/SAC</span><span>Qty</span><span>Rate (Rs.)</span><span>Discount</span><span>GST</span><span />
+          {/* desktop header — 9 columns: reorder / description / HSN / qty / unit / rate / discount / GST / remove */}
+          <div className="hidden gap-2 px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[28px_2fr_1fr_64px_64px_96px_88px_72px_32px]">
+            <span /><span>Product / description</span><span>HSN/SAC</span><span>Qty</span><span>Unit</span><span>Rate (Rs.)</span><span>Disc.</span><span>GST</span><span />
           </div>
           <div className="space-y-2">
             {items.map((item, idx) => (
-              <div key={item.id} className="grid gap-2 rounded-lg border bg-card p-2 lg:grid-cols-[16px_1.9fr_1fr_72px_1fr_96px_72px_32px] lg:items-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
-                <span className="hidden text-xs text-muted-foreground lg:block">{idx + 1}.</span>
+              <div
+                key={item.id}
+                className="group grid gap-2 rounded-lg border bg-card p-2 transition-colors focus-within:border-emerald-300 lg:grid-cols-[28px_2fr_1fr_64px_64px_96px_88px_72px_32px] lg:items-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:hover:bg-emerald-500/[0.04] dark:lg:hover:bg-emerald-500/[0.06]"
+              >
+                {/* mobile reorder controls (always visible on touch) */}
+                <div className="flex items-center gap-0.5 lg:hidden">
+                  <button
+                    type="button"
+                    className="flex h-8 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                    onClick={() => moveItem(idx, idx - 1)}
+                    disabled={idx === 0}
+                    aria-label={`Move item ${idx + 1} up`}
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-8 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                    onClick={() => moveItem(idx, idx + 1)}
+                    disabled={idx === items.length - 1}
+                    aria-label={`Move item ${idx + 1} down`}
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {/* desktop reorder stack: hover-revealed arrows around the row number */}
+                <div className="hidden flex-col items-center lg:flex">
+                  <button
+                    type="button"
+                    className="flex h-4 w-6 items-center justify-center rounded text-muted-foreground/0 transition-all hover:bg-accent hover:text-foreground disabled:pointer-events-none"
+                    onClick={() => moveItem(idx, idx - 1)}
+                    disabled={idx === 0}
+                    aria-label={`Move item ${idx + 1} up`}
+                    tabIndex={-1}
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <span className="text-[10px] leading-none tabular-nums text-muted-foreground">{idx + 1}</span>
+                  <button
+                    type="button"
+                    className="flex h-4 w-6 items-center justify-center rounded text-muted-foreground/0 transition-all hover:bg-accent hover:text-foreground disabled:pointer-events-none"
+                    onClick={() => moveItem(idx, idx + 1)}
+                    disabled={idx === items.length - 1}
+                    aria-label={`Move item ${idx + 1} down`}
+                    tabIndex={-1}
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                </div>
                 <div className="space-y-1">
                   <ProductPicker products={products ?? []} onPick={(pid) => void applyProduct(item.id, pid)} />
                   <Input
@@ -363,10 +421,10 @@ export function DocumentEditor({
                 </div>
                 <Input value={item.hsn_sac} onChange={(e) => updateItem(item.id, { hsn_sac: e.target.value })} placeholder="HSN/SAC" aria-label={`Item ${idx + 1} HSN/SAC`} />
                 <div className="grid grid-cols-2 gap-2 lg:contents">
-                  <Input inputMode="decimal" value={item.qty} onChange={(e) => updateItem(item.id, { qty: e.target.value })} placeholder="Qty" aria-label={`Item ${idx + 1} quantity`} />
+                  <Input inputMode="decimal" value={item.qty} onChange={(e) => updateItem(item.id, { qty: e.target.value })} placeholder="Qty" aria-label={`Item ${idx + 1} quantity`} className="tabular-nums" />
                   <Input value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="Unit" aria-label={`Item ${idx + 1} unit`} />
                 </div>
-                <Input inputMode="decimal" value={item.unit_price} onChange={(e) => updateItem(item.id, { unit_price: e.target.value })} placeholder="Rate" aria-label={`Item ${idx + 1} rate in rupees`} />
+                <Input inputMode="decimal" value={item.unit_price} onChange={(e) => updateItem(item.id, { unit_price: e.target.value })} placeholder="Rate" aria-label={`Item ${idx + 1} rate in rupees`} className="tabular-nums" />
                 <Select value={String(item.discount_bps)} onValueChange={(v) => updateItem(item.id, { discount_bps: Number(v) })}>
                   <SelectTrigger aria-label={`Item ${idx + 1} discount`}><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -387,7 +445,7 @@ export function DocumentEditor({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  className="h-8 w-8 text-muted-foreground opacity-100 transition-opacity hover:text-destructive lg:opacity-0 lg:group-hover:opacity-100"
                   onClick={() => setItems((l) => (l.length > 1 ? l.filter((x) => x.id !== item.id) : l))}
                   aria-label={`Remove item ${idx + 1}`}
                 >

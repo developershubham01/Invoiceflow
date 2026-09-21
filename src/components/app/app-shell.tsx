@@ -13,6 +13,7 @@ import { useUser } from '@/lib/hooks/app-hooks'
 import { useGlobalShortcuts } from '@/lib/hooks/use-shortcuts'
 import { navigate, useHashRoute } from '@/lib/router'
 import { apiLogout } from '@/lib/sync/client'
+import { APP_VERSION } from '@/lib/version'
 import { cn } from '@/lib/utils'
 import {
   BarChart3, Building2, ChevronDown, CircleUser, FileText, Landmark, LayoutDashboard,
@@ -246,7 +247,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
           <p className="mb-1 hidden xl:block" title="Keyboard shortcuts — full list in the search palette (Ctrl K)">
             Shortcuts: <Kbd>N</Kbd> invoice · <Kbd>⇧N</Kbd> quote · <Kbd>D</Kbd> dashboard
           </p>
-          InvoiceFlow v0.1.0 · Offline-first
+          InvoiceFlow v{APP_VERSION} · Offline-first
         </div>
       </aside>
 
@@ -272,7 +273,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
         <footer className="mt-auto border-t bg-card/60 px-4 py-2.5 md:px-6" role="contentinfo">
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <p>
-              <span className="font-medium text-foreground">InvoiceFlow</span> v0.1.0 — Local-first · Offline-ready · GST-aware
+              <span className="font-medium text-foreground">InvoiceFlow</span> v{APP_VERSION} — Local-first · Offline-ready · GST-aware
             </p>
             <div className="flex items-center gap-3">
               <SyncPill compact />

@@ -4,6 +4,30 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-09-21
+
+### Added
+
+- WhatsApp payment reminder (one-tap share): the invoice "Reminder" button is now a split menu — "Open in WhatsApp" builds a `wa.me` deep link with the reminder pre-filled (customer phone normalised to the 91 country code when 10 digits; falls back to contact-picker mode with a hint when no number is saved), while "Copy reminder text" keeps the clipboard path; the menu footer shows the target number (or "No phone saved").
+- Line-item reordering in the invoice/quotation editor: hover-revealed ↑/↓ arrows around the row number on desktop (disabled arrows fade out at the boundaries), always-visible touch controls on mobile; line order is part of the saved document payload and therefore flows to PDF output and sync unchanged.
+- Dashboard "Cash-flow health" card: collection rate (gradient emerald progress bar with collected-vs-invoiced caption), average days-to-pay computed per payment (payment date − invoice date, with payment count), and overdue share of outstanding in a warning-tinted tile that highlights amber above 25%.
+- Single source of truth for the app version: `src/lib/version.ts` (`APP_VERSION`) now feeds the sidebar footer, status bar, Settings → App & device, onboarding, and auth screens; `package.json` aligned at 0.4.0.
+
+### Fixed
+
+- **Editor line-items grid misalignment (desktop)**: the header declared 8 columns but each row rendered 9 cells, so every field sat under the wrong label (unit under "Rate", rate under "Discount") and the GST select/trash wrapped off-grid. Rebuilt as an explicit 9-column grid (`reorder / description / HSN / qty / unit / rate / discount / GST / remove`) with matching header labels including the previously missing "Unit".
+- Stale version strings: three files still advertised v0.1.0 (and package.json 0.2.1) while the changelog was at 0.3.0.
+
+### Improved (styling)
+
+- Soft zebra striping on all data tables via `color-mix` on `--muted` (works in light and dark), with hover override for keyboard/touch scanning.
+- Editor item rows: emerald hover tint, focus-within border highlight, hover-revealed delete button (always visible on touch), tabular-nums on qty/rate inputs; spin-buttons removed from decimal inputs globally.
+- Dashboard KPI grid entrance: staggered rise-in animation (40 ms per card, disabled under `prefers-reduced-motion`).
+
+### Verified (QA round)
+
+- agent-browser sweep of all 9 views, invoice detail, PDF preview dialog, editor (desktop 1440 px + mobile 390 px), light and dark themes; reminder menu exercised end-to-end with a stubbed `window.open` (URL prefix 91, 334-char pre-filled text); reorder verified by moving a typed row down (order swaps); cash-flow metrics cross-checked against reports (65% = ₹1.47L/₹2.26L collected/invoiced); `bun run lint` clean; `tsc --noEmit` clean for `src/`.
+
 ## [0.3.0] - 2025-09-21
 
 ### Added

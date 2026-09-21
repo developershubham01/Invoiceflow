@@ -18,7 +18,7 @@ import { chargesFromJson } from '@/lib/db/row-types'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import {
   ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
-  HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Wallet,
+  Gauge, HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Wallet,
 } from 'lucide-react'
 
 export function DashboardView() {
@@ -113,6 +113,34 @@ export function DashboardView() {
       .slice(0, 5)
   }, [data])
 
+  /** Cash-flow health: collection rate, average days-to-pay, overdue share (all local computation). */
+  const cashHealth = useMemo(() => {
+    if (!data) return null
+    const live = data.invoices.filter((i) => i.status !== 'DRAFT' && i.status !== 'CANCELLED')
+    const invoiced = live.reduce((s, i) => s + i.grand_total_paise, 0)
+    const collected = data.payments.reduce((s, p) => s + p.amount_paise, 0)
+    const outstanding = live.reduce((s, i) => s + Math.max(0, i.grand_total_paise - i.paid_total_paise), 0)
+    const overdueOutstanding = live
+      .filter((i) => i.due_date && i.due_date < today && i.paid_total_paise < i.grand_total_paise)
+      .reduce((s, i) => s + Math.max(0, i.grand_total_paise - i.paid_total_paise), 0)
+    // average days-to-pay: days between invoice date and each payment date
+    const invDateById = new Map(data.invoices.map((i) => [i.id, i.invoice_date]))
+    const payDays = data.payments
+      .map((p) => {
+        const d = invDateById.get(p.invoice_id)
+        return d ? Math.round((Date.parse(p.paid_at.slice(0, 10)) - Date.parse(d)) / 86_400_000) : null
+      })
+      .filter((n): n is number => n != null && n >= 0)
+    const avgDays = payDays.length ? Math.round(payDays.reduce((s, n) => s + n, 0) / payDays.length) : null
+    return {
+      collectionRate: invoiced > 0 ? Math.min(100, Math.round((collected / invoiced) * 100)) : null,
+      collected, invoiced,
+      avgDays,
+      overdueShare: outstanding > 0 ? Math.round((overdueOutstanding / outstanding) * 100) : 0,
+      paymentCount: payDays.length,
+    }
+  }, [data, today])
+
   if (!ws) return null
 
   if (data && !company) {
@@ -147,7 +175,7 @@ export function DashboardView() {
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard label="Invoices" value={kpis ? String(kpis.total) : ''} icon={Receipt} loading={!kpis} onClick={() => navigate('invoices')} />
         <StatCard label="Drafts" value={kpis ? String(kpis.drafts) : ''} icon={FileText} tone="info" loading={!kpis} onClick={() => navigate('invoices')} />
         <StatCard label="Paid" value={kpis ? String(kpis.paid) : ''} icon={CheckCircle2} tone="positive" loading={!kpis} onClick={() => navigate('invoices')} />
@@ -267,6 +295,46 @@ export function DashboardView() {
                     </button>
                   )
                 })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-1.5 text-sm"><Gauge className="h-4 w-4 text-emerald-600" aria-hidden="true" /> Cash-flow health</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!cashHealth ? (
+                <Skeleton className="h-16 w-full" />
+              ) : (
+                <>
+                  <div>
+                    <div className="flex items-baseline justify-between text-xs">
+                      <span className="text-muted-foreground">Collection rate</span>
+                      <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {cashHealth.collectionRate != null ? `${cashHealth.collectionRate}%` : '—'}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={cashHealth.collectionRate ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label="Collection rate">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700" style={{ width: `${cashHealth.collectionRate ?? 0}%` }} />
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {formatMoneyCompact(cashHealth.collected)} collected of {formatMoneyCompact(cashHealth.invoiced)} invoiced
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg border bg-muted/30 px-2.5 py-2">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg. days to pay</p>
+                      <p className="mt-0.5 font-semibold tabular-nums">{cashHealth.avgDays != null ? `${cashHealth.avgDays} days` : '—'}</p>
+                      <p className="text-[10px] text-muted-foreground">across {cashHealth.paymentCount} payment{cashHealth.paymentCount === 1 ? '' : 's'}</p>
+                    </div>
+                    <div className={`rounded-lg border px-2.5 py-2 ${cashHealth.overdueShare > 25 ? 'border-amber-500/40 bg-amber-500/[0.06]' : 'bg-muted/30'}`}>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Overdue share</p>
+                      <p className={`mt-0.5 font-semibold tabular-nums ${cashHealth.overdueShare > 25 ? 'text-amber-600 dark:text-amber-400' : ''}`}>{cashHealth.overdueShare}%</p>
+                      <p className="text-[10px] text-muted-foreground">of outstanding</p>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
