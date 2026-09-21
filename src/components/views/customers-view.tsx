@@ -23,14 +23,16 @@ import { INDIAN_STATES, isValidGstin, stateByCode, stateCodeFromGstin } from '@/
 import { customerSchema } from '@/lib/domain/schemas'
 import { saveCustomer, softDeleteCustomer } from '@/lib/db/repositories'
 import { formatMoney } from '@/lib/domain/money'
-import { formatDateDisplay } from '@/lib/date'
+import { formatDateDisplay, fyStart, todayStr } from '@/lib/date'
+import { toCsv, downloadCsv } from '@/lib/csv'
 import { toast } from 'sonner'
-import { ArrowLeft, Building2, Mail, MapPin, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Building2, Download, Mail, MapPin, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
 import type { Customer } from '@/lib/domain/types'
 
 interface FormState {
   id?: string
   type: 'BUSINESS' | 'INDIVIDUAL'
+  code: string
   business_name: string
   contact_person: string
   email: string
@@ -42,7 +44,7 @@ interface FormState {
   notes: string
 }
 
-const emptyForm: FormState = { type: 'BUSINESS', business_name: '', contact_person: '', email: '', phone: '', gstin: '', billing_address: '', shipping_address: '', state_code: '', notes: '' }
+const emptyForm: FormState = { type: 'BUSINESS', code: '', business_name: '', contact_person: '', email: '', phone: '', gstin: '', billing_address: '', shipping_address: '', state_code: '', notes: '' }
 
 export function CustomersView({ detailId }: { detailId?: string }) {
   const ws = useActiveWorkspace()
@@ -79,7 +81,7 @@ export function CustomersView({ detailId }: { detailId?: string }) {
 
   const openEdit = (c?: Customer) => {
     setForm(c ? {
-      id: c.id, type: c.type, business_name: c.business_name, contact_person: c.contact_person ?? '',
+      id: c.id, type: c.type, code: c.code ?? '', business_name: c.business_name, contact_person: c.contact_person ?? '',
       email: c.email ?? '', phone: c.phone ?? '', gstin: c.gstin ?? '',
       billing_address: c.billing_address ?? '', shipping_address: c.shipping_address ?? '',
       state_code: c.state_code ?? '', notes: c.notes ?? '',
@@ -104,6 +106,7 @@ export function CustomersView({ detailId }: { detailId?: string }) {
         id: form.id,
         ...parsed.data,
         business_name: parsed.data.business_name,
+        code: form.code.trim() || undefined,
         state_code: form.state_code || stateCodeFromGstin(form.gstin) || null,
         state_name: state?.name ?? null,
       } as Partial<Customer> & { business_name: string })
@@ -190,6 +193,8 @@ export function CustomersView({ detailId }: { detailId?: string }) {
           <CustomerHistory customerId={selected.id} />
         </div>
 
+        <CustomerStatement customerId={selected.id} customerName={selected.business_name} />
+
         {form && <CustomerFormDialog form={form} setForm={setForm} saving={saving} onSubmit={submit} />}
       </div>
     )
@@ -222,7 +227,7 @@ export function CustomersView({ detailId }: { detailId?: string }) {
           {filtered.map((c) => (
             <Card
               key={c.id}
-              className="cursor-pointer py-0 transition-all hover:border-primary/40 hover:shadow-sm"
+              className="cursor-pointer py-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               onClick={() => navigate(`customers/${c.id}`)}
               role="button"
               tabIndex={0}
@@ -325,6 +330,198 @@ function CustomerHistory({ customerId }: { customerId: string }) {
   )
 }
 
+type StatementEntry = {
+  key: string
+  date: string
+  kind: 'Invoice' | 'Payment'
+  number: string
+  detail: string
+  debit: number
+  credit: number
+  balance: number
+  path: string
+}
+
+/** Account statement: chronological debits (invoices) and credits (payments) with a running balance. */
+function CustomerStatement({ customerId, customerName }: { customerId: string; customerName: string }) {
+  const [from, setFrom] = useState(fyStart(todayStr()))
+  const [to, setTo] = useState(todayStr())
+
+  const entries = useLiveQuery(async (): Promise<StatementEntry[] | null> => {
+    const invoices = await getDb().invoices.where('customer_id').equals(customerId).filter((i) => !i.deleted_at).toArray()
+    const payable = invoices.filter((i) => i.status !== 'DRAFT' && i.status !== 'CANCELLED')
+    const payments = await getDb().payments.where('invoice_id').anyOf(payable.map((i) => i.id)).filter((p) => !p.deleted_at).toArray()
+    const numberById = new Map(payable.map((i) => [i.id, i.number]))
+
+    const rows: Omit<StatementEntry, 'balance'>[] = [
+      ...payable
+        .filter((i) => i.invoice_date >= from && i.invoice_date <= to)
+        .map((i) => ({
+          key: `inv-${i.id}`,
+          date: i.invoice_date,
+          kind: 'Invoice' as const,
+          number: i.number,
+          detail: i.status === 'PAID' ? 'Tax invoice (paid)' : 'Tax invoice',
+          debit: i.grand_total_paise,
+          credit: 0,
+          path: `invoices/${i.id}`,
+        })),
+      ...payments
+        .filter((p) => p.paid_at >= from && p.paid_at <= to)
+        .map((p) => ({
+          key: `pay-${p.id}`,
+          date: p.paid_at,
+          kind: 'Payment' as const,
+          number: numberById.get(p.invoice_id) ?? '—',
+          detail: [p.method.toLowerCase(), p.reference].filter(Boolean).join(' · '),
+          debit: 0,
+          credit: p.amount_paise,
+          path: `invoices/${p.invoice_id}`,
+        })),
+    ]
+    rows.sort((a, b) => (a.date + a.kind).localeCompare(b.date + b.kind))
+    let running = 0
+    return rows.map((r) => {
+      running += r.debit - r.credit
+      return { ...r, balance: running }
+    })
+  }, [customerId, from, to])
+
+  const totals = useMemo(() => {
+    const list = entries ?? []
+    const invoiced = list.reduce((s, e) => s + e.debit, 0)
+    const collected = list.reduce((s, e) => s + e.credit, 0)
+    return { invoiced, collected, outstanding: invoiced - collected }
+  }, [entries])
+
+  const exportCsv = () => {
+    const list = entries ?? []
+    const csv = toCsv(
+      ['Date', 'Type', 'Document', 'Detail', 'Debit (Rs.)', 'Credit (Rs.)', 'Balance (Rs.)'],
+      [
+        ...list.map((e) => [
+          e.date,
+          e.kind,
+          e.number,
+          e.detail,
+          (e.debit / 100).toFixed(2),
+          (e.credit / 100).toFixed(2),
+          (e.balance / 100).toFixed(2),
+        ]),
+        ['', 'TOTAL', '', '', (totals.invoiced / 100).toFixed(2), (totals.collected / 100).toFixed(2), (totals.outstanding / 100).toFixed(2)],
+      ],
+    )
+    downloadCsv(`invoiceflow-statement-${customerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${from}_to_${to}.csv`, csv)
+    toast.success('Statement exported', { description: 'CSV saved to your downloads folder.' })
+  }
+
+  const swapped = from > to
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+          <h3 className="text-sm font-semibold">Account statement</h3>
+          <Badge variant="outline" className="text-[10px]">Debits & credits</Badge>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Input
+              type="date"
+              value={from}
+              max={to}
+              onChange={(e) => setFrom(e.target.value)}
+              aria-label="Statement from date"
+              className="h-8 w-36 text-xs"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={to}
+              min={from}
+              onChange={(e) => setTo(e.target.value)}
+              aria-label="Statement to date"
+              className="h-8 w-36 text-xs"
+            />
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={exportCsv} disabled={!entries || entries.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+          </div>
+        </div>
+
+        {swapped && (
+          <p className="border-b bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+            The from date is after the to date — no entries will match.
+          </p>
+        )}
+
+        <div className="grid grid-cols-3 divide-x border-b text-sm">
+          <div className="px-4 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Invoiced</p>
+            <p className="font-semibold tabular-nums">{formatMoney(totals.invoiced)}</p>
+          </div>
+          <div className="px-4 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Collected</p>
+            <p className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{formatMoney(totals.collected)}</p>
+          </div>
+          <div className="px-4 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Outstanding</p>
+            <p className={`font-semibold tabular-nums ${totals.outstanding > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+              {formatMoney(totals.outstanding)}
+            </p>
+          </div>
+        </div>
+
+        {!entries ? (
+          <div className="space-y-2 p-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
+        ) : entries.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">No invoices or payments in this period.</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto scrollbar-thin">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-2 font-semibold">Date</th>
+                  <th className="px-4 py-2 font-semibold">Document</th>
+                  <th className="px-4 py-2 text-right font-semibold">Debit</th>
+                  <th className="px-4 py-2 text-right font-semibold">Credit</th>
+                  <th className="px-4 py-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e) => (
+                  <tr
+                    key={e.key}
+                    tabIndex={0}
+                    className="cursor-pointer border-t transition-colors hover:bg-muted/40"
+                    onClick={() => navigate(e.path)}
+                    onKeyDown={(ev) => { if (ev.key === 'Enter') navigate(e.path) }}
+                    aria-label={`${e.kind} ${e.number} on ${formatDateDisplay(e.date)}`}
+                  >
+                    <td className="whitespace-nowrap px-4 py-2 text-xs text-muted-foreground">{formatDateDisplay(e.date)}</td>
+                    <td className="px-4 py-2">
+                      <span className="font-medium">{e.number}</span>
+                      <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        e.kind === 'Invoice'
+                          ? 'bg-accent text-accent-foreground'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                      }`}>
+                        {e.kind}
+                      </span>
+                      {e.detail && <span className="ml-2 text-xs text-muted-foreground">{e.detail}</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">{e.debit ? formatMoney(e.debit) : '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{e.credit ? formatMoney(e.credit) : '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right font-medium tabular-nums">{formatMoney(e.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function CustomerFormDialog({
   form, setForm, saving, onSubmit,
 }: {
@@ -355,6 +552,11 @@ function CustomerFormDialog({
           <div className="space-y-1.5">
             <Label htmlFor="c-name">Name *</Label>
             <Input id="c-name" value={form.business_name} onChange={(e) => set({ business_name: e.target.value })} placeholder="Business or person" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="c-code">Customer code</Label>
+            <Input id="c-code" value={form.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} placeholder="Auto (CUS-0001)" />
+            <p className="text-[11px] text-muted-foreground">Leave blank to auto-number. Your own ledger code is allowed.</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="c-contact">Contact person</Label>

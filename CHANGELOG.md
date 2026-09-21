@@ -4,6 +4,28 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-09-21
+
+### Added
+
+- Customer account statement (detail view): period-filtered chronological debits (tax invoices) and credits (payments) with a running balance, Invoiced/Collected/Outstanding summary tiles, and per-customer CSV export following the docs/21 column conventions.
+- Payment-reminder assistant on finalized invoices: one-click "Reminder" builds a polite, WhatsApp/SMS-ready message with invoice number, due-date/overdue-day computation, amount paid, balance due, and company bank details, then copies it to the clipboard with a toast.
+- Dashboard "Top customers by outstanding" widget with proportional amber/emerald bars, all-time invoiced totals, and click-through to the customer detail.
+- Dashboard activity feed upgrade: per-action iconography (payment/finalize/convert/cancel/status) with emerald/amber/red tones and human-readable labels.
+- Global keyboard shortcuts (desktop power users): `N` new invoice, `Shift+N` new quotation, `D/I/Q/C/P/R/S` view navigation — suppressed while typing or when a modal is open; discoverable via a shortcuts group in the Ctrl+K palette and a hint row in the sidebar footer.
+- Editable customer code in the customer form (blank = auto-numbered; custom ledger codes such as `RM-001` are allowed).
+
+### Fixed
+
+- **Sync correctness (major)**: outbox ops were enqueued with the *post-save* record version as `base_version`, so the server's compare-and-swap rejected every first update of any already-synced record as a spurious conflict. All 14 repository call sites (company/customer/product upserts and deletes, invoice upsert/finalize/cancel/delete, payments, quotation upserts/status/convert/delete) now pass the *pre-edit* base version. Verified end-to-end: create → claim → edit → sync lands cleanly; pre-existing conflicts resolve via keep-mine.
+- **Customer code duplication**: concurrent `saveCustomer` calls (Promise.all demo seeding, rapid UI saves) raced on the read-modify-write of `CUS-####` allocation. Allocation now happens inside the same IndexedDB readwrite transaction as the put (IDB serializes overlapping rw transactions), so every concurrent create observes a unique sequence. Verified: concurrent seed produces CUS-0001…0005 with zero duplicates.
+- Pre-existing TypeScript error in `setQuotationStatus`: Dexie six-table `transaction()` call now uses the array-form overload (clean `tsc --noEmit` for `src/`).
+- Sandbox rendering defect: a stale Turbopack CSS chunk served the default shadcn theme (white sidebar, `#171717` primary, default charts) instead of the InvoiceFlow emerald/dark-sidebar tokens; touching `globals.css` forced a recompile and the intended theme restored everywhere (including chart tokens in Reports).
+
+### Changed
+
+- Visual polish: subtle per-view enter animation (respects `prefers-reduced-motion`), hover lift + shadow on KPI stat cards and customer cards, `active:scale-[0.98]` press feedback on all buttons, and horizontal scroll enabled on the invoice/quotation/payment list tables for narrow screens.
+
 ## [0.1.0] - 2025-09-21
 
 ### Added

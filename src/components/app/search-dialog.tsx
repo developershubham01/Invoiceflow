@@ -7,6 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { navigate } from '@/lib/router'
 import { useActiveWorkspace } from '@/lib/hooks/app-hooks'
+import { SHORTCUTS } from '@/lib/hooks/use-shortcuts'
 import { formatMoneyCompact } from '@/lib/domain/money'
 import { FileText, Package, Plus, Receipt, Search, UserRound } from 'lucide-react'
 
@@ -99,6 +100,14 @@ export function SearchDialog() {
                 <CommandItem onSelect={() => go('quotations/new')}>
                   <Plus className="mr-2 h-4 w-4" aria-hidden="true" /> New quotation
                 </CommandItem>
+              </CommandGroup>
+              <CommandGroup heading="Keyboard shortcuts">
+                {SHORTCUTS.map((s) => (
+                  <CommandItem key={s.keys} disabled className="opacity-70">
+                    <kbd className="mr-2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium">{s.keys}</kbd>
+                    {s.label}
+                  </CommandItem>
+                ))}
               </CommandGroup>
             </>
           )}

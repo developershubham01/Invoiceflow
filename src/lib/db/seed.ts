@@ -43,13 +43,19 @@ export async function seedDemoData(workspaceId: string): Promise<void> {
     default_notes: 'Thank you for your business!',
   })
 
-  const customers = await Promise.all([
+  // Sequential (not Promise.all): keeps CUS-#### codes strictly ordered even without the
+  // allocation lock, and mirrors how users actually add customers.
+  const customers: Array<{ id: string; state_code: string }> = []
+  for (const c of [
     saveCustomer(workspaceId, { business_name: 'Sharma Electronics', contact_person: 'Rajesh Sharma', email: 'rajesh@sharmaelec.in', phone: '98201 11111', gstin: '27AABCS1429B1Z1', billing_address: '12, Laxmi Industrial Estate, Andheri West, Mumbai', state_code: '27', state_name: 'Maharashtra', type: 'BUSINESS' as const }),
     saveCustomer(workspaceId, { business_name: 'Patel Hardware & Supplies', contact_person: 'Nirav Patel', email: 'nirav@patelhardware.in', phone: '98240 22222', gstin: '24AACCP1234K1Z9', billing_address: '88, Ring Road, Surat', state_code: '24', state_name: 'Gujarat', type: 'BUSINESS' as const }),
     saveCustomer(workspaceId, { business_name: 'Verma Enterprises', contact_person: 'Sunita Verma', email: 'sunita@vermaent.in', phone: '98110 33333', gstin: '07AAECV5678M1ZP', billing_address: '45, Connaught Place, New Delhi', state_code: '07', state_name: 'Delhi', type: 'BUSINESS' as const }),
     saveCustomer(workspaceId, { business_name: 'Priya Design Studio', contact_person: 'Priya Nair', email: 'priya@priyadesign.in', phone: '98860 44444', billing_address: '9, Indiranagar 100ft Road, Bengaluru', state_code: '29', state_name: 'Karnataka', type: 'INDIVIDUAL' as const }),
     saveCustomer(workspaceId, { business_name: 'Kolkata Traders Co', contact_person: 'Amit Bose', email: 'amit@koltraders.in', phone: '98300 55555', gstin: '19AAACK9012P1ZQ', billing_address: '7, Park Street, Kolkata', state_code: '19', state_name: 'West Bengal', type: 'BUSINESS' as const }),
-  ])
+  ]) {
+    const saved = await c
+    customers.push({ id: saved.id, state_code: saved.state_code ?? '' })
+  }
 
   await Promise.all([
     saveProduct(workspaceId, { name: 'LED Panel Light 18W', sku: 'LED-18W', hsn_sac: '9405', description: '18W slim LED ceiling panel, cool white', unit: 'PCS', selling_price_paise: 45000, cost_price_paise: 31000, gst_rate_bps: 1200 }),

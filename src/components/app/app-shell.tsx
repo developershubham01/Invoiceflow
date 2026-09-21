@@ -10,6 +10,7 @@ import { SyncPill } from '@/components/app/sync-pill'
 import { SearchDialog } from '@/components/app/search-dialog'
 import { useAppStore } from '@/lib/stores/app-store'
 import { useUser } from '@/lib/hooks/app-hooks'
+import { useGlobalShortcuts } from '@/lib/hooks/use-shortcuts'
 import { navigate, useHashRoute } from '@/lib/router'
 import { apiLogout } from '@/lib/sync/client'
 import { cn } from '@/lib/utils'
@@ -217,10 +218,23 @@ function OfflineBanner({ show }: { show: boolean }) {
   )
 }
 
+/** Tiny keycap chip used in shortcut hints. */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-white/15 bg-white/10 px-1 font-mono text-[9px] font-medium text-slate-200">
+      {children}
+    </kbd>
+  )
+}
+
 export function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
   const online = useAppStore((s) => s.sync.status)
   void online
   const isOffline = useAppStore((s) => s.sync.status === 'offline') || (typeof navigator !== 'undefined' && !navigator.onLine)
+  useGlobalShortcuts()
+  const { segments } = useHashRoute()
+  // Re-keying on the first route segment replays the enter animation per view.
+  const viewKey = segments[0] ?? 'dashboard'
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
@@ -229,6 +243,9 @@ export function AppShell({ title, children }: { title: string; children: React.R
         <WorkspaceSwitcher />
         <SidebarNav />
         <div className="border-t border-sidebar-border px-4 py-3 text-[10px] text-slate-500">
+          <p className="mb-1 hidden xl:block" title="Keyboard shortcuts — full list in the search palette (Ctrl K)">
+            Shortcuts: <Kbd>N</Kbd> invoice · <Kbd>⇧N</Kbd> quote · <Kbd>D</Kbd> dashboard
+          </p>
           InvoiceFlow v0.1.0 · Offline-first
         </div>
       </aside>
@@ -248,7 +265,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8" role="main">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div key={viewKey} className="view-enter mx-auto w-full max-w-6xl">{children}</div>
         </main>
 
         {/* Sticky footer: mt-auto pushes to bottom, min-h-screen root guarantees no gap */}

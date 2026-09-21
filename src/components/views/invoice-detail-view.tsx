@@ -27,7 +27,7 @@ import { formatDateDisplay, todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { navigate } from '@/lib/router'
 import {
-  ArrowLeft, BadgeCheck, Ban, Copy, FileDown, History, Pencil, Printer, Trash2, Wallet, XCircle,
+  ArrowLeft, BadgeCheck, Ban, Copy, FileDown, History, MessageCircle, Pencil, Printer, Trash2, Wallet, XCircle,
 } from 'lucide-react'
 import type { PaymentMethod } from '@/lib/domain/types'
 
@@ -137,6 +137,33 @@ export function InvoiceDetailView({ id }: { id: string }) {
     }
   }
 
+  /** WhatsApp-ready payment reminder text (India use case): polite, factual, copy-to-clipboard. */
+  const doCopyReminder = async () => {
+    const cust = data.customer
+    const days = inv.due_date ? Math.max(0, Math.round((Date.parse(todayStr()) - Date.parse(inv.due_date)) / 86_400_000)) : 0
+    const lines = [
+      `Hello ${cust?.contact_person || cust?.business_name || 'there'},`,
+      '',
+      overdue
+        ? `Gentle reminder that invoice ${inv.number}${inv.due_date ? ` (due ${formatDateDisplay(inv.due_date)})` : ''} is ${days} day${days === 1 ? '' : 's'} overdue.`
+        : `This is a gentle reminder about invoice ${inv.number}${inv.due_date ? ` (due ${formatDateDisplay(inv.due_date)})` : ''}.`,
+      '',
+      `Invoice amount: Rs. ${formatMoneyPlain(inv.grand_total_paise)}`,
+      inv.paid_total_paise > 0 ? `Already paid: Rs. ${formatMoneyPlain(inv.paid_total_paise)}` : '',
+      `Balance due: Rs. ${formatMoneyPlain(balance)}`,
+      company ? `Pay to: ${company.bank_name ?? ''}${company.bank_account ? ` A/C ${company.bank_account}` : ''}${company.bank_ifsc ? ` (${company.bank_ifsc})` : ''}`.trim() : '',
+      '',
+      'Kindly arrange the payment at your earliest convenience. Please ignore if already paid — thank you!',
+      company?.name ? `— ${company.name}` : '',
+    ].filter((l) => l !== '')
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      toast.success('Reminder copied', { description: 'Paste it into WhatsApp, SMS or email.' })
+    } catch {
+      toast.error('Could not access the clipboard in this browser')
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -184,6 +211,11 @@ export function InvoiceDetailView({ id }: { id: string }) {
           {!isDraft && inv.status !== 'CANCELLED' && (
             <Button size="sm" className="gap-1.5" onClick={() => setPayOpen(true)} disabled={balance === 0}>
               <Wallet className="h-3.5 w-3.5" /> Record payment
+            </Button>
+          )}
+          {!isDraft && balance > 0 && inv.status !== 'CANCELLED' && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void doCopyReminder()}>
+              <MessageCircle className="h-3.5 w-3.5" /> Reminder
             </Button>
           )}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPdfOpen(true)}>

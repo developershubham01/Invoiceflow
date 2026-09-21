@@ -197,7 +197,7 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
   await db.transaction('rw', db.company_profiles, db.sync_operations, db.audit_logs, async () => {
     await db.company_profiles.put(record)
     if (record.workspace_id) {
-      await enqueueOp(db, workspaceId, 'company', record.id, 'upsert', record.version, record)
+      await enqueueOp(db, workspaceId, 'company', record.id, 'upsert', existing?.version ?? 0, record)
       await addAudit(db, workspaceId, 'company', record.id, existing ? 'UPDATE' : 'CREATE')
     }
   })
@@ -215,8 +215,14 @@ export async function getCustomer(id: string): Promise<Customer | null> {
   return (await getDb().customers.get(id)) ?? null
 }
 
+// ---------- customers ----------
+
 export async function nextCustomerCode(workspaceId: string): Promise<string> {
   const rows = await getDb().customers.where('workspace_id').equals(workspaceId).toArray()
+  return customerCodeFromRows(rows)
+}
+
+function customerCodeFromRows(rows: Customer[]): string {
   const maxSeq = rows.reduce((max, c) => {
     const n = Number((c.code ?? '').replace('CUS-', ''))
     return Number.isFinite(n) && n > max ? n : max
@@ -228,30 +234,41 @@ export async function saveCustomer(workspaceId: string, input: Partial<Customer>
   const db = getDb()
   const deviceId = getDeviceId()
   const existing = input.id ? await db.customers.get(input.id) : undefined
-  const record: Customer = existing
-    ? { ...existing, ...input, ...metaFields(existing) }
-    : {
-        id: crypto.randomUUID(),
-        workspace_id: workspaceId,
-        code: await nextCustomerCode(workspaceId),
-        type: 'BUSINESS',
-        contact_person: null,
-        email: null,
-        phone: null,
-        gstin: null,
-        billing_address: null,
-        shipping_address: null,
-        state_name: null,
-        state_code: null,
-        notes: null,
-        ...input,
-        ...baseMeta(deviceId),
-        ...metaFields(),
-      }
+  const explicitCode = input.code?.trim() || undefined
+  let record: Customer
+  if (existing) {
+    record = { ...existing, ...input, code: explicitCode ?? existing.code, ...metaFields(existing) }
+  } else {
+    record = {
+      id: crypto.randomUUID(),
+      workspace_id: workspaceId,
+      type: 'BUSINESS',
+      contact_person: null,
+      email: null,
+      phone: null,
+      gstin: null,
+      billing_address: null,
+      shipping_address: null,
+      state_name: null,
+      state_code: null,
+      notes: null,
+      ...input,
+      code: explicitCode ?? '',
+      ...baseMeta(deviceId),
+      ...metaFields(),
+    }
+  }
   record.sync_state = 'pending'
   await db.transaction('rw', db.customers, db.sync_operations, db.audit_logs, async () => {
+    // Auto-number allocation must happen inside the SAME readwrite transaction as the put:
+    // IndexedDB serializes overlapping rw transactions, so concurrent creates (Promise.all
+    // seeding, rapid UI saves) can never observe the same max sequence twice.
+    if (!existing && !explicitCode) {
+      const rows = await db.customers.where('workspace_id').equals(workspaceId).toArray()
+      record.code = customerCodeFromRows(rows)
+    }
     await db.customers.put(record)
-    await enqueueOp(db, workspaceId, 'customer', record.id, 'upsert', record.version, record)
+    await enqueueOp(db, workspaceId, 'customer', record.id, 'upsert', existing?.version ?? 0, record)
     await addAudit(db, workspaceId, 'customer', record.id, existing ? 'UPDATE' : 'CREATE')
   })
   return record
@@ -265,7 +282,7 @@ export async function softDeleteCustomer(workspaceId: string, id: string): Promi
   record.sync_state = 'pending'
   await db.transaction('rw', db.customers, db.sync_operations, db.audit_logs, async () => {
     await db.customers.put(record)
-    await enqueueOp(db, workspaceId, 'customer', id, 'delete', record.version, record)
+    await enqueueOp(db, workspaceId, 'customer', id, 'delete', existing.version, record)
     await addAudit(db, workspaceId, 'customer', id, 'DELETE')
   })
 }
@@ -306,7 +323,7 @@ export async function saveProduct(workspaceId: string, input: Partial<Product> &
   record.sync_state = 'pending'
   await db.transaction('rw', db.products, db.sync_operations, db.audit_logs, async () => {
     await db.products.put(record)
-    await enqueueOp(db, workspaceId, 'product', record.id, 'upsert', record.version, record)
+    await enqueueOp(db, workspaceId, 'product', record.id, 'upsert', existing?.version ?? 0, record)
     await addAudit(db, workspaceId, 'product', record.id, existing ? 'UPDATE' : 'CREATE')
   })
   return record
@@ -320,7 +337,7 @@ export async function softDeleteProduct(workspaceId: string, id: string): Promis
   record.sync_state = 'pending'
   await db.transaction('rw', db.products, db.sync_operations, db.audit_logs, async () => {
     await db.products.put(record)
-    await enqueueOp(db, workspaceId, 'product', id, 'delete', record.version, record)
+    await enqueueOp(db, workspaceId, 'product', id, 'delete', existing.version, record)
     await addAudit(db, workspaceId, 'product', id, 'DELETE')
   })
 }
@@ -481,7 +498,7 @@ export async function saveInvoiceDraft(
     await db.invoices.put(finalRecord)
     await db.invoice_items.where('invoice_id').equals(id).delete()
     await db.invoice_items.bulkPut(itemRows)
-    await enqueueOp(db, workspaceId, 'invoice', id, 'upsert', finalRecord.version, { ...finalRecord, items: itemRows })
+    await enqueueOp(db, workspaceId, 'invoice', id, 'upsert', existing?.version ?? 0, { ...finalRecord, items: itemRows })
     await addAudit(db, workspaceId, 'invoice', id, existing ? 'UPDATE' : 'CREATE', { number: finalRecord.number })
   })
   return finalRecord
@@ -509,7 +526,7 @@ export async function finalizeInvoice(workspaceId: string, invoicePrefix: string
     }
     record.sync_state = 'pending'
     await db.invoices.put(record)
-    await enqueueOp(db, workspaceId, 'invoice', id, 'finalize', record.version, { ...record, items })
+    await enqueueOp(db, workspaceId, 'invoice', id, 'finalize', inv.version, { ...record, items })
     await addAudit(db, workspaceId, 'invoice', id, 'FINALIZE', { number })
     finalized = record
   })
@@ -532,7 +549,7 @@ export async function cancelInvoice(workspaceId: string, id: string): Promise<In
     const record: InvoiceRow = { ...inv, status: 'CANCELLED', cancelled_at: nowIso(), ...metaFields(inv) }
     record.sync_state = 'pending'
     await db.invoices.put(record)
-    await enqueueOp(db, workspaceId, 'invoice', id, 'cancel', record.version, record)
+    await enqueueOp(db, workspaceId, 'invoice', id, 'cancel', inv.version, record)
     await addAudit(db, workspaceId, 'invoice', id, 'CANCEL', { number: inv.number })
     cancelled = record
   })
@@ -549,7 +566,7 @@ export async function softDeleteInvoiceDraft(workspaceId: string, id: string): P
     const record: InvoiceRow = { ...inv, deleted_at: nowIso(), ...metaFields(inv) }
     record.sync_state = 'pending'
     await db.invoices.put(record)
-    await enqueueOp(db, workspaceId, 'invoice', id, 'delete', record.version, record)
+    await enqueueOp(db, workspaceId, 'invoice', id, 'delete', inv.version, record)
     await addAudit(db, workspaceId, 'invoice', id, 'DELETE', { number: inv.number })
   })
 }
@@ -623,7 +640,7 @@ export async function recordPayment(workspaceId: string, input: PaymentOpInput, 
     record.sync_state = 'pending'
     await db.payments.put(record)
     await recalcInvoiceAfterPayment(db, input.invoice_id)
-    await enqueueOp(db, workspaceId, 'payment', record.id, 'upsert', record.version, record)
+    await enqueueOp(db, workspaceId, 'payment', record.id, 'upsert', 0, record)
     await addAudit(db, workspaceId, 'payment', record.id, 'PAYMENT', { invoice_id: input.invoice_id, amount_paise: input.amount_paise })
     saved = record
   })
@@ -702,7 +719,7 @@ export async function saveQuotationDraft(
     await db.quotations.put(record)
     await db.quotation_items.where('quotation_id').equals(id).delete()
     await db.quotation_items.bulkPut(itemRows)
-    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', record.version, { ...record, items: itemRows })
+    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', existing?.version ?? 0, { ...record, items: itemRows })
     await addAudit(db, workspaceId, 'quotation', id, existing ? 'UPDATE' : 'CREATE', { number: record.number })
   })
   return record
@@ -716,7 +733,7 @@ export async function setQuotationStatus(
 ): Promise<QuotationRow> {
   const db = getDb()
   let updated: QuotationRow | null = null
-  await db.transaction('rw', db.quotations, db.quotation_items, db.company_profiles, db.document_sequences, db.sync_operations, db.audit_logs, async () => {
+  await db.transaction('rw', [db.quotations, db.quotation_items, db.company_profiles, db.document_sequences, db.sync_operations, db.audit_logs], async () => {
     const q = await db.quotations.get(id)
     if (!q) throw new Error('Quotation not found')
     const allowed: Record<Quotation['status'], Quotation['status'][]> = {
@@ -745,7 +762,7 @@ export async function setQuotationStatus(
     await db.quotations.put(record)
     // Embed items: op compaction keeps only the latest upsert, so it must be complete.
     const items = await db.quotation_items.where('quotation_id').equals(id).toArray()
-    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', record.version, { ...record, items })
+    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', q.version, { ...record, items })
     await addAudit(db, workspaceId, 'quotation', id, 'STATUS', { from: q.status, to: status })
     updated = record
   })
@@ -877,7 +894,7 @@ export async function convertQuotationToInvoice(
       await db.invoice_items.bulkPut(invoiceItemRows)
       await db.quotations.put(qRow)
       await enqueueOp(db, workspaceId, 'invoice', invoiceId, 'upsert', 1, { ...invoice, items: invoiceItemRows })
-      await enqueueOp(db, workspaceId, 'quotation', quotationId, 'upsert', qRow.version, { ...qRow, items })
+      await enqueueOp(db, workspaceId, 'quotation', quotationId, 'upsert', q.version, { ...qRow, items })
       await addAudit(db, workspaceId, 'quotation', quotationId, 'CONVERT', { invoice_id: invoiceId })
       await addAudit(db, workspaceId, 'invoice', invoiceId, 'CREATE', { source_quotation_id: quotationId })
       result = { invoice, quotation: qRow }
@@ -896,7 +913,7 @@ export async function softDeleteQuotationDraft(workspaceId: string, id: string):
     const record: QuotationRow = { ...q, deleted_at: nowIso(), ...metaFields(q) }
     record.sync_state = 'pending'
     await db.quotations.put(record)
-    await enqueueOp(db, workspaceId, 'quotation', id, 'delete', record.version, record)
+    await enqueueOp(db, workspaceId, 'quotation', id, 'delete', q.version, record)
     await addAudit(db, workspaceId, 'quotation', id, 'DELETE', { number: q.number })
   })
 }

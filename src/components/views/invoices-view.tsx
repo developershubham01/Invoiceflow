@@ -95,7 +95,7 @@ export function InvoicesView() {
         />
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="max-h-[64vh] overflow-y-auto scrollbar-thin">
+          <div className="max-h-[64vh] overflow-auto scrollbar-thin">
             <table className="w-full text-sm" aria-label="Invoices list">
               <thead className="sticky top-0 z-10 bg-muted/95 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>

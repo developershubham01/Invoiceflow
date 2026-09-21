@@ -32,8 +32,8 @@ export function StatCard({
   return (
     <Card
       className={cn(
-        'py-4 transition-all',
-        onClick && 'cursor-pointer hover:border-primary/40 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring'
+        'py-4 transition-all duration-200',
+        onClick && 'cursor-pointer hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring'
       )}
       onClick={onClick}
       role={onClick ? 'button' : undefined}

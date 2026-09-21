@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* InvoiceFlow theme v2 — recompiled */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -163,4 +164,13 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Subtle view transition when the hash route changes (skipped for reduced motion above) */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.view-enter {
+  animation: view-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }

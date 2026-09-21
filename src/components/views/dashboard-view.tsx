@@ -17,8 +17,8 @@ import { runSync } from '@/lib/sync/engine'
 import { chargesFromJson } from '@/lib/db/row-types'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import {
-  ArrowRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
-  HandCoins, Plus, Receipt, TriangleAlert, UserRound,
+  ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
+  HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Wallet,
 } from 'lucide-react'
 
 export function DashboardView() {
@@ -94,6 +94,24 @@ export function DashboardView() {
     }
     return rows.sort((a, b) => (b.date + b.number).localeCompare(a.date + a.number)).slice(0, 7)
   }, [data, today])
+
+  /** Top customers by outstanding balance (live, local-only computation). */
+  const topCustomers = useMemo(() => {
+    if (!data) return []
+    const map = new Map<string, { name: string; invoiced: number; outstanding: number }>()
+    for (const i of data.invoices) {
+      if (i.status === 'DRAFT' || i.status === 'CANCELLED') continue
+      const name = i.customer_name_snapshot || 'Unknown customer'
+      const row = map.get(i.customer_id) ?? { name, invoiced: 0, outstanding: 0 }
+      row.invoiced += i.grand_total_paise
+      row.outstanding += Math.max(0, i.grand_total_paise - i.paid_total_paise)
+      map.set(i.customer_id, row)
+    }
+    return [...map.entries()]
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.outstanding - a.outstanding || b.invoiced - a.invoiced)
+      .slice(0, 5)
+  }, [data])
 
   if (!ws) return null
 
@@ -216,17 +234,62 @@ export function DashboardView() {
 
           <Card>
             <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Top customers by outstanding</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              {topCustomers.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Finalize invoices to see who owes what.</p>
+              ) : (
+                topCustomers.map((c) => {
+                  const max = topCustomers[0]?.outstanding || 1
+                  const width = Math.max(4, Math.round((c.outstanding / max) * 100))
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => navigate(`customers/${c.id}`)}
+                      className="group block w-full rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-muted/50"
+                      aria-label={`Open customer ${c.name} — outstanding ${formatMoneyCompact(c.outstanding)}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="max-w-40 truncate font-medium group-hover:underline">{c.name}</span>
+                        <span className={`font-medium tabular-nums ${c.outstanding > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                          {c.outstanding > 0 ? formatMoneyCompact(c.outstanding) : 'Settled'}
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${c.outstanding > 0 ? 'bg-amber-500/80' : 'bg-emerald-500/80'}`}
+                          style={{ width: `${c.outstanding > 0 ? width : 100}%` }}
+                        />
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">Invoiced {formatMoneyCompact(c.invoiced)} all-time</p>
+                    </button>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm">Recent activity</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-1">
               {data?.audit.length ? (
-                data.audit.slice(0, 5).map((a) => (
-                  <div key={a.id} className="flex items-center gap-2 text-xs">
-                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
-                    <span className="text-muted-foreground">{a.action.toLowerCase()} · {a.entity_type}</span>
-                    <span className="ml-auto text-muted-foreground/70">{formatDateDisplay(a.at.slice(0, 10))}</span>
-                  </div>
-                ))
+                data.audit.slice(0, 7).map((a) => {
+                  const { Icon, tone } = auditVisual(a.action)
+                  return (
+                    <div key={a.id} className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-xs transition-colors hover:bg-muted/50">
+                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden="true">
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <span className="font-medium">{auditLabel(a.action)}</span>
+                      <span className="truncate text-muted-foreground">{a.entity_type}</span>
+                      <span className="ml-auto shrink-0 text-muted-foreground/70">{formatDateDisplay(a.at.slice(0, 10))}</span>
+                    </div>
+                  )
+                })
               ) : (
                 <p className="text-xs text-muted-foreground">No activity yet — create your first invoice.</p>
               )}
@@ -286,6 +349,38 @@ export function DashboardView() {
       </Card>
     </div>
   )
+}
+
+/** Visual per audit action — emerald/amber/red palette, no blue. */
+function auditVisual(action: string): { Icon: typeof Receipt; tone: string } {
+  switch (action) {
+    case 'PAYMENT':
+      return { Icon: Wallet, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' }
+    case 'FINALIZE':
+      return { Icon: CheckCircle2, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' }
+    case 'CONVERT':
+      return { Icon: RotateCcw, tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' }
+    case 'CANCEL':
+    case 'DELETE':
+      return { Icon: Trash2, tone: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400' }
+    case 'STATUS':
+      return { Icon: ArrowUpRight, tone: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400' }
+    default:
+      return { Icon: FileText, tone: 'bg-accent text-accent-foreground' }
+  }
+}
+
+function auditLabel(action: string): string {
+  switch (action) {
+    case 'PAYMENT': return 'Payment on'
+    case 'FINALIZE': return 'Finalized'
+    case 'CONVERT': return 'Converted'
+    case 'CANCEL': return 'Cancelled'
+    case 'DELETE': return 'Deleted'
+    case 'STATUS': return 'Status change'
+    case 'SYNC_CONFLICT': return 'Sync conflict'
+    default: return action.charAt(0) + action.slice(1).toLowerCase().replace(/_/g, ' ')
+  }
 }
 
 // keep theme import referenced (chart colors adapt via CSS vars in tokens)
