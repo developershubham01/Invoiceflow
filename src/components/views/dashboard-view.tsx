@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany, useNetworkOnline, useUser } from '@/lib/hooks/app-hooks'
@@ -10,15 +10,15 @@ import { EmptyState } from '@/components/app/empty-state'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { navigate } from '@/lib/router'
 import { formatMoney, formatMoneyCompact } from '@/lib/domain/money'
 import { formatDateDisplay, monthKey, monthLabel, todayStr } from '@/lib/date'
 import { runSync } from '@/lib/sync/engine'
-import { chargesFromJson } from '@/lib/db/row-types'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import {
-  ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
-  Gauge, HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Wallet,
+  Activity, ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
+  Gauge, HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Users, Wallet,
 } from 'lucide-react'
 
 export function DashboardView() {
@@ -27,6 +27,7 @@ export function DashboardView() {
   const user = useUser()
   const online = useNetworkOnline()
   const today = todayStr()
+  const [panel, setPanel] = useState<'customers' | 'cash' | 'activity'>('customers')
 
   const data = useLiveQuery(async () => {
     if (!ws) return null
@@ -260,15 +261,30 @@ export function DashboardView() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Top customers by outstanding</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2.5">
-              {topCustomers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Finalize invoices to see who owes what.</p>
-              ) : (
-                topCustomers.map((c) => {
+          {/* right-column insight panel: three stacked cards collapsed into tabs (keeps short screens tidy) */}
+          <Card className="overflow-hidden">
+            <Tabs value={panel} onValueChange={(v) => setPanel(v as typeof panel)}>
+              <CardHeader className="pb-2">
+                <TabsList className="grid h-8 w-full grid-cols-3">
+                  <TabsTrigger value="customers" className="gap-1 text-xs">
+                    <Users className="h-3.5 w-3.5" aria-hidden="true" /> Customers
+                  </TabsTrigger>
+                  <TabsTrigger value="cash" className="gap-1 text-xs">
+                    <Gauge className="h-3.5 w-3.5" aria-hidden="true" /> Cash flow
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="gap-1 text-xs">
+                    <Activity className="h-3.5 w-3.5" aria-hidden="true" /> Activity
+                  </TabsTrigger>
+                </TabsList>
+              </CardHeader>
+
+              <TabsContent value="customers" className="mt-0">
+                <CardContent className="space-y-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Top customers by outstanding</p>
+                  {topCustomers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Finalize invoices to see who owes what.</p>
+                  ) : (
+                    topCustomers.map((c) => {
                   const max = topCustomers[0]?.outstanding || 1
                   const width = Math.max(4, Math.round((c.outstanding / max) * 100))
                   return (
@@ -296,14 +312,11 @@ export function DashboardView() {
                   )
                 })
               )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </TabsContent>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-1.5 text-sm"><Gauge className="h-4 w-4 text-emerald-600" aria-hidden="true" /> Cash-flow health</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              <TabsContent value="cash" className="mt-0">
+                <CardContent className="space-y-3">
               {!cashHealth ? (
                 <Skeleton className="h-16 w-full" />
               ) : (
@@ -336,14 +349,11 @@ export function DashboardView() {
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </TabsContent>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Recent activity</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
+              <TabsContent value="activity" className="mt-0">
+                <CardContent className="space-y-1">
               {data?.audit.length ? (
                 data.audit.slice(0, 7).map((a) => {
                   const { Icon, tone } = auditVisual(a.action)
@@ -361,7 +371,9 @@ export function DashboardView() {
               ) : (
                 <p className="text-xs text-muted-foreground">No activity yet — create your first invoice.</p>
               )}
-            </CardContent>
+                </CardContent>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
       </div>

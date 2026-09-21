@@ -30,6 +30,13 @@ export function QuotationsView() {
     return getDb().quotations.where('workspace_id').equals(ws.id).filter((q) => !q.deleted_at).toArray()
   }, [ws?.id])
 
+  const counts = useMemo(() => {
+    if (!quotations) return null
+    const c: Record<string, number> = { ALL: quotations.length }
+    for (const s of STATUS_ORDER) c[s] = quotations.filter((q) => q.status === s).length
+    return c
+  }, [quotations])
+
   const filtered = useMemo(() => {
     if (!quotations) return []
     const q = query.trim().toLowerCase()
@@ -58,7 +65,7 @@ export function QuotationsView() {
           <SelectTrigger className="w-40" aria-label="Filter by status"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All statuses</SelectItem>
-            {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{s}{counts ? ` (${counts[s]})` : ''}</SelectItem>)}
           </SelectContent>
         </Select>
         <Button onClick={() => navigate('quotations/new')} className="gap-1.5">
@@ -87,6 +94,7 @@ export function QuotationsView() {
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">Valid until</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
                   <th className="px-4 py-2.5 text-right font-medium">Total</th>
+                  <th className="w-8 px-2 py-2.5" aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
@@ -94,7 +102,7 @@ export function QuotationsView() {
                   <tr
                     key={q.id}
                     tabIndex={0}
-                    className="cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                    className="group cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
                     onClick={() => navigate(`quotations/${q.id}`)}
                     onKeyDown={(e) => { if (e.key === 'Enter') navigate(`quotations/${q.id}`) }}
                     aria-label={`Open quotation ${q.number}`}
@@ -105,6 +113,9 @@ export function QuotationsView() {
                     <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">{formatDateDisplay(q.valid_until)}</td>
                     <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(q.grand_total_paise)}</td>
+                    <td className="px-2 py-3 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" aria-hidden="true">
+                      <ChevronRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </td>
                   </tr>
                 ))}
               </tbody>

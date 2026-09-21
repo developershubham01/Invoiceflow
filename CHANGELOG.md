@@ -4,6 +4,29 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-09-21
+
+### Added
+
+- **Bulk actions on the invoices list**: a checkbox column (with select-all / indeterminate header state) and a floating bulk-action bar. The bar shows the selection count and combined value, then offers "Finalize N drafts" (loops the offline number allocator, official numbers per document), "Delete drafts" (AlertDialog confirmation; drafts only — finalized documents must be cancelled), "CSV" (export exactly the selected rows with totals/balances), and "Clear". Buttons are conditionally disabled when the selection contains no drafts; per-item failures surface as individual error toasts next to the summary success toast; selection auto-clears after every operation.
+- **Dashboard insight panel** (right column): the three stacked cards (Top customers by outstanding, Cash-flow health, Recent activity) are now tabs in one card — Customers / Cash flow / Activity — roughly halving the column height on short screens (the Task-6 layout risk). Content fades in on tab switch; the Workspace card stays pinned above it.
+- **Statement share (WhatsApp-ready)**: the customer account statement gains a "Share" menu — "Open in WhatsApp" deep-links `wa.me` with a period-aware summary (greeting to the contact person, invoice count, Invoiced/Received/Outstanding in Rs., a settle-or-thanks closing line, and the company signature; phone normalised to the 91 prefix when 10 digits), while "Copy summary text" mirrors it to the clipboard; the menu footer shows the target number (same pattern as the invoice payment reminder).
+
+### Improved (styling)
+
+- Bulk bar: slide-up entrance animation, emerald hairline glow along its top edge, emerald count pill, sticky positioning above the table.
+- Selected rows get an emerald tint (light + dark) and `aria-selected`, visually distinct from hover.
+- Invoices and quotations rows now reveal an emerald chevron affordance on hover (last column) — consistent "this row opens" cue across sales lists.
+- Quotations status filter now shows per-status counts, matching the invoices filter.
+- Tab panels animate a 200 ms fade-rise on activation (reduced-motion safe, shared keyframe).
+
+### Verified (QA round 4)
+
+- Baseline agent-browser sweep: all 9 views render, console clean, light + dark themes correct (a bottom-left circular "N" was investigated and identified as the Next.js dev-tools portal overlay — dev-only, not an app bug), mobile 390 px OK, `bun run lint` exit 0, `tsc --noEmit` 0 errors in `src/`.
+- Bulk finalize exercised in-browser: 2 drafts selected → bar showed "2 selected · ₹91,647.00" → Finalize → both rows FINALIZED with official numbers INV/2026-27/0008 and 0009 allocated; KPIs recomputed live (Total invoiced ₹2.26L→₹3.18L, collection rate 65%→46%); cloud ChangeLog recorded `finalize` ops at seq 296/297.
+- Bulk delete exercised: remaining draft selected → confirmation dialog → removed; cloud ChangeLog `delete` op at seq 298. Sync pill stayed Synced throughout.
+- Dashboard tabs switched via Radix triggers (Customers / Cash flow / Activity all render correct content); statement Share menu verified with stubbed `window.open` (URL `wa.me/919886044444`, 91-prefixed, pre-filled 401-char summary) and the copy path exercised.
+
 ## [0.4.0] - 2025-09-21
 
 ### Added

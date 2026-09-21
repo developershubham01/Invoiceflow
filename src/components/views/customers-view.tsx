@@ -18,18 +18,20 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { navigate } from '@/lib/router'
 import { INDIAN_STATES, isValidGstin, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
 import { customerSchema } from '@/lib/domain/schemas'
 import { saveCustomer, softDeleteCustomer } from '@/lib/db/repositories'
-import { formatMoney } from '@/lib/domain/money'
+import { formatMoney, formatMoneyPlain } from '@/lib/domain/money'
 import { formatDateDisplay, fyStart, todayStr } from '@/lib/date'
 import { toCsv, downloadCsv } from '@/lib/csv'
 import { downloadPdf } from '@/lib/pdf/render'
 import { renderStatementPdf, type StatementPdfEntry } from '@/lib/pdf/statement'
 import { useCompany } from '@/lib/hooks/app-hooks'
 import { toast } from 'sonner'
-import { ArrowLeft, Building2, Download, FileDown, Mail, MapPin, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Building2, Copy, Download, FileDown, Mail, MapPin, MessageCircle, MessageSquareText, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
+
 import type { Customer } from '@/lib/domain/types'
 
 interface FormState {
@@ -196,7 +198,7 @@ export function CustomersView({ detailId }: { detailId?: string }) {
           <CustomerHistory customerId={selected.id} />
         </div>
 
-        <CustomerStatement customerId={selected.id} customerName={selected.business_name} customerCode={selected.code} customerGstin={selected.gstin} />
+        <CustomerStatement customerId={selected.id} customerName={selected.business_name} customerCode={selected.code} customerGstin={selected.gstin} customerPhone={selected.phone} customerContact={selected.contact_person} />
 
         {form && <CustomerFormDialog form={form} setForm={setForm} saving={saving} onSubmit={submit} />}
       </div>
@@ -346,7 +348,7 @@ type StatementEntry = {
 }
 
 /** Account statement: chronological debits (invoices) and credits (payments) with a running balance. */
-function CustomerStatement({ customerId, customerName, customerCode, customerGstin }: { customerId: string; customerName: string; customerCode: string | null; customerGstin: string | null }) {
+function CustomerStatement({ customerId, customerName, customerCode, customerGstin, customerPhone, customerContact }: { customerId: string; customerName: string; customerCode: string | null; customerGstin: string | null; customerPhone: string | null; customerContact: string | null }) {
   const [from, setFrom] = useState(fyStart(todayStr()))
   const [to, setTo] = useState(todayStr())
   const company = useCompany()
@@ -445,6 +447,47 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
 
   const swapped = from > to
 
+  /** WhatsApp-ready statement summary: period totals + outstanding, polite close. */
+  const buildStatementText = () => {
+    const list = entries ?? []
+    const invCount = list.filter((e) => e.kind === 'Invoice').length
+    return [
+      `Hello ${customerContact || customerName},`,
+      '',
+      `Here is your account statement for ${formatDateDisplay(from)} to ${formatDateDisplay(to)}:`,
+      '',
+      `Invoices billed: ${invCount}`,
+      `Total invoiced: Rs. ${formatMoneyPlain(totals.invoiced)}`,
+      `Total received: Rs. ${formatMoneyPlain(totals.collected)}`,
+      `Outstanding balance: Rs. ${formatMoneyPlain(totals.outstanding)}`,
+      '',
+      totals.outstanding > 0
+        ? 'Kindly arrange the clearance of the outstanding balance at your earliest convenience.'
+        : 'Your account is fully settled — thank you for your prompt payments!',
+      '',
+      'A detailed PDF statement can be shared on request.',
+      company?.name ? `— ${company.name}` : '',
+    ].filter((l) => l !== '').join('\n')
+  }
+
+  const doCopyStatement = async () => {
+    try {
+      await navigator.clipboard.writeText(buildStatementText())
+      toast.success('Statement summary copied', { description: 'Paste it into WhatsApp, SMS or email.' })
+    } catch {
+      toast.error('Could not access the clipboard in this browser')
+    }
+  }
+
+  const doWhatsAppStatement = () => {
+    const phone = (customerPhone ?? '').replace(/[^0-9]/g, '')
+    // wa.me needs country code; assume Indian number when 10 digits (same convention as reminders).
+    const target = phone && phone.length === 10 ? `91${phone}` : phone
+    const url = `https://wa.me/${target}?text=${encodeURIComponent(buildStatementText())}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    toast.success('Opening WhatsApp', { description: target ? 'The statement summary is pre-filled — just press send.' : 'No number saved on the customer — choose the contact in WhatsApp.' })
+  }
+
   return (
     <Card>
       <CardContent className="p-0">
@@ -475,6 +518,28 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
             <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={exportCsv} disabled={!entries || entries.length === 0}>
               <Download className="h-3.5 w-3.5" /> Export CSV
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" disabled={!entries || entries.length === 0}>
+                  <MessageCircle className="h-3.5 w-3.5" /> Share
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="text-xs">Share statement summary</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void doWhatsAppStatement()} className="gap-2">
+                  <MessageSquareText className="h-4 w-4 text-emerald-600" />
+                  <span>Open in WhatsApp{customerPhone ? ' (has number)' : ''}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void doCopyStatement()} className="gap-2">
+                  <Copy className="h-4 w-4" /> Copy summary text
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled className="gap-2 text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5" /> {customerPhone ? `To: ${customerPhone}` : 'No phone saved for customer'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
