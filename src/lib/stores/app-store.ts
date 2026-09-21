@@ -21,6 +21,8 @@ interface AppState {
     lastError: string | null
     pending: number
   }
+  /** One-shot cross-view hints (e.g. open invoices pre-filtered to OVERDUE). Consumed by the target view. */
+  viewParams: ViewParams
 
   setBooted: (booted: boolean) => void
   setStorageAvailable: (ok: boolean) => void
@@ -29,9 +31,11 @@ interface AppState {
   setActiveWorkspace: (ws: Workspace | null) => void
   setWorkspaces: (list: Workspace[]) => void
   setSyncState: (partial: Partial<AppState['sync']>) => void
+  setViewParams: (params: ViewParams) => void
+  consumeViewParam: (key: string) => string | undefined
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   booted: false,
   storageAvailable: true,
   user: null,
@@ -39,6 +43,7 @@ export const useAppStore = create<AppState>((set) => ({
   activeWorkspace: null,
   workspaces: [],
   sync: { status: 'idle', lastSyncAt: null, lastError: null, pending: 0 },
+  viewParams: {},
 
   setBooted: (booted) => set({ booted }),
   setStorageAvailable: (storageAvailable) => set({ storageAvailable }),
@@ -47,4 +52,14 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveWorkspace: (activeWorkspace) => set({ activeWorkspace }),
   setWorkspaces: (workspaces) => set({ workspaces }),
   setSyncState: (partial) => set((s) => ({ sync: { ...s.sync, ...partial } })),
+  setViewParams: (viewParams) => set({ viewParams }),
+  consumeViewParam: (key) => {
+    const value = get().viewParams[key]
+    if (value !== undefined) {
+      const rest = { ...get().viewParams }
+      delete rest[key]
+      set({ viewParams: rest })
+    }
+    return value
+  },
 }))

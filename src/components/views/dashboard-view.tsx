@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany, useNetworkOnline, useUser } from '@/lib/hooks/app-hooks'
+import { useAppStore } from '@/lib/stores/app-store'
 import { StatCard } from '@/components/app/stat-card'
 import { StatusBadge } from '@/components/app/status-badge'
 import { EmptyState } from '@/components/app/empty-state'
@@ -18,7 +19,7 @@ import { runSync } from '@/lib/sync/engine'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import {
   Activity, ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
-  Gauge, HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Users, Wallet,
+  Gauge, HandCoins, Plus, Receipt, RotateCcw, Trash2, TriangleAlert, UserRound, Users, Wallet, X,
 } from 'lucide-react'
 
 export function DashboardView() {
@@ -28,6 +29,13 @@ export function DashboardView() {
   const online = useNetworkOnline()
   const today = todayStr()
   const [panel, setPanel] = useState<'customers' | 'cash' | 'activity'>('customers')
+  const [overdueDismissed, setOverdueDismissed] = useState(false)
+  const setViewParams = useAppStore((s) => s.setViewParams)
+  /** Jump to the invoices list pre-filtered to overdue (one-shot view param). */
+  const goOverdue = () => {
+    setViewParams({ status: 'OVERDUE' })
+    navigate('invoices')
+  }
 
   const data = useLiveQuery(async () => {
     if (!ws) return null
@@ -51,10 +59,11 @@ export function DashboardView() {
     const invoiced = live.filter((i) => i.status !== 'DRAFT').reduce((s, i) => s + i.grand_total_paise, 0)
     const collected = data.payments.reduce((s, p) => s + p.amount_paise, 0)
     const outstanding = unpaid.reduce((s, i) => s + (i.grand_total_paise - i.paid_total_paise), 0)
+    const overdueOutstanding = overdue.reduce((s, i) => s + (i.grand_total_paise - i.paid_total_paise), 0)
     const acceptedQuotations = data.quotations.filter((q) => q.status === 'ACCEPTED' || q.status === 'CONVERTED').length
     return {
       total: live.length, drafts: drafts.length, paid: paid.length, unpaid: unpaid.length,
-      overdue: overdue.length, invoiced, collected, outstanding,
+      overdue: overdue.length, invoiced, collected, outstanding, overdueOutstanding,
       quotations: data.quotations.length, acceptedQuotations,
     }
   }, [data, today])
@@ -181,11 +190,39 @@ export function DashboardView() {
         <StatCard label="Drafts" value={kpis ? String(kpis.drafts) : ''} icon={FileText} tone="info" loading={!kpis} onClick={() => navigate('invoices')} />
         <StatCard label="Paid" value={kpis ? String(kpis.paid) : ''} icon={CheckCircle2} tone="positive" loading={!kpis} onClick={() => navigate('invoices')} />
         <StatCard label="Unpaid" value={kpis ? String(kpis.unpaid) : ''} icon={Clock3} tone="warning" loading={!kpis} onClick={() => navigate('invoices')} />
-        <StatCard label="Overdue" value={kpis ? String(kpis.overdue) : ''} icon={TriangleAlert} tone="danger" loading={!kpis} onClick={() => navigate('invoices')} />
+        <StatCard label="Overdue" value={kpis ? String(kpis.overdue) : ''} icon={TriangleAlert} tone="danger" loading={!kpis} onClick={goOverdue} />
         <StatCard label="Quotations" value={kpis ? String(kpis.quotations) : ''} sub={kpis ? `${kpis.acceptedQuotations} accepted` : ''} icon={FileText} loading={!kpis} onClick={() => navigate('quotations')} />
         <StatCard label="Total invoiced" value={kpis ? formatMoneyCompact(kpis.invoiced) : ''} icon={CircleDollarSign} loading={!kpis} />
         <StatCard label="Outstanding" value={kpis ? formatMoneyCompact(kpis.outstanding) : ''} icon={Banknote} tone={kpis && kpis.outstanding > 0 ? 'warning' : 'default'} loading={!kpis} onClick={() => navigate('reports')} />
       </div>
+
+      {/* overdue attention banner (hidden once settled) */}
+      {kpis && kpis.overdue > 0 && !overdueDismissed && (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-500/[0.07] via-amber-500/[0.06] to-transparent px-4 py-3"
+          role="status"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400">
+            <TriangleAlert className="h-4.5 w-4.5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {kpis.overdue} invoice{kpis.overdue === 1 ? ' is' : 's are'} overdue
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatMoney(kpis.overdueOutstanding)} outstanding past the due date — reminders are one click away.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 border-red-500/40 text-red-700 hover:bg-red-500/10 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" onClick={goOverdue}>
+              <Receipt className="h-3.5 w-3.5" /> Review overdue
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => setOverdueDismissed(true)} aria-label="Dismiss overdue banner">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[1.7fr_1fr]">
         {/* revenue chart */}

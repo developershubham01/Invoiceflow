@@ -4,6 +4,31 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-09-21
+
+### Added
+
+- **Dashboard overdue attention banner**: when issued invoices sit past their due date, a red/amber gradient banner appears under the KPI grid — "N invoices are overdue · ₹X outstanding past the due date — reminders are one click away." — with a "Review overdue" CTA and a dismiss button. The outstanding amount is computed live (overdue count × balance).
+- **One-shot cross-view filter presets**: new `viewParams` in the Zustand store (with `setViewParams`/`consumeViewParam`). The banner CTA — and the dashboard "Overdue" KPI card — now land on the invoices list **pre-filtered to Overdue**, a new pseudo-status in the filter dropdown (with live count) matching the same overdue rule as the badges. The preset is consumed on arrival, so plain navigation afterwards shows all statuses again.
+- **Quick payment-term chips in the document editor**: under the Due date / Valid until input, one-tap `+15d / +30d / +45d` chips compute from the document date (shared `addDaysStr`), highlight in emerald while active (`aria-pressed`), and a `clear` chip appears whenever a date is set. Works for both invoices and quotations.
+
+### Fixed
+
+- **Overdue-CTA preset lost on arrival**: the invoices view mounts twice per navigation (pre-existing AppShell re-key behaviour), so clearing the one-shot filter preset in a mount effect meant the second mount read an empty store and reset the filter. The clear is now deferred to a `setTimeout(0)` after the view settles — both mounts see the preset, and it is consumed exactly once afterwards (verified by navigating away and back).
+
+### Improved (styling)
+
+- Banner uses a red→amber→transparent gradient with a red icon chip and a red-outline CTA that tints on hover — attention-grabbing without leaving the emerald/red/amber palette.
+- Term chips: idle = hairline border with emerald hover tint; active = solid emerald tint + border; clear = red-on-hover ghost chip.
+- Overdue filter option shows its live count in the dropdown, consistent with the other statuses.
+
+### Verified (QA round 6)
+
+- Fresh-profile seed → dashboard shows the banner with the exact outstanding amount (₹4,116 + ₹12,600 + ₹22,933.50 = ₹39,649.50 across 3 invoices, cross-checked row by row).
+- CTA end-to-end: "Review overdue" → invoices list opens with "Overdue (3)" selected, exactly the 3 overdue invoices rendered with OVERDUE badges; navigating away and back returns to "All statuses" (one-shot semantics); the banner's dismiss (X) hides it for the session.
+- Editor chips: doc date 2026-09-21 → +15d = 2026-10-06, +30d = 2026-10-21, +45d available; only the active chip highlights; clear empties the date (all state changes verified after React flush).
+- `bun run lint` exit 0, `tsc --noEmit` 0 errors in `src/`; desktop + mobile 390 px screenshots verified (banner wraps below KPI grid on mobile).
+
 ## [0.6.0] - 2025-09-21
 
 ### Added

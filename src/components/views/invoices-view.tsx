@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany } from '@/lib/hooks/app-hooks'
+import { useAppStore } from '@/lib/stores/app-store'
 import { StatusBadge } from '@/components/app/status-badge'
 import { EmptyState } from '@/components/app/empty-state'
 import { Button } from '@/components/ui/button'
@@ -30,17 +31,39 @@ import {
 
 const PAGE_SIZE = 10
 const STATUS_ORDER = ['DRAFT', 'FINALIZED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED']
+/** Pseudo-status: issued invoices past their due date with an outstanding balance. */
+const isOverdueRow = (i: { status: string; due_date: string | null; paid_total_paise: number; grand_total_paise: number }, today: string) =>
+  i.status !== 'DRAFT' && i.status !== 'CANCELLED' && i.status !== 'PAID' && Boolean(i.due_date && i.due_date < today) && i.paid_total_paise < i.grand_total_paise
 
 export function InvoicesView() {
   const ws = useActiveWorkspace()
   const company = useCompany()
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<string>('ALL')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const today = todayStr()
+
+  // one-shot: arrive pre-filtered when another view (dashboard banner, KPI card) asks for overdue.
+  // Read synchronously during lazy init, then clear the hint from the store post-mount.
+  const [status, setStatus] = useState<string>(() => {
+    const preset = useAppStore.getState().viewParams.status
+    return preset && preset.length > 0 ? preset : 'ALL'
+  })
+  // Clear the one-shot hint after the view has settled. The app remounts views on
+  // navigation (AppShell view-enter re-key), so an immediate clear would be read by
+  // the second mount as "no preset" — a deferred clear lets every mount see it.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const { viewParams } = useAppStore.getState()
+      if (viewParams.status !== undefined) {
+        const { status: _drop, ...rest } = viewParams
+        useAppStore.getState().setViewParams(rest)
+      }
+    }, 0)
+    return () => clearTimeout(t)
+  }, [])
 
   const invoices = useLiveQuery(async () => {
     if (!ws) return null
@@ -56,14 +79,14 @@ export function InvoicesView() {
     const rows = invoices?.rows ?? []
     const q = query.trim().toLowerCase()
     return rows
-      .filter((i) => (status === 'ALL' ? true : i.status === status))
+      .filter((i) => (status === 'ALL' ? true : status === 'OVERDUE' ? isOverdueRow(i, today) : i.status === status))
       .filter((i) =>
         !q ||
         i.number.toLowerCase().includes(q) ||
         (i.customer_name_snapshot ?? '').toLowerCase().includes(q) ||
         formatMoney(i.grand_total_paise).includes(q))
       .sort((a, b) => (b.invoice_date + b.number).localeCompare(a.invoice_date + a.number))
-  }, [invoices, query, status])
+  }, [invoices, query, status, today])
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -71,10 +94,10 @@ export function InvoicesView() {
   const counts = useMemo(() => {
     const rows = invoices?.rows ?? []
     if (!invoices) return null
-    const c: Record<string, number> = { ALL: rows.length }
+    const c: Record<string, number> = { ALL: rows.length, OVERDUE: rows.filter((i) => isOverdueRow(i, today)).length }
     for (const s of STATUS_ORDER) c[s] = rows.filter((i) => i.status === s).length
     return c
-  }, [invoices])
+  }, [invoices, today])
 
   // ---- bulk selection ------------------------------------------------------
   const selectedRows = useMemo(() => filtered.filter((i) => selected.has(i.id)), [filtered, selected])
@@ -221,6 +244,7 @@ export function InvoicesView() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All statuses</SelectItem>
+            <SelectItem value="OVERDUE">Overdue{counts ? ` (${counts.OVERDUE})` : ''}</SelectItem>
             {STATUS_ORDER.map((s) => (
               <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}{counts ? ` (${counts[s]})` : ''}</SelectItem>
             ))}

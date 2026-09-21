@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { QuickCreateCustomer } from '@/components/app/quick-create-customer'
+import { addDaysStr } from '@/lib/date'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { getCompany, saveInvoiceDraft, saveQuotationDraft } from '@/lib/db/repositories'
@@ -71,6 +72,9 @@ export function toDocInputs(items: DocEditorItem[]): { inputs: DocItemInput[]; e
   }
   return { inputs, errors }
 }
+
+/** Standard payment/validity terms offered as one-tap chips under the second date input. */
+const QUICK_TERMS = [15, 30, 45]
 
 export function DocumentEditor({
   kind,
@@ -320,6 +324,37 @@ export function DocumentEditor({
           <div className="space-y-1.5">
             <Label htmlFor="doc-date2">{kind === 'invoice' ? 'Due date' : 'Valid until'}</Label>
             <Input id="doc-date2" type="date" value={secondDate} onChange={(e) => setSecondDate(e.target.value)} />
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Quick date presets">
+              {QUICK_TERMS.map((days) => {
+                const active = secondDate === addDaysStr(date, days)
+                return (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setSecondDate(addDaysStr(date, days))}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      active
+                        ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                        : 'border-border text-muted-foreground hover:border-emerald-500/40 hover:bg-emerald-500/[0.08] hover:text-emerald-700 dark:hover:text-emerald-400'
+                    }`}
+                    aria-pressed={active}
+                    aria-label={`Set ${kind === 'invoice' ? 'due date' : 'valid until'} to ${days} days from the document date`}
+                  >
+                    +{days}d
+                  </button>
+                )
+              })}
+              {secondDate && (
+                <button
+                  type="button"
+                  onClick={() => setSecondDate('')}
+                  className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-red-500/40 hover:text-red-600 dark:hover:text-red-400"
+                  aria-label="Clear the date"
+                >
+                  clear
+                </button>
+              )}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Place of supply *</Label>

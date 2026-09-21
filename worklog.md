@@ -386,3 +386,23 @@ Work Log:
 Stage Summary:
 - v0.6.0: no app defects this round (one self-caught timezone bug in a new helper fixed pre-verify; one infra OOM documented with recovery recipe). Three features shipped (quotation bulk actions, bulk payment reminders with shared reminder module, live next-number preview) + 3 styling details. All flows verified in-browser in guest (offline) mode — including a full editor→bulk-mark-sent lifecycle.
 - Risks/next: (a) dev-server OOM is recurring — restart before heavy edit rounds if RSS > 1.8GB (recipe above); consider asking the platform for a memory bump; (b) bulk reminders copy-block is headless-only, but consider a Settings toggle to include PDF links/statements in bulk messages later; (c) candidate next work: table virtualization >500 rows, sync CAS + transition contract unit tests (docs/35, when tests are bundleable), Electron shell flow for external links (wa.me via shell.openExternal), friendlier rejected-op messaging for racing transitions.
+
+---
+Task ID: 9 (QA round 6 — overdue banner, one-shot filter presets, editor term chips)
+Agent: Z.ai Code (orchestrator)
+Task: Assess status, agent-browser QA, fix defects if any, add features + mandatory styling polish, verify, hand over.
+
+Work Log:
+- Read worklog (20 prior entries). Server healthy (HTTP 200, RSS 1.6GB — no OOM this round). lint exit 0, tsc 0 src errors at baseline and after all edits.
+- Investigated "friendlier rejected-op messaging" candidate first: the server error strings are already human-readable and the Settings sync panel renders them with retry/discard + status colors — concluded better value elsewhere; deferred.
+- FEATURE A — dashboard overdue attention banner (src/components/views/dashboard-view.tsx): red/amber gradient banner under the KPI grid when overdue > 0, with live overdue-outstanding amount (new `overdueOutstanding` in kpis), "Review overdue" CTA, and session dismiss (X).
+- FEATURE B — one-shot cross-view filter presets (src/lib/stores/app-store.ts + invoices-view): added `viewParams`/`setViewParams`/`consumeViewParam` to the store; banner CTA and the dashboard Overdue KPI card call setViewParams({status:'OVERDUE'}) then navigate('invoices'); invoices view gains an OVERDUE pseudo-status in its filter (live count, same overdue rule as badges: issued, past due, balance > 0) and consumes the preset on arrival.
+- BUG FOUND & FIXED during verification: the preset appeared to be dropped — instrumentation revealed InvoicesView mounts TWICE per navigation (pre-existing; every view does), and clearing the param in a mount effect meant mount #2 read an empty store and reset the filter. Fix: defer the clear with setTimeout(0) so both mounts see the preset; the param is then consumed exactly once. React-hooks lint rule also rejected setState-in-effect, so the preset is read via lazy useState initializer (pure store read) and cleared only in the deferred timeout.
+- FEATURE C — quick payment-term chips (src/components/app/document-editor.tsx): +15d/+30d/+45d chips under Due date/Valid until compute from the doc date via shared addDaysStr, aria-pressed active state in emerald, plus a conditional `clear` chip. Applies to invoices and quotations.
+- STYLING: banner gradient + red icon chip + red-outline CTA hover tint; chips idle/active/clear visual states; OVERDUE filter shows count like other statuses.
+- VERIFY (agent-browser): banner amount cross-checked row by row (₹4,116 + ₹12,600 + ₹22,933.50 = ₹39,649.50, 3 invoices); CTA → invoices pre-filtered "Overdue (3)" showing exactly the overdue rows; nav away + back → "All statuses" (one-shot proven); dismiss works; editor chips verified (+15d → 2026-10-06, +30d → 2026-10-21, exclusive active highlight, clear empties after React flush); desktop + mobile screenshots (banner wraps below KPI grid on 390px). Console clean.
+- VERSION: APP_VERSION + package.json → 0.7.0; CHANGELOG 0.7.0 entry.
+
+Stage Summary:
+- v0.7.0: one real bug found & fixed during verification (double-mount vs one-shot preset — documented root cause), two UX features (overdue banner with deep-linked filter, editor term chips) and a reusable viewParams mechanism added. All verified in-browser.
+- Risks/next: (a) the double-mount-per-navigation behaviour is pre-existing (AppShell/useHashRoute interplay) — harmless today but worth normalizing someday (would also simplify the preset mechanism to an immediate clear); (b) overdue rule is duplicated in 3 places (badges, banner, list filter) — candidate for a shared isOverdueRow helper export; (c) next candidates: bulk "mark paid" quick action? (payments flow is safer per-op), PDF batch export for a selection, PWA install prompt in Settings, payments-view filters (method/customer), table virtualization >500 rows.
