@@ -304,3 +304,25 @@ Work Log:
 Stage Summary:
 - v0.2.0: three substantive defects fixed (one sync-protocol correctness bug that would have hit every real user on their first edit, one data-integrity race, one environment/theme issue), five features added, styling polish applied. tsc/eslint clean; all flows re-verified in browser including offline-first claim and conflict resolution paths.
 - Risks/next: (a) Turbopack dev memory growth — restart dev server between long edit sessions (use the subshell detach form above); (b) the stale-CSS-chunk failure mode can recur after large theme edits — a dev-server restart is the general cure; (c) suggested next features: statement PDF export, quotation reminders, data table virtualization for >500 rows, unit tests for the sync CAS contract (documented in docs/35 but not bundled in sandbox).
+
+---
+Task ID: 5 (QA round 2 — quotation lifecycle sync fix + statement PDF + method chips)
+Agent: Z.ai Code (orchestrator)
+Task: Re-assess, deep-QA flows not covered last round (quotation lifecycle, convert, finalize, payments, editor, reports, company, mobile), fix defects, add features.
+
+Work Log:
+- QA walked: quotation detail/list, mark-sent → accept → convert-to-invoice, finalize (INV/2026-27/0007), record partial payment ₹10,000, new-invoice editor end-to-end (catalog fields → live totals ₹6,372 → synced draft DRAFT-8KE3K7FT), reports GST Summary, company numbering config (present: prefixes/default GST/round-off), mobile 390px (hamburger + table scroll OK).
+- DEFECT (major, sync protocol): quotation status transitions did not survive sync. Client `setQuotationStatus` pushed an unflagged upsert (with items); server's `recomputeDocument` preserves only DRAFT|CONVERTED → status forced back to DRAFT server-side → pull silently reverted the client (observed: SENT badge flipped back to DRAFT after sync; server changelog 288 showed DRAFT v2 with no SENT entry ever stored).
+  - Client fix: transition ops now carry `status_change: true` (no items needed) → server routes to the dedicated transition branch.
+  - Server fix: that branch now also adopts a client-allocated official number on DRAFT→SENT (dup check + fastForwardSequence on the quotation date) so CANON §6 numbering holds across devices.
+  - Verified: DRAFT→SENT (server v3 SENT), →ACCEPTED (server v4 ACCEPTED, Convert button appears), →CONVERTED (banner "converted to invoice · view invoice"), all persist after pull. Note: server transition branch intentionally skips CAS (transition validation is the guard); concurrent double-SENT from two devices resolves as a rejected op (retryable) — documented behavior.
+- FEATURE: statement PDF export — new src/lib/pdf/statement.ts (A4, emerald header band, company+customer blocks, period, 3 summary tiles, zebra autoTable ledger with totals, offline footer, "Rs." limitation honored); "PDF" button added beside Export CSV in CustomerStatement (period-aware, company-gated); toast verified in browser.
+- FEATURE: MethodBadge component (src/components/app/method-badge.tsx) — icon+color chips per payment method; wired into payments list + invoice payment history rows (restructured with hover).
+- QA tooling note: agent-browser accessibility refs go stale after live-query re-renders (clicks landed on the wrong/no element; `find text` missed visible buttons). Reliable pattern used instead: `agent-browser eval` with `document.querySelectorAll('button')` + text match + `.click()`, and `navigator.webdriver`-safe Radix interactions via pointerdown+click. Also: Radix Select options only exist after opening the trigger.
+- Server data verification pattern: query Prisma scoped by the active workspace (owner2@acmetraders.in → workspace 8e284f6b…); beware `findFirst` without workspace filter — the dev DB holds an orphaned older workspace with colliding document numbers.
+- Final state: server INV/2026-27/0007 PARTIALLY_PAID paid=₹10,000, payments=5, total collected ₹1,46,541.50; local == server; pill Synced; console clean; `bun run lint` exit 0; tsc clean for src/.
+- Files: src/lib/db/repositories.ts (status_change flag), src/lib/server/sync-server.ts (transition branch number adoption), src/lib/pdf/statement.ts (new), src/components/app/method-badge.tsx (new), src/components/views/{customers-view,payments-view,invoice-detail-view}.tsx, CHANGELOG.md (0.3.0).
+
+Stage Summary:
+- v0.3.0: one major sync-protocol defect fixed (quotation lifecycle), statement PDF export and payment-method chips shipped; every sales workflow (quotation→accept→convert→finalize→payment) now verified end-to-end through real push/pull sync.
+- Risks/next: (a) server transition branch lacks CAS by design — two devices racing SENT on the same quotation yields a retryable rejected op; consider surfacing a friendlier message; (b) statement PDF does not paginate entry lists >1 page (autoTable paginates tables, but tiles/footer assume compact output — fine for current volumes); (c) candidate next work: table virtualization for 500+ rows, unit tests for sync CAS + transition contracts (docs/35), statement email/WhatsApp share hooks, Electron smoke test.

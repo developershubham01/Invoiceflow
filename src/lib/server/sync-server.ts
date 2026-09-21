@@ -572,7 +572,24 @@ async function applyOpInner(workspaceId: string, op: OpInput): Promise<OpOutcome
         if (!allowed[existing.status]?.includes(nextStatus)) {
           return { op_id: op.op_id, status: 'rejected', error: `Cannot change quotation from ${existing.status} to ${nextStatus}` }
         }
-        const saved = await prisma.quotation.update({ where: { id: entityId }, data: { status: nextStatus, version, updatedAt: nowDate() }, include: { items: true } })
+        // DRAFT→SENT carries the client-allocated official number (CANON §6):
+        // adopt it and fast-forward the sequence so later devices cannot reuse it.
+        let numberUpdate: string | undefined
+        const incomingNumber = str(payload.number)
+        if (incomingNumber && incomingNumber !== existing.number && !provisional(incomingNumber)) {
+          const company = await prisma.companyProfile.findFirst({ where: { workspaceId, deletedAt: null } })
+          const prefix = company?.quotationPrefix ?? 'QT'
+          const taken = await prisma.quotation.findFirst({ where: { workspaceId, number: incomingNumber, id: { not: entityId } } })
+          if (!taken) {
+            await fastForwardSequence(workspaceId, 'QUOTATION', prefix, incomingNumber, String(existing.quotationDate).slice(0, 10))
+            numberUpdate = incomingNumber
+          }
+        }
+        const saved = await prisma.quotation.update({
+          where: { id: entityId },
+          data: { status: nextStatus, version, updatedAt: nowDate(), ...(numberUpdate ? { number: numberUpdate } : {}) },
+          include: { items: true },
+        })
         const canonical = prismaQuotationToCanonical(saved)
         await writeChangeLog(workspaceId, 'quotation', entityId, 'upsert', canonical)
         return { op_id: op.op_id, status: 'applied', record: canonical }

@@ -25,8 +25,11 @@ import { saveCustomer, softDeleteCustomer } from '@/lib/db/repositories'
 import { formatMoney } from '@/lib/domain/money'
 import { formatDateDisplay, fyStart, todayStr } from '@/lib/date'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { downloadPdf } from '@/lib/pdf/render'
+import { renderStatementPdf, type StatementPdfEntry } from '@/lib/pdf/statement'
+import { useCompany } from '@/lib/hooks/app-hooks'
 import { toast } from 'sonner'
-import { ArrowLeft, Building2, Download, Mail, MapPin, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Building2, Download, FileDown, Mail, MapPin, Pencil, Phone, Plus, Receipt, Search, Trash2, UserRound } from 'lucide-react'
 import type { Customer } from '@/lib/domain/types'
 
 interface FormState {
@@ -193,7 +196,7 @@ export function CustomersView({ detailId }: { detailId?: string }) {
           <CustomerHistory customerId={selected.id} />
         </div>
 
-        <CustomerStatement customerId={selected.id} customerName={selected.business_name} />
+        <CustomerStatement customerId={selected.id} customerName={selected.business_name} customerCode={selected.code} customerGstin={selected.gstin} />
 
         {form && <CustomerFormDialog form={form} setForm={setForm} saving={saving} onSubmit={submit} />}
       </div>
@@ -343,9 +346,10 @@ type StatementEntry = {
 }
 
 /** Account statement: chronological debits (invoices) and credits (payments) with a running balance. */
-function CustomerStatement({ customerId, customerName }: { customerId: string; customerName: string }) {
+function CustomerStatement({ customerId, customerName, customerCode, customerGstin }: { customerId: string; customerName: string; customerCode: string | null; customerGstin: string | null }) {
   const [from, setFrom] = useState(fyStart(todayStr()))
   const [to, setTo] = useState(todayStr())
+  const company = useCompany()
 
   const entries = useLiveQuery(async (): Promise<StatementEntry[] | null> => {
     const invoices = await getDb().invoices.where('customer_id').equals(customerId).filter((i) => !i.deleted_at).toArray()
@@ -415,6 +419,30 @@ function CustomerStatement({ customerId, customerName }: { customerId: string; c
     toast.success('Statement exported', { description: 'CSV saved to your downloads folder.' })
   }
 
+  const downloadStatementPdf = () => {
+    const list = entries ?? []
+    if (!company) {
+      toast.error('Set up your company first', { description: 'Company details appear on the statement header.' })
+      return
+    }
+    const pdfEntries: StatementPdfEntry[] = list.map((e) => ({
+      date: e.date, kind: e.kind, number: e.number, detail: e.detail,
+      debitPaise: e.debit, creditPaise: e.credit, balancePaise: e.balance,
+    }))
+    const doc = renderStatementPdf({
+      company: {
+        name: company.name, gstin: company.gstin, addressLine1: company.address_line1,
+        city: company.city, stateName: company.state_name, phone: company.phone, email: company.email,
+      },
+      customer: { name: customerName, code: customerCode, gstin: customerGstin },
+      period: { from, to },
+      entries: pdfEntries,
+      totals: { invoicedPaise: totals.invoiced, collectedPaise: totals.collected, outstandingPaise: totals.outstanding },
+    })
+    downloadPdf(doc, `invoiceflow-statement-${customerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${from}_to_${to}.pdf`)
+    toast.success('Statement PDF saved', { description: 'Works offline — rendered on this device.' })
+  }
+
   const swapped = from > to
 
   return (
@@ -441,6 +469,9 @@ function CustomerStatement({ customerId, customerName }: { customerId: string; c
               aria-label="Statement to date"
               className="h-8 w-36 text-xs"
             />
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadStatementPdf} disabled={!entries || entries.length === 0 || !company}>
+              <FileDown className="h-3.5 w-3.5" /> PDF
+            </Button>
             <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={exportCsv} disabled={!entries || entries.length === 0}>
               <Download className="h-3.5 w-3.5" /> Export CSV
             </Button>

@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany } from '@/lib/hooks/app-hooks'
 import { StatusBadge } from '@/components/app/status-badge'
+import { MethodBadge } from '@/components/app/method-badge'
 import { PdfPreviewDialog } from '@/components/app/pdf-preview-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -352,12 +353,15 @@ export function InvoiceDetailView({ id }: { id: string }) {
                 <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
               ) : (
                 data.payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <div>
+                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/40">
+                    <div className="min-w-0">
                       <p className="font-medium">{formatMoney(p.amount_paise)}</p>
-                      <p className="text-xs text-muted-foreground">{formatDateDisplay(p.paid_at)} · {p.method.replace(/_/g, ' ')}{p.reference ? ` · ${p.reference}` : ''}</p>
+                      <p className="truncate text-xs text-muted-foreground">{formatDateDisplay(p.paid_at)}{p.reference ? ` · ${p.reference}` : ''}</p>
                     </div>
-                    {p.sync_state === 'pending' ? <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">pending sync</span> : <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">synced</span>}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <MethodBadge method={p.method} />
+                      {p.sync_state === 'pending' ? <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">pending sync</span> : <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">synced</span>}
+                    </div>
                   </div>
                 ))
               )}

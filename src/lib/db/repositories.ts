@@ -760,9 +760,11 @@ export async function setQuotationStatus(
     const record: QuotationRow = { ...q, number, status, ...metaFields(q) }
     record.sync_state = 'pending'
     await db.quotations.put(record)
-    // Embed items: op compaction keeps only the latest upsert, so it must be complete.
-    const items = await db.quotation_items.where('quotation_id').equals(id).toArray()
-    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', q.version, { ...record, items })
+    // Status transitions must be flagged: the server's dedicated transition branch validates
+    // the lifecycle step and preserves items — an unflagged upsert would be treated as a
+    // content edit and recompute would force the status back to DRAFT (then pull reverts us).
+    // The payload carries the possibly-newly-allocated official number (CANON §6 fast-forward).
+    await enqueueOp(db, workspaceId, 'quotation', id, 'upsert', q.version, { ...record, status_change: true })
     await addAudit(db, workspaceId, 'quotation', id, 'STATUS', { from: q.status, to: status })
     updated = record
   })

@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace } from '@/lib/hooks/app-hooks'
 import { EmptyState } from '@/components/app/empty-state'
+import { MethodBadge } from '@/components/app/method-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -98,7 +99,7 @@ export function PaymentsView() {
                       <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{formatDateDisplay(p.paid_at)}</td>
                       <td className="px-4 py-3 font-medium">{inv?.number ?? '—'}</td>
                       <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{inv?.customer_name_snapshot ?? '—'}</td>
-                      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">{p.method.replace(/_/g, ' ')}</td>
+                      <td className="hidden px-4 py-3 md:table-cell"><MethodBadge method={p.method} /></td>
                       <td className="hidden max-w-32 truncate px-4 py-3 text-muted-foreground md:table-cell">{p.reference ?? '—'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">{formatMoney(p.amount_paise)}</td>
                     </tr>

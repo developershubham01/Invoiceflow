@@ -4,6 +4,21 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-09-21
+
+### Added
+
+- Customer statement PDF export: ledger-style A4 document (company header, customer block, period, Invoiced/Collected/Outstanding tiles, zebra debit/credit/balance table with totals row, offline footer note) rendered on-device with jsPDF — the "PDF" button sits beside the statement's CSV export and honours the selected period.
+- Payment-method chips: icon + label badges (CASH → banknote/emerald, BANK_TRANSFER → landmark/teal, UPI → smartphone/amber, CHEQUE → scroll/orange, CARD → card/accent, OTHER → muted) used in the payments list and per-invoice payment history; payment history rows restructured with hover feedback.
+
+### Fixed
+
+- **Quotation lifecycle lost in sync (major)**: quotation status transitions (DRAFT→SENT→ACCEPTED/REJECTED) were sent as ordinary upsert ops, which the server treats as content edits — `recomputeDocument` preserves only `DRAFT|CONVERTED`, so the server reset the status to DRAFT and the pull then silently reverted the client. `setQuotationStatus` now flags its op with `status_change: true`, routing the server into the dedicated lifecycle-transition branch; that branch also adopts a client-allocated official number on DRAFT→SENT and fast-forwards the server sequence (CANON §6). Verified end-to-end: DRAFT→SENT→ACCEPTED→CONVERTED all persist server-side (versions 3/4) and locally after pull, with the convert banner linking to the generated draft invoice.
+
+### Verified (QA round)
+
+- Full quotation lifecycle with sync persistence; quotation→invoice conversion totals match; finalize allocates `INV/2026-27/0007`; partial payment ₹10,000 → local PARTIALLY_PAID + server-side recalculation published via ChangeLog; editor creates a synced draft from catalog fields; GST Summary / reports tabs; company numbering config (prefixes, default GST rate, round-off); mobile 390 px layout (hamburger nav, horizontally scrollable tables).
+
 ## [0.2.0] - 2025-09-21
 
 ### Added
