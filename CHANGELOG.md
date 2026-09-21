@@ -4,6 +4,32 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-09-21
+
+### Added
+
+- **Payments view filters**: a method dropdown (All / Cash / Bank transfer / UPI / Cheque / Card / Other, each with a live count) and a period dropdown (All time / This month / Last 30 days / This fiscal year — FY computed locally on the Apr–Mar Indian convention, string math only, no UTC). The collected summary card switches to **"Filtered collected"** with an emerald accent and shows `filtered of total`, plus an inline *clear* button.
+- **Payment method-mix bar**: a compact stacked bar above the table showing how the filtered collections split across methods (segments in the same palette as the method chips), with a legend listing method → amount → share %. Recomputes live with the filters.
+- **Batch PDF export**: the invoice bulk bar gains a **PDFs** action — renders one PDF per selected invoice locally (offline, jsPDF) and queues the downloads with a 350 ms stagger so browsers don't drop them; per-invoice failure toasts plus a success summary ("allow multiple downloads if your browser asks").
+
+### Changed
+
+- **Canonical overdue rule extracted**: new `src/lib/invoice-status.ts` (`isInvoiceOverdue`, `daysOverdue`) is now the single source of truth used by the invoices list filter + row badges, the dashboard KPI/banner/activity rows, and the reminder wording module (which re-exports it). Removes three hand-rolled copies of the rule that could drift.
+
+### Improved (styling)
+
+- Payments: rows gained the same hover-revealed emerald chevron as invoices/quotations; active method/period filters tint their dropdown triggers emerald (matching the filtered-total card); filtered state shows a "Clear filters" empty-state action.
+- Method-mix segments grow in from the left with a staggered spring (`mix-seg-in`, reduced-motion safe).
+- Product cards lift 2px on hover with a soft shadow and an emerald border tint (`product-card`).
+- Invoices footer tip now teaches the full bulk set: finalize, PDFs, CSV.
+
+### Verified (QA round 7)
+
+- Fresh profile → seeded sample data (4 payments, ₹1,36,541.50). Payments filters exercised via Radix pointer events: UPI → 1 payment, card flips to "Filtered collected ₹6,174.00 of ₹1,36,541.50" with clear chip, mix recalculates to 100% UPI; Last 30 days → all 4 payments (₹1,36,541.50 of ₹1,36,541.50); combined search "Sharma" + Last 30 days → 2 payments ₹44,932.00, mix 86% bank / 14% UPI (cross-checked).
+- Batch PDFs: 2 drafts selected (₹91,647.00) → success toast "2 PDFs exported", downloads queued, console clean.
+- Canonical overdue rule: dashboard Overdue KPI (3) == banner ₹39,649.50 == invoices "Overdue (3)" filter via the Review-overdue CTA (one-shot preset still consumed exactly once after the refactor).
+- `bun run lint` exit 0; `tsc --noEmit` 0 errors in `src/`; desktop 1440 + mobile 390 px, light + dark verified; product-card hover class present on all 6 cards; console clean.
+
 ## [0.7.0] - 2025-09-21
 
 ### Added

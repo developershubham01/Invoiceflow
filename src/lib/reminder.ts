@@ -5,9 +5,14 @@
  */
 import { formatMoneyPlain } from '@/lib/domain/money'
 import { formatDateDisplay, todayStr } from '@/lib/date'
+import { isInvoiceOverdue, daysOverdue } from '@/lib/invoice-status'
+
+// re-export: the canonical overdue rule lives in invoice-status.ts
+export { isInvoiceOverdue } from '@/lib/invoice-status'
 
 export interface ReminderInvoice {
   number: string
+  status?: string
   due_date: string | null
   grand_total_paise: number
   paid_total_paise: number
@@ -25,10 +30,6 @@ export interface ReminderCompany {
   bank_ifsc?: string | null
 }
 
-export function isInvoiceOverdue(inv: ReminderInvoice, today = todayStr()): boolean {
-  return Boolean(inv.due_date && inv.due_date < today && inv.paid_total_paise < inv.grand_total_paise)
-}
-
 /** WhatsApp-ready payment reminder text: polite, factual, self-contained. */
 export function buildPaymentReminderText(
   inv: ReminderInvoice,
@@ -38,7 +39,7 @@ export function buildPaymentReminderText(
 ): string {
   const balance = Math.max(0, inv.grand_total_paise - inv.paid_total_paise)
   const overdue = isInvoiceOverdue(inv, today)
-  const days = inv.due_date ? Math.max(0, Math.round((Date.parse(today) - Date.parse(inv.due_date)) / 86_400_000)) : 0
+  const days = daysOverdue(inv, today)
   return [
     `Hello ${customer?.contact_person || customer?.business_name || 'there'},`,
     '',

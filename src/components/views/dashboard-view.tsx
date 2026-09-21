@@ -16,6 +16,7 @@ import { navigate } from '@/lib/router'
 import { formatMoney, formatMoneyCompact } from '@/lib/domain/money'
 import { formatDateDisplay, monthKey, monthLabel, todayStr } from '@/lib/date'
 import { runSync } from '@/lib/sync/engine'
+import { isInvoiceOverdue } from '@/lib/invoice-status'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts'
 import {
   Activity, ArrowRight, ArrowUpRight, Banknote, CheckCircle2, CircleDollarSign, Clock3, FileText,
@@ -55,7 +56,7 @@ export function DashboardView() {
     const drafts = live.filter((i) => i.status === 'DRAFT')
     const paid = live.filter((i) => i.status === 'PAID')
     const unpaid = live.filter((i) => i.status === 'FINALIZED' || i.status === 'PARTIALLY_PAID')
-    const overdue = unpaid.filter((i) => i.due_date && i.due_date < today)
+    const overdue = unpaid.filter((i) => isInvoiceOverdue(i, today))
     const invoiced = live.filter((i) => i.status !== 'DRAFT').reduce((s, i) => s + i.grand_total_paise, 0)
     const collected = data.payments.reduce((s, p) => s + p.amount_paise, 0)
     const outstanding = unpaid.reduce((s, i) => s + (i.grand_total_paise - i.paid_total_paise), 0)
@@ -97,7 +98,7 @@ export function DashboardView() {
     if (!data) return []
     const rows: Array<{ id: string; kind: string; number: string; party: string; amount: number; date: string; status: string; overdue?: boolean; path: string }> = []
     for (const i of data.invoices.slice(0, 40)) {
-      rows.push({ id: i.id, kind: 'Invoice', number: i.number, party: i.customer_name_snapshot ?? '', amount: i.grand_total_paise, date: i.invoice_date, status: i.status, overdue: i.status !== 'DRAFT' && i.status !== 'CANCELLED' && Boolean(i.due_date && i.due_date < today && i.paid_total_paise < i.grand_total_paise), path: `invoices/${i.id}` })
+      rows.push({ id: i.id, kind: 'Invoice', number: i.number, party: i.customer_name_snapshot ?? '', amount: i.grand_total_paise, date: i.invoice_date, status: i.status, overdue: isInvoiceOverdue(i, today), path: `invoices/${i.id}` })
     }
     for (const q of data.quotations.slice(0, 40)) {
       rows.push({ id: q.id, kind: 'Quotation', number: q.number, party: q.customer_name_snapshot ?? '', amount: q.grand_total_paise, date: q.quotation_date, status: q.status, path: `quotations/${q.id}` })

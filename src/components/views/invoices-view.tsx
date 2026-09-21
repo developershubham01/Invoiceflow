@@ -26,14 +26,11 @@ import { toCsv, downloadCsv } from '@/lib/csv'
 import { toast } from 'sonner'
 import {
   AlertTriangle, BadgeCheck, ChevronLeft, ChevronRight, ChevronRight as RowChevron,
-  Copy, Download, Loader2, MessageCircle, MessageSquareText, Phone, Plus, Receipt, Search, Trash2, X,
+  Copy, Download, FileDown, Loader2, MessageCircle, MessageSquareText, Phone, Plus, Receipt, Search, Trash2, X,
 } from 'lucide-react'
 
 const PAGE_SIZE = 10
 const STATUS_ORDER = ['DRAFT', 'FINALIZED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED']
-/** Pseudo-status: issued invoices past their due date with an outstanding balance. */
-const isOverdueRow = (i: { status: string; due_date: string | null; paid_total_paise: number; grand_total_paise: number }, today: string) =>
-  i.status !== 'DRAFT' && i.status !== 'CANCELLED' && i.status !== 'PAID' && Boolean(i.due_date && i.due_date < today) && i.paid_total_paise < i.grand_total_paise
 
 export function InvoicesView() {
   const ws = useActiveWorkspace()
@@ -79,7 +76,7 @@ export function InvoicesView() {
     const rows = invoices?.rows ?? []
     const q = query.trim().toLowerCase()
     return rows
-      .filter((i) => (status === 'ALL' ? true : status === 'OVERDUE' ? isOverdueRow(i, today) : i.status === status))
+      .filter((i) => (status === 'ALL' ? true : status === 'OVERDUE' ? isInvoiceOverdue(i, today) : i.status === status))
       .filter((i) =>
         !q ||
         i.number.toLowerCase().includes(q) ||
@@ -94,7 +91,7 @@ export function InvoicesView() {
   const counts = useMemo(() => {
     const rows = invoices?.rows ?? []
     if (!invoices) return null
-    const c: Record<string, number> = { ALL: rows.length, OVERDUE: rows.filter((i) => isOverdueRow(i, today)).length }
+    const c: Record<string, number> = { ALL: rows.length, OVERDUE: rows.filter((i) => isInvoiceOverdue(i, today)).length }
     for (const s of STATUS_ORDER) c[s] = rows.filter((i) => i.status === s).length
     return c
   }, [invoices, today])
@@ -185,6 +182,34 @@ export function InvoicesView() {
     )
     downloadCsv(`invoiceflow-invoices-selection-${today}.csv`, csv)
     toast.success(`Exported ${selectedRows.length} invoice${selectedRows.length === 1 ? '' : 's'}`, { description: 'CSV saved to your downloads folder.' })
+  }
+
+  /** Batch PDF export: one PDF per selected invoice, rendered locally (offline). */
+  const runExportPdfs = async () => {
+    if (selectedRows.length === 0) return
+    setBusy(true)
+    const { renderDocumentPdf, downloadPdf } = await import('@/lib/pdf/render')
+    const { buildInvoiceModel, pdfFileName } = await import('@/lib/pdf/document-model')
+    let ok = 0
+    const failed: Array<{ number: string; reason: string }> = []
+    for (const inv of selectedRows) {
+      try {
+        const [items, customer] = await Promise.all([
+          getDb().invoice_items.where('invoice_id').equals(inv.id).toArray(),
+          getDb().customers.get(inv.customer_id),
+        ])
+        const model = buildInvoiceModel(inv, items.sort((a, b) => a.position - b.position), company ?? null, customer)
+        downloadPdf(renderDocumentPdf(model), pdfFileName(model))
+        ok++
+        // stagger so the browser queues each download instead of dropping them
+        await new Promise((r) => setTimeout(r, 350))
+      } catch (err) {
+        failed.push({ number: inv.number, reason: (err as Error).message })
+      }
+    }
+    setBusy(false)
+    if (ok > 0) toast.success(`${ok} PDF${ok === 1 ? '' : 's'} exported`, { description: ok > 1 ? 'Saved to your downloads folder — allow multiple downloads if your browser asks.' : 'Saved to your downloads folder.' })
+    for (const f of failed) toast.error(`Could not export ${f.number}`, { description: f.reason })
   }
 
   // ---- bulk reminders ------------------------------------------------------
@@ -291,7 +316,7 @@ export function InvoicesView() {
               </thead>
               <tbody>
                 {pageRows.map((inv) => {
-                  const overdue = inv.status !== 'DRAFT' && inv.status !== 'CANCELLED' && Boolean(inv.due_date && inv.due_date < today && inv.paid_total_paise < inv.grand_total_paise)
+                  const overdue = isInvoiceOverdue(inv, today)
                   const provisional = inv.number.startsWith('DRAFT-')
                   const isSelected = selected.has(inv.id)
                   return (
@@ -354,7 +379,7 @@ export function InvoicesView() {
       {selectedRows.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-          Invoices past their due date with a balance are marked overdue. Tip: select rows to finalize or delete drafts in bulk.
+          Invoices past their due date with a balance are marked overdue. Tip: select rows to finalize drafts, export PDFs or CSV in bulk.
         </p>
       )}
 
@@ -423,6 +448,16 @@ export function InvoicesView() {
               </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={busy} onClick={exportSelectedCsv}>
                 <Download className="h-3.5 w-3.5" /> CSV
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                disabled={busy}
+                onClick={() => void runExportPdfs()}
+                title="Render one PDF per selected invoice (works offline)"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} PDFs
               </Button>
               <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2" onClick={clearSelection} aria-label="Clear selection">
                 <X className="h-3.5 w-3.5" /> Clear

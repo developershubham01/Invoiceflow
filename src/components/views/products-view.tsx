@@ -156,7 +156,7 @@ export function ProductsView() {
           {filtered.map((p) => {
             const use = usage?.get(p.name)
             return (
-              <Card key={p.id} className="py-0">
+              <Card key={p.id} className="product-card py-0">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
