@@ -1,0 +1,2002 @@
+     1→# Invoice & Quotation SaaS — Complete Development Prompt
+     2→
+     3→You want to build a professional, offline-first Invoice & Quotation Management SaaS that works in both online and offline modes, using Electron for the desktop application, Next.js for the frontend, IndexedDB for local data, and Supabase for cloud synchronization.
+     4→
+     5→The most important architectural decision is to build the application around a local-first data layer from day one. The same business logic should work whether the user has an internet connection or not.
+     6→
+     7→Below is a comprehensive master prompt you can use with Cursor, Claude Code, ChatGPT Codex, or another AI coding assistant to generate the complete project, documentation, architecture diagrams, and implementation roadmap.
+     8→
+     9→
+    10→## 1. Master prompt for building the entire software
+    11→
+    12→Copy the following prompt and paste it into your AI coding assistant. It instructs the AI to create the `.md` documentation, architecture, database design, development phases, and the actual application.
+    13→
+    14→Edit
+    15→
+    16→# MASTER SOFTWARE DEVELOPMENT PROMPT
+    17→
+    18→# Project: InvoiceFlow — Offline-First Invoice & Quotation SaaS
+    19→
+    20→## 1. ROLE
+    21→
+    22→You are a senior software architect, full-stack developer, Electron desktop application engineer, database designer, DevOps engineer, QA engineer, and technical documentation writer.
+    23→
+    24→Your task is to design and develop a production-ready, offline-first Invoice and Quotation Management SaaS called **InvoiceFlow**.
+    25→
+    26→You must create the complete project architecture, all required Markdown documentation, database schemas, architecture diagrams, source code, testing strategy, and deployment configuration.
+    27→
+    28→Do not generate a superficial demo. Build a modular, maintainable, scalable application with a strong offline-first foundation.
+    29→
+    30→---
+    31→
+    32→# 2. PROJECT OBJECTIVE
+    33→
+    34→Build a professional business management application that allows businesses to:
+    35→
+    36→* Create and manage quotations.
+    37→
+    38→* Create and manage invoices.
+    39→
+    40→* Convert quotations into invoices.
+    41→
+    42→* Manage customers.
+    43→
+    44→* Manage products and services.
+    45→
+    46→* Calculate GST for Indian businesses.
+    47→
+    48→* Generate professional PDF documents.
+    49→
+    50→* Track paid, unpaid, and overdue invoices.
+    51→
+    52→* Work completely offline.
+    53→
+    54→* Synchronize local data with the cloud when online.
+    55→
+    56→* Manage company profiles and branding.
+    57→
+    58→* Share invoices and quotations.
+    59→
+    60→* Manage multiple companies.
+    61→
+    62→* Support future subscriptions and team collaboration.
+    63→
+    64→The application must work in the following environments:
+    65→
+    66→1. Windows desktop application.
+    67→
+    68→2. macOS desktop application.
+    69→
+    70→3. Linux desktop application.
+    71→
+    72→4. Web browser as a PWA.
+    73→
+    74→5. Offline desktop mode.
+    75→
+    76→6. Online desktop mode.
+    77→
+    78→7. Offline web/PWA mode where browser capabilities permit.
+    79→
+    80→The desktop application must be built using **Electron**.
+    81→
+    82→---
+    83→
+    84→# 3. MANDATORY TECHNOLOGY STACK
+    85→
+    86→## Frontend
+    87→
+    88→* Next.js with App Router.
+    89→
+    90→* React.
+    91→
+    92→* TypeScript with strict mode.
+    93→
+    94→* Tailwind CSS.
+    95→
+    96→* shadcn/ui.
+    97→
+    98→* Lucide React icons.
+    99→
+   100→* React Hook Form.
+   101→
+   102→* Zod.
+   103→
+   104→* TanStack Query where appropriate.
+   105→
+   106→* Zustand or another lightweight state-management solution.
+   107→
+   108→## Desktop
+   109→
+   110→* Electron.
+   111→
+   112→* Electron Forge or a well-maintained Electron build tool.
+   113→
+   114→* Electron main process.
+   115→
+   116→* Electron preload process.
+   117→
+   118→* Secure context isolation.
+   119→
+   120→* Node integration disabled in the renderer.
+   121→
+   122→* Typed IPC communication.
+   123→
+   124→* Electron Builder or the selected build tool for installers.
+   125→
+   126→## Local database
+   127→
+   128→* IndexedDB.
+   129→
+   130→* Dexie.js.
+   131→
+   132→* Versioned local database migrations.
+   133→
+   134→* IndexedDB must be the primary offline business-data store.
+   135→
+   136→* The application must not require SQLite for the initial version.
+   137→
+   138→## Cloud backend
+   139→
+   140→* Supabase.
+   141→
+   142→* PostgreSQL.
+   143→
+   144→* Supabase Auth.
+   145→
+   146→* Supabase Storage.
+   147→
+   148→* Supabase Edge Functions or secure server-side APIs where required.
+   149→
+   150→* PostgreSQL Row-Level Security.
+   151→
+   152→## Authentication
+   153→
+   154→* Email/password authentication.
+   155→
+   156→* Google authentication.
+   157→
+   158→* Session persistence.
+   159→
+   160→* Guest/offline workspace.
+   161→
+   162→* Account linking or workspace migration from guest mode.
+   163→
+   164→* Secure logout and account deletion flows.
+   165→
+   166→## PDF
+   167→
+   168→* Offline PDF generation.
+   169→
+   170→* Online PDF generation where appropriate.
+   171→
+   172→* Use a deterministic document-rendering system.
+   173→
+   174→* Choose a suitable PDF library and document why it was selected.
+   175→
+   176→* Ensure invoice calculations and PDF totals are generated from the same trusted business logic.
+   177→
+   178→## PWA
+   179→
+   180→* Service Worker.
+   181→
+   182→* Installable web application.
+   183→
+   184→* Offline application shell.
+   185→
+   186→* Cache versioning.
+   187→
+   188→* Network status detection.
+   189→
+   190→## Testing
+   191→
+   192→* Vitest.
+   193→
+   194→* React Testing Library.
+   195→
+   196→* Playwright.
+   197→
+   198→* Electron end-to-end testing.
+   199→
+   200→* API and integration tests.
+   201→
+   202→* Offline and synchronization tests.
+   203→
+   204→## DevOps
+   205→
+   206→* Git.
+   207→
+   208→* GitHub.
+   209→
+   210→* GitHub Actions.
+   211→
+   212→* Vercel for the web application.
+   213→
+   214→* Supabase for backend services.
+   215→
+   216→* Electron packaging for desktop installers.
+   217→
+   218→## Future integrations
+   219→
+   220→Do not implement payments in the MVP, but design extension points for:
+   221→
+   222→* Razorpay.
+   223→
+   224→* Stripe.
+   225→
+   226→* Email.
+   227→
+   228→* WhatsApp sharing.
+   229→
+   230→* Subscription billing.
+   231→
+   232→---
+   233→
+   234→# 4. ARCHITECTURAL PRINCIPLE
+   235→
+   236→## OFFLINE-FIRST IS MANDATORY
+   237→
+   238→Do not build the online version first and add offline support afterward.
+   239→
+   240→Every business operation must first work against the local data layer.
+   241→
+   242→The application must follow this rule:
+   243→
+   244→USER ACTION
+   245→↓
+   246→DOMAIN VALIDATION
+   247→↓
+   248→LOCAL DATABASE TRANSACTION
+   249→↓
+   250→LOCAL UI UPDATE
+   251→↓
+   252→OUTBOX SYNC QUEUE
+   253→↓
+   254→CLOUD SYNCHRONIZATION WHEN AVAILABLE
+   255→
+   256→Cloud synchronization must never be required to create an invoice, quotation, customer, product, or company profile in an existing local workspace.
+   257→
+   258→## Source of truth
+   259→
+   260→For the current device and workspace, the local database is the source of truth for responsive UI operations.
+   261→
+   262→The server is the authoritative shared source for synchronized workspace data.
+   263→
+   264→The synchronization layer must reconcile the two without silently losing user data.
+   265→
+   266→## Important constraints
+   267→
+   268→* Never store sensitive Supabase service-role keys in Electron or browser code.
+   269→
+   270→* Never trust client-side prices, taxes, discounts, or authorization claims.
+   271→
+   272→* Recalculate financial totals using trusted business logic.
+   273→
+   274→* Do not use floating-point arithmetic for monetary calculations.
+   275→
+   276→* Use integer minor units or a decimal arithmetic strategy.
+   277→
+   278→* Never use JavaScript Date objects as the sole source of truth for financial document dates.
+   279→
+   280→* Preserve audit history for finalized documents.
+   281→
+   282→* Do not silently overwrite conflicting records.
+   283→
+   284→* Do not use localStorage as the primary business database.
+   285→
+   286→* Do not expose arbitrary Electron IPC methods to the renderer.
+   287→
+   288→---
+   289→
+   290→# 5. APPLICATION ARCHITECTURE
+   291→
+   292→Create a modular monorepo using pnpm workspaces and Turborepo, or another justified monorepo solution.
+   293→
+   294→Suggested structure:
+   295→
+   296→invoiceflow/
+   297→│
+   298→├── apps/
+   299→│ ├── web/
+   300→│ │ ├── app/
+   301→│ │ ├── components/
+   302→│ │ ├── lib/
+   303→│ │ └── public/
+   304→│ │
+   305→│ └── desktop/
+   306→│ ├── electron/
+   307→│ │ ├── main.ts
+   308→│ │ ├── preload.ts
+   309→│ │ ├── ipc/
+   310→│ │ └── services/
+   311→│ └── renderer/
+   312→│
+   313→├── packages/
+   314→│ ├── domain/
+   315→│ │ ├── entities/
+   316→│ │ ├── calculations/
+   317→│ │ ├── validators/
+   318→│ │ ├── use-cases/
+   319→│ │ └── types/
+   320→│ │
+   321→│ ├── local-db/
+   322→│ │ ├── schema/
+   323→│ │ ├── migrations/
+   324→│ │ ├── repositories/
+   325→│ │ └── sync/
+   326→│ │
+   327→│ ├── cloud/
+   328→│ │ ├── supabase/
+   329→│ │ ├── repositories/
+   330→│ │ └── sync/
+   331→│ │
+   332→│ ├── pdf/
+   333→│ │ ├── templates/
+   334→│ │ ├── renderers/
+   335→│ │ └── generators/
+   336→│ │
+   337→│ ├── ui/
+   338→│ ├── config/
+   339→│ └── shared/
+   340→│
+   341→├── supabase/
+   342→│ ├── migrations/
+   343→│ ├── functions/
+   344→│ └── seed.sql
+   345→│
+   346→├── docs/
+   347→├── scripts/
+   348→├── tests/
+   349→├── README.md
+   350→├── DEVELOPMENT.md
+   351→├── DATABASE.md
+   352→├── API.md
+   353→├── SECURITY.md
+   354→├── CHANGELOG.md
+   355→├── package.json
+   356→└── pnpm-workspace.yaml
+   357→
+   358→Adapt the structure if necessary, but document every architectural decision.
+   359→
+   360→The Electron renderer must use the same reusable UI and domain logic as the web application whenever practical.
+   361→
+   362→The Electron main process must handle privileged desktop functionality, secure IPC, application lifecycle, and native integrations.
+   363→
+   364→---
+   365→
+   366→# 6. REQUIRED DOCUMENTATION
+   367→
+   368→Create every file listed below inside the docs/ directory.
+   369→
+   370→01-PROJECT-OVERVIEW.md
+   371→02-REQUIREMENTS.md
+   372→03-FEATURES.md
+   373→04-TECH-STACK.md
+   374→05-SYSTEM-ARCHITECTURE.md
+   375→06-DATABASE-DESIGN.md
+   376→07-AUTHENTICATION.md
+   377→08-COMPANY-MANAGEMENT.md
+   378→09-CUSTOMER-MANAGEMENT.md
+   379→10-PRODUCT-SERVICE-MANAGEMENT.md
+   380→11-QUOTATION-MODULE.md
+   381→12-INVOICE-MODULE.md
+   382→13-GST-MODULE.md
+   383→14-PDF-GENERATION.md
+   384→15-OFFLINE-FIRST.md
+   385→16-INDEXEDDB-DATABASE.md
+   386→17-SYNC-ENGINE.md
+   387→18-CONFLICT-RESOLUTION.md
+   388→19-CLOUD-SYNC.md
+   389→20-DASHBOARD.md
+   390→21-REPORTS.md
+   391→22-STORAGE.md
+   392→23-NOTIFICATIONS.md
+   393→24-WHATSAPP-SHARING.md
+   394→25-EMAIL.md
+   395→26-SUBSCRIPTION.md
+   396→27-PAYMENT-INTEGRATION.md
+   397→28-TEAM-MEMBERS.md
+   398→29-SECURITY.md
+   399→30-API-DESIGN.md
+   400→31-UI-UX.md
+   401→32-ROUTES.md
+   402→33-VALIDATION.md
+   403→34-ERROR-HANDLING.md
+   404→35-TESTING.md
+   405→36-OFFLINE-TESTING.md
+   406→37-DEPLOYMENT.md
+   407→38-ENVIRONMENT.md
+   408→39-BACKUP-RESTORE.md
+   409→40-PERFORMANCE.md
+   410→41-FUTURE-ROADMAP.md
+   411→
+   412→Also create:
+   413→
+   414→README.md
+   415→DEVELOPMENT.md
+   416→DATABASE.md
+   417→API.md
+   418→SECURITY.md
+   419→CHANGELOG.md
+   420→
+   421→## Documentation requirements
+   422→
+   423→Each document must contain:
+   424→
+   425→1. Purpose.
+   426→
+   427→2. Scope.
+   428→
+   429→3. Business requirements.
+   430→
+   431→4. Technical design.
+   432→
+   433→5. Data models where relevant.
+   434→
+   435→6. API contracts where relevant.
+   436→
+   437→7. Offline behavior.
+   438→
+   439→8. Online behavior.
+   440→
+   441→9. Security considerations.
+   442→
+   443→10. Error-handling rules.
+   444→
+   445→11. Acceptance criteria.
+   446→
+   447→12. Relevant architecture diagrams.
+   448→
+   449→Use Mermaid diagrams for architecture, sequence diagrams, entity relationships, and synchronization flows.
+   450→
+   451→Do not create placeholder documentation that only says “to be implemented.”
+   452→
+   453→---
+   454→
+   455→# 7. CORE BUSINESS MODULES
+   456→
+   457→## A. Company management
+   458→
+   459→Implement:
+   460→
+   461→* Company name.
+   462→
+   463→* Business type.
+   464→
+   465→* Company logo.
+   466→
+   467→* Company address.
+   468→
+   469→* GSTIN.
+   470→
+   471→* PAN.
+   472→
+   473→* State and state code.
+   474→
+   475→* Contact number.
+   476→
+   477→* Email.
+   478→
+   479→* Website.
+   480→
+   481→* Bank details.
+   482→
+   483→* Authorized signatory.
+   484→
+   485→* Digital signature image.
+   486→
+   487→* Invoice prefix.
+   488→
+   489→* Quotation prefix.
+   490→
+   491→* Invoice numbering configuration.
+   492→
+   493→* Tax configuration.
+   494→
+   495→* Company branding.
+   496→
+   497→Support multiple local workspaces and design the schema for future multi-company functionality.
+   498→
+   499→## B. Customer management
+   500→
+   501→Implement:
+   502→
+   503→* Create customer.
+   504→
+   505→* Edit customer.
+   506→
+   507→* Delete customer where allowed.
+   508→
+   509→* Customer code.
+   510→
+   511→* Customer type.
+   512→
+   513→* Business name.
+   514→
+   515→* Contact person.
+   516→
+   517→* Email.
+   518→
+   519→* Phone.
+   520→
+   521→* GSTIN.
+   522→
+   523→* Billing address.
+   524→
+   525→* Shipping address.
+   526→
+   527→* State.
+   528→
+   529→* State code.
+   530→
+   531→* Notes.
+   532→
+   533→* Search and filtering.
+   534→
+   535→* Customer transaction history.
+   536→
+   537→Use soft deletion where necessary to preserve historical invoices.
+   538→
+   539→## C. Product and service management
+   540→
+   541→Implement:
+   542→
+   543→* Product/service name.
+   544→
+   545→* SKU.
+   546→
+   547→* HSN/SAC.
+   548→
+   549→* Description.
+   550→
+   551→* Unit.
+   552→
+   553→* Selling price.
+   554→
+   555→* Cost price where appropriate.
+   556→
+   557→* GST rate.
+   558→
+   559→* Tax-inclusive or tax-exclusive pricing.
+   560→
+   561→* Active/inactive status.
+   562→
+   563→* Product search.
+   564→
+   565→* Duplicate detection.
+   566→
+   567→* Product usage history.
+   568→
+   569→## D. Quotation module
+   570→
+   571→Implement:
+   572→
+   573→* Create quotation.
+   574→
+   575→* Edit draft quotation.
+   576→
+   577→* Automatic quotation numbering.
+   578→
+   579→* Customer selection.
+   580→
+   581→* Product/service selection.
+   582→
+   583→* Custom line items.
+   584→
+   585→* Quantity.
+   586→
+   587→* Unit price.
+   588→
+   589→* Discount.
+   590→
+   591→* Tax calculation.
+   592→
+   593→* CGST/SGST.
+   594→
+   595→* IGST.
+   596→
+   597→* Additional charges.
+   598→
+   599→* Notes.
+   600→
+   601→* Terms and conditions.
+   602→
+   603→* Valid-until date.
+   604→
+   605→* Quotation status.
+   606→
+   607→* Duplicate quotation.
+   608→
+   609→* PDF generation.
+   610→
+   611→* Share/export.
+   612→
+   613→* Convert quotation to invoice.
+   614→
+   615→Quotation lifecycle:
+   616→
+   617→DRAFT → SENT → ACCEPTED → REJECTED → EXPIRED → CONVERTED
+   618→
+   619→Do not allow finalized records to be silently rewritten.
+   620→
+   621→## E. Invoice module
+   622→
+   623→Implement:
+   624→
+   625→* Create invoice.
+   626→
+   627→* Automatic invoice numbering.
+   628→
+   629→* Invoice date.
+   630→
+   631→* Due date.
+   632→
+   633→* Customer details.
+   634→
+   635→* Line items.
+   636→
+   637→* Discount.
+   638→
+   639→* GST calculation.
+   640→
+   641→* CGST/SGST.
+   642→
+   643→* IGST.
+   644→
+   645→* Additional charges.
+   646→
+   647→* Round-off.
+   648→
+   649→* Notes.
+   650→
+   651→* Terms and conditions.
+   652→
+   653→* Payment status.
+   654→
+   655→* Partial payments.
+   656→
+   657→* Payment history.
+   658→
+   659→* Draft invoice.
+   660→
+   661→* Finalize invoice.
+   662→
+   663→* Duplicate invoice.
+   664→
+   665→* PDF generation.
+   666→
+   667→* Invoice sharing.
+   668→
+   669→* Convert accepted quotation into invoice.
+   670→
+   671→Invoice lifecycle:
+   672→
+   673→DRAFT → FINALIZED → PARTIALLY_PAID → PAID
+   674→
+   675→Additional statuses may include CANCELLED and VOIDED, subject to the document's lifecycle and audit requirements.
+   676→
+   677→Draft invoice numbers may be provisional. Final numbering must be controlled according to the company's configured numbering rules.
+   678→
+   679→## F. GST module
+   680→
+   681→Support Indian GST concepts, including:
+   682→
+   683→* GSTIN storage and validation format.
+   684→
+   685→* HSN/SAC.
+   686→
+   687→* CGST.
+   688→
+   689→* SGST.
+   690→
+   691→* IGST.
+   692→
+   693→* UTGST where applicable.
+   694→
+   695→* Tax-inclusive pricing.
+   696→
+   697→* Tax-exclusive pricing.
+   698→
+   699→* Intra-state tax.
+   700→
+   701→* Inter-state tax.
+   702→
+   703→* Place of supply.
+   704→
+   705→* State codes.
+   706→
+   707→* GST summary reports.
+   708→
+   709→Do not claim that the application is legally GST-compliant without appropriate professional validation.
+   710→
+   711→Keep tax rates configurable and versioned.
+   712→
+   713→## G. Dashboard
+   714→
+   715→Display:
+   716→
+   717→* Total invoices.
+   718→
+   719→* Draft invoices.
+   720→
+   721→* Paid invoices.
+   722→
+   723→* Unpaid invoices.
+   724→
+   725→* Overdue invoices.
+   726→
+   727→* Total quotations.
+   728→
+   729→* Accepted quotations.
+   730→
+   731→* Total revenue.
+   732→
+   733→* Outstanding amount.
+   734→
+   735→* Recent transactions.
+   736→
+   737→* Revenue chart.
+   738→
+   739→* Sync status.
+   740→
+   741→* Current workspace.
+   742→
+   743→Dashboard values must be calculated consistently from the selected workspace and reporting period.
+   744→
+   745→## H. Reports
+   746→
+   747→Implement:
+   748→
+   749→* Sales report.
+   750→
+   751→* GST summary.
+   752→
+   753→* Outstanding payments.
+   754→
+   755→* Customer report.
+   756→
+   757→* Product/service report.
+   758→
+   759→* Monthly revenue.
+   760→
+   761→* Invoice status report.
+   762→
+   763→* Date-range filtering.
+   764→
+   765→* CSV export.
+   766→
+   767→* PDF report export where appropriate.
+   768→
+   769→---
+   770→
+   771→# 8. OFFLINE-FIRST DATABASE DESIGN
+   772→
+   773→Use Dexie.js with IndexedDB.
+   774→
+   775→Design normalized local tables for:
+   776→
+   777→* workspaces
+   778→
+   779→* workspace_members
+   780→
+   781→* company_profiles
+   782→
+   783→* customers
+   784→
+   785→* products
+   786→
+   787→* quotations
+   788→
+   789→* quotation_items
+   790→
+   791→* invoices
+   792→
+   793→* invoice_items
+   794→
+   795→* payments
+   796→
+   797→* tax_rates
+   798→
+   799→* document_sequences
+   800→
+   801→* attachments
+   802→
+   803→* audit_logs
+   804→
+   805→* sync_operations
+   806→
+   807→* sync_metadata
+   808→
+   809→* app_settings
+   810→
+   811→Every synchronized entity must include suitable metadata, such as:
+   812→
+   813→* id
+   814→
+   815→* workspace_id
+   816→
+   817→* created_at
+   818→
+   819→* updated_at
+   820→
+   821→* deleted_at
+   822→
+   823→* version or revision
+   824→
+   825→* sync_state
+   826→
+   827→* origin_device_id where necessary
+   828→
+   829→Use UUIDs for entity identity.
+   830→
+   831→Do not use auto-incrementing IDs as the identity of synchronized business entities.
+   832→
+   833→Design the schema for:
+   834→
+   835→* Local creation.
+   836→
+   837→* Local updates.
+   838→
+   839→* Soft deletion.
+   840→
+   841→* Idempotent synchronization.
+   842→
+   843→* Conflict detection.
+   844→
+   845→* Retry handling.
+   846→
+   847→* Migration.
+   848→
+   849→* Data export.
+   850→
+   851→Document the full Dexie schema and every migration strategy.
+   852→
+   853→---
+   854→
+   855→# 9. CLOUD DATABASE DESIGN
+   856→
+   857→Create Supabase PostgreSQL migrations for all cloud tables.
+   858→
+   859→Requirements:
+   860→
+   861→* UUID primary keys.
+   862→
+   863→* Workspace isolation.
+   864→
+   865→* Foreign keys.
+   866→
+   867→* Appropriate indexes.
+   868→
+   869→* Created and updated timestamps.
+   870→
+   871→* Soft deletion where required.
+   872→
+   873→* Auditability for finalized documents.
+   874→
+   875→* RLS policies for every exposed workspace table.
+   876→
+   877→* Secure database functions where needed.
+   878→
+   879→* No public access to private company data.
+   880→
+   881→* Storage policies for company logos, signatures, and document attachments.
+   882→
+   883→Define workspace membership roles:
+   884→
+   885→* OWNER.
+   886→
+   887→* ADMIN.
+   888→
+   889→* MEMBER.
+   890→
+   891→* VIEWER.
+   892→
+   893→Enforce permissions on the server, not just in the UI.
+   894→
+   895→Create seed data for development only.
+   896→
+   897→---
+   898→
+   899→# 10. SYNCHRONIZATION ENGINE
+   900→
+   901→Implement a robust bidirectional synchronization system.
+   902→
+   903→## Offline workflow
+   904→
+   905→User creates an invoice.
+   906→↓
+   907→Validate input locally.
+   908→↓
+   909→Calculate totals locally.
+   910→↓
+   911→Save invoice to IndexedDB.
+   912→↓
+   913→Save line items in a local transaction.
+   914→↓
+   915→Create an outbox operation.
+   916→↓
+   917→Update the UI immediately.
+   918→↓
+   919→Display “Pending sync.”
+   920→
+   921→## Online workflow
+   922→
+   923→Detect connectivity.
+   924→↓
+   925→Authenticate the workspace.
+   926→↓
+   927→Push pending local changes.
+   928→↓
+   929→Server validates permissions and data.
+   930→↓
+   931→Apply idempotent server changes.
+   932→↓
+   933→Pull remote changes after the last known cursor.
+   934→↓
+   935→Apply changes locally in transactions.
+   936→↓
+   937→Update sync metadata.
+   938→↓
+   939→Display “Synced.”
+   940→
+   941→## Synchronization requirements
+   942→
+   943→* Operation IDs for idempotency.
+   944→
+   945→* Device IDs.
+   946→
+   947→* Workspace IDs.
+   948→
+   949→* Retry with exponential backoff.
+   950→
+   951→* Failed-operation tracking.
+   952→
+   953→* Sync cursors or checkpoints.
+   954→
+   955→* Batch processing.
+   956→
+   957→* Transactional local updates.
+   958→
+   959→* Sync progress indicators.
+   960→
+   961→* Last-synced timestamp.
+   962→
+   963→* Manual sync button.
+   964→
+   965→* Automatic synchronization.
+   966→
+   967→* Network recovery handling.
+   968→
+   969→* Authentication-expiry handling.
+   970→
+   971→* Partial failure handling.
+   972→
+   973→* Schema-version compatibility.
+   974→
+   975→* No duplicate invoices after retries.
+   976→
+   977→* No silent data loss.
+   978→
+   979→Do not rely exclusively on timestamps to resolve every conflict.
+   980→
+   981→Document how the system handles concurrent edits.
+   982→
+   983→---
+   984→
+   985→# 11. CONFLICT RESOLUTION
+   986→
+   987→Implement a conflict-resolution framework.
+   988→
+   989→Conflict types:
+   990→
+   991→1. Customer edited on two devices.
+   992→
+   993→2. Product price edited on two devices.
+   994→
+   995→3. Draft invoice edited on two devices.
+   996→
+   997→4. Quotation edited while offline and modified online.
+   998→
+   999→5. Record deleted on one device and updated on another.
+  1000→
+  1001→6. Two devices attempt to finalize a document.
+  1002→
+  1003→7. Two devices attempt to allocate the same invoice number.
+  1004→
+  1005→Rules:
+  1006→
+  1007→* Draft records may use a documented merge strategy.
+  1008→
+  1009→* Finalized financial documents must be immutable or require controlled correction workflows.
+  1010→
+  1011→* Conflicting financial changes must not be silently merged.
+  1012→
+  1013→* Present a conflict-resolution interface where user intervention is required.
+  1014→
+  1015→* Preserve both conflicting versions where appropriate.
+  1016→
+  1017→* Log every conflict-resolution action.
+  1018→
+  1019→* Prevent duplicate finalized invoice numbers through server-side allocation.
+  1020→
+  1021→* Explain behavior when two devices are offline and later reconnect.
+  1022→
+  1023→Provide state diagrams and sequence diagrams.
+  1024→
+  1025→---
+  1026→
+  1027→# 12. ELECTRON ARCHITECTURE
+  1028→
+  1029→Implement a secure Electron architecture.
+  1030→
+  1031→## Main process
+  1032→
+  1033→Responsibilities:
+  1034→
+  1035→* Create BrowserWindow.
+  1036→
+  1037→* Manage application lifecycle.
+  1038→
+  1039→* Handle desktop menus and native events.
+  1040→
+  1041→* Provide narrowly scoped IPC handlers.
+  1042→
+  1043→* Manage desktop-specific services.
+  1044→
+  1045→* Handle printing or file export where needed.
+  1046→
+  1047→* Manage update infrastructure as a future extension.
+  1048→
+  1049→## Preload process
+  1050→
+  1051→Responsibilities:
+  1052→
+  1053→* Expose a typed, minimal API using contextBridge.
+  1054→
+  1055→* Expose only approved operations.
+  1056→
+  1057→* Validate IPC arguments.
+  1058→
+  1059→* Never expose unrestricted Node.js APIs.
+  1060→
+  1061→* Never expose arbitrary filesystem access.
+  1062→
+  1063→## Renderer process
+  1064→
+  1065→Responsibilities:
+  1066→
+  1067→* Render Next.js/React UI.
+  1068→
+  1069→* Use shared domain logic.
+  1070→
+  1071→* Use Dexie for IndexedDB.
+  1072→
+  1073→* Use typed IPC only when a privileged desktop operation is required.
+  1074→
+  1075→* Never access Node.js directly.
+  1076→
+  1077→## Electron security
+  1078→
+  1079→* contextIsolation: true.
+  1080→
+  1081→* nodeIntegration: false.
+  1082→
+  1083→* sandbox where compatible with the architecture.
+  1084→
+  1085→* Strict Content Security Policy where practical.
+  1086→
+  1087→* No remote code execution.
+  1088→
+  1089→* Secure URL loading.
+  1090→
+  1091→* External links open through controlled mechanisms.
+  1092→
+  1093→* No secrets bundled into the renderer.
+  1094→
+  1095→* Restrict navigation.
+  1096→
+  1097→* Validate all IPC payloads.
+  1098→
+  1099→Explain how Electron and the browser-based Next.js application share code.
+  1100→
+  1101→---
+  1102→
+  1103→# 13. WEB AND DESKTOP OPERATION
+  1104→
+  1105→The application must support the following modes:
+  1106→
+  1107→## Desktop offline
+  1108→
+  1109→* Electron launches without internet.
+  1110→
+  1111→* Existing local workspaces remain available.
+  1112→
+  1113→* Users can create and edit permitted local records.
+  1114→
+  1115→* PDFs can be generated locally.
+  1116→
+  1117→* Changes enter the outbox.
+  1118→
+  1119→* Sync resumes when connectivity returns.
+  1120→
+  1121→## Desktop online
+  1122→
+  1123→* Local-first CRUD remains active.
+  1124→
+  1125→* Cloud synchronization runs in the background.
+  1126→
+  1127→* Cloud-backed features become available.
+  1128→
+  1129→* The user can access shared workspace data.
+  1130→
+  1131→## Web offline
+  1132→
+  1133→* The PWA caches the application shell.
+  1134→
+  1135→* IndexedDB stores local data.
+  1136→
+  1137→* The service worker manages static asset caching.
+  1138→
+  1139→* Users can access previously available local workspace data.
+  1140→
+  1141→* Unsupported browser features must have graceful fallbacks.
+  1142→
+  1143→## Web online
+  1144→
+  1145→* The same domain logic and local-first repositories are used.
+  1146→
+  1147→* Supabase synchronization runs securely.
+  1148→
+  1149→* Authentication and cloud features are available.
+  1150→
+  1151→Document all limitations of browser offline mode.
+  1152→
+  1153→---
+  1154→
+  1155→# 14. PDF SYSTEM
+  1156→
+  1157→Build a reusable PDF document system.
+  1158→
+  1159→Requirements:
+  1160→
+  1161→* Professional invoice template.
+  1162→
+  1163→* Professional quotation template.
+  1164→
+  1165→* Custom company logo.
+  1166→
+  1167→* Company address and GSTIN.
+  1168→
+  1169→* Customer details.
+  1170→
+  1171→* Itemized table.
+  1172→
+  1173→* Tax breakdown.
+  1174→
+  1175→* Subtotal.
+  1176→
+  1177→* Discounts.
+  1178→
+  1179→* Additional charges.
+  1180→
+  1181→* Grand total.
+  1182→
+  1183→* Amount in words where supported.
+  1184→
+  1185→* Notes.
+  1186→
+  1187→* Terms and conditions.
+  1188→
+  1189→* Signature.
+  1190→
+  1191→* Page numbering.
+  1192→
+  1193→* Multi-page documents.
+  1194→
+  1195→* A4 layout.
+  1196→
+  1197→* Print-friendly formatting.
+  1198→
+  1199→* Offline generation.
+  1200→
+  1201→* PDF file export.
+  1202→
+  1203→* PDF preview.
+  1204→
+  1205→Use a shared document model for preview and PDF generation.
+  1206→
+  1207→Create automated tests for financial totals and representative PDF output.
+  1208→
+  1209→Document font, language, currency, and formatting limitations.
+  1210→
+  1211→---
+  1212→
+  1213→# 15. UI/UX REQUIREMENTS
+  1214→
+  1215→Create a premium, responsive business SaaS interface.
+  1216→
+  1217→Design principles:
+  1218→
+  1219→* Clean and modern interface.
+  1220→
+  1221→* Professional business dashboard.
+  1222→
+  1223→* Desktop-first layout with mobile responsiveness.
+  1224→
+  1225→* Light and dark themes.
+  1226→
+  1227→* Accessible form controls.
+  1228→
+  1229→* Keyboard-friendly tables.
+  1230→
+  1231→* Clear validation errors.
+  1232→
+  1233→* Fast navigation.
+  1234→
+  1235→* Empty states.
+  1236→
+  1237→* Loading states.
+  1238→
+  1239→* Offline indicators.
+  1240→
+  1241→* Sync progress.
+  1242→
+  1243→* Error notifications.
+  1244→
+  1245→* Confirmation dialogs for destructive actions.
+  1246→
+  1247→* Search, sorting, filtering, and pagination.
+  1248→
+  1249→* Responsive invoice editor.
+  1250→
+  1251→* Accessible color contrast.
+  1252→
+  1253→Main routes:
+  1254→
+  1255→/login
+  1256→/register
+  1257→/dashboard
+  1258→/workspaces
+  1259→/company
+  1260→/customers
+  1261→/customers/\(id\)
+  1262→/products
+  1263→/products/\(id\)
+  1264→/quotations
+  1265→/quotations/new
+  1266→/quotations/\(id\)
+  1267→/invoices
+  1268→/invoices/new
+  1269→/invoices/\(id\)
+  1270→/payments
+  1271→/reports
+  1272→/settings
+  1273→/settings/team
+  1274→/settings/sync
+  1275→/settings/security
+  1276→
+  1277→Use route protection and workspace authorization.
+  1278→
+  1279→---
+  1280→
+  1281→# 16. SECURITY REQUIREMENTS
+  1282→
+  1283→Implement and document:
+  1284→
+  1285→* Supabase Auth.
+  1286→
+  1287→* Secure session handling.
+  1288→
+  1289→* RLS policies.
+  1290→
+  1291→* Server-side authorization.
+  1292→
+  1293→* Zod validation.
+  1294→
+  1295→* SQL injection protection through parameterized operations.
+  1296→
+  1297→* XSS protection.
+  1298→
+  1299→* CSRF considerations.
+  1300→
+  1301→* Secure upload validation.
+  1302→
+  1303→* File-size restrictions.
+  1304→
+  1305→* MIME-type verification.
+  1306→
+  1307→* Rate limiting for sensitive server operations.
+  1308→
+  1309→* Secure environment variables.
+  1310→
+  1311→* Electron security hardening.
+  1312→
+  1313→* Audit logs.
+  1314→
+  1315→* Backup and recovery planning.
+  1316→
+  1317→* Account deletion and data export.
+  1318→
+  1319→* Dependency security checks.
+  1320→
+  1321→Never place Supabase service-role credentials in the frontend or Electron renderer.
+  1322→
+  1323→---
+  1324→
+  1325→# 17. DEVELOPMENT PHASES
+  1326→
+  1327→## Phase 0 — Architecture and planning
+  1328→
+  1329→Deliver:
+  1330→
+  1331→* Repository structure.
+  1332→
+  1333→* Architecture documentation.
+  1334→
+  1335→* Domain model.
+  1336→
+  1337→* Database schema.
+  1338→
+  1339→* Mermaid diagrams.
+  1340→
+  1341→* Development standards.
+  1342→
+  1343→* Coding conventions.
+  1344→
+  1345→## Phase 1 — Foundation
+  1346→
+  1347→Deliver:
+  1348→
+  1349→* Next.js application.
+  1350→
+  1351→* Electron application shell.
+  1352→
+  1353→* TypeScript configuration.
+  1354→
+  1355→* Tailwind CSS.
+  1356→
+  1357→* Shared packages.
+  1358→
+  1359→* ESLint and formatting.
+  1360→
+  1361→* Environment configuration.
+  1362→
+  1363→* CI pipeline.
+  1364→
+  1365→* Basic PWA configuration.
+  1366→
+  1367→## Phase 2 — Local database and domain
+  1368→
+  1369→Deliver:
+  1370→
+  1371→* Dexie database.
+  1372→
+  1373→* Schema migrations.
+  1374→
+  1375→* Repository pattern.
+  1376→
+  1377→* Workspace model.
+  1378→
+  1379→* Customer CRUD.
+  1380→
+  1381→* Product CRUD.
+  1382→
+  1383→* Company profile.
+  1384→
+  1385→* Shared validation.
+  1386→
+  1387→* Monetary calculation engine.
+  1388→
+  1389→## Phase 3 — MVP documents
+  1390→
+  1391→Deliver:
+  1392→
+  1393→* Quotation editor.
+  1394→
+  1395→* Quotation lifecycle.
+  1396→
+  1397→* Invoice editor.
+  1398→
+  1399→* Invoice lifecycle.
+  1400→
+  1401→* Quotation-to-invoice conversion.
+  1402→
+  1403→* Numbering strategy.
+  1404→
+  1405→* PDF preview and export.
+  1406→
+  1407→* Dashboard.
+  1408→
+  1409→## Phase 4 — Offline-first engine
+  1410→
+  1411→Deliver:
+  1412→
+  1413→* Local-first operations.
+  1414→
+  1415→* Outbox.
+  1416→
+  1417→* Sync state.
+  1418→
+  1419→* Network detection.
+  1420→
+  1421→* Retry mechanism.
+  1422→
+  1423→* Pull and push synchronization.
+  1424→
+  1425→* Conflict detection.
+  1426→
+  1427→* Conflict UI.
+  1428→
+  1429→* Offline PDF generation.
+  1430→
+  1431→## Phase 5 — Supabase integration
+  1432→
+  1433→Deliver:
+  1434→
+  1435→* Auth.
+  1436→
+  1437→* Google login.
+  1438→
+  1439→* PostgreSQL migrations.
+  1440→
+  1441→* RLS.
+  1442→
+  1443→* Storage.
+  1444→
+  1445→* Secure synchronization endpoints.
+  1446→
+  1447→* Cloud-backed workspace functionality.
+  1448→
+  1449→## Phase 6 — Reports and business features
+  1450→
+  1451→Deliver:
+  1452→
+  1453→* GST reports.
+  1454→
+  1455→* Revenue reports.
+  1456→
+  1457→* Payment tracking.
+  1458→
+  1459→* Outstanding reports.
+  1460→
+  1461→* CSV exports.
+  1462→
+  1463→* Audit history.
+  1464→
+  1465→## Phase 7 — SaaS
+  1466→
+  1467→Deliver:
+  1468→
+  1469→* Subscription architecture.
+  1470→
+  1471→* Plan limits.
+  1472→
+  1473→* Entitlements.
+  1474→
+  1475→* Team members.
+  1476→
+  1477→* Subscription management.
+  1478→
+  1479→* Payment integration extension points.
+  1480→
+  1481→Implement payments only after the core application is stable.
+  1482→
+  1483→## Phase 8 — Testing and release
+  1484→
+  1485→Deliver:
+  1486→
+  1487→* Unit tests.
+  1488→
+  1489→* Integration tests.
+  1490→
+  1491→* Electron tests.
+  1492→
+  1493→* Offline tests.
+  1494→
+  1495→* Sync tests.
+  1496→
+  1497→* Security tests.
+  1498→
+  1499→* Performance tests.
+  1500→
+  1501→* Windows packaging.
+  1502→
+  1503→* macOS packaging where supported.
+  1504→
+  1505→* Linux packaging where supported.
+  1506→
+  1507→* Production deployment.
+  1508→
+  1509→---
+  1510→
+  1511→# 18. REQUIRED ARCHITECTURE DIAGRAMS
+  1512→
+  1513→Create Mermaid diagrams for:
+  1514→
+  1515→1. High-level system architecture.
+  1516→
+  1517→2. Electron process architecture.
+  1518→
+  1519→3. Web application architecture.
+  1520→
+  1521→4. Offline-first data flow.
+  1522→
+  1523→5. Online synchronization flow.
+  1524→
+  1525→6. Outbox lifecycle.
+  1526→
+  1527→7. Conflict-resolution flow.
+  1528→
+  1529→8. Invoice creation sequence.
+  1530→
+  1531→9. Quotation-to-invoice conversion.
+  1532→
+  1533→10. Authentication flow.
+  1534→
+  1535→11. PDF generation flow.
+  1536→
+  1537→12. PostgreSQL ER diagram.
+  1538→
+  1539→13. IndexedDB entity relationships.
+  1540→
+  1541→14. Workspace permission model.
+  1542→
+  1543→15. Deployment architecture.
+  1544→
+  1545→16. Application state machine.
+  1546→
+  1547→17. Data synchronization state machine.
+  1548→
+  1549→18. Backup and restore flow.
+  1550→
+  1551→Every diagram must be consistent with the implementation.
+  1552→
+  1553→---
+  1554→
+  1555→# 19. QUALITY REQUIREMENTS
+  1556→
+  1557→* Use strict TypeScript.
+  1558→
+  1559→* Avoid unnecessary any types.
+  1560→
+  1561→* Keep business logic out of UI components.
+  1562→
+  1563→* Use reusable services.
+  1564→
+  1565→* Write meaningful error messages.
+  1566→
+  1567→* Use database transactions for related local writes.
+  1568→
+  1569→* Do not duplicate financial calculation logic.
+  1570→
+  1571→* Do not use fake cloud synchronization.
+  1572→
+  1573→* Do not use hardcoded authentication bypasses.
+  1574→
+  1575→* Do not ship placeholder credentials.
+  1576→
+  1577→* Do not silently ignore failed sync operations.
+  1578→
+  1579→* Keep changes small and reviewable.
+  1580→
+  1581→* Write tests before or alongside critical functionality.
+  1582→
+  1583→* Document assumptions and limitations.
+  1584→
+  1585→---
+  1586→
+  1587→# 20. REQUIRED DELIVERABLES
+  1588→
+  1589→The final repository must include:
+  1590→
+  1591→1. Fully populated Markdown documentation.
+  1592→
+  1593→2. System architecture diagrams.
+  1594→
+  1595→3. Electron application.
+  1596→
+  1597→4. Next.js web application.
+  1598→
+  1599→5. Shared domain package.
+  1600→
+  1601→6. Dexie local database.
+  1602→
+  1603→7. Supabase PostgreSQL migrations.
+  1604→
+  1605→8. Authentication implementation.
+  1606→
+  1607→9. Company management.
+  1608→
+  1609→10. Customer management.
+  1610→
+  1611→11. Product/service management.
+  1612→
+  1613→12. Quotation module.
+  1614→
+  1615→13. Invoice module.
+  1616→
+  1617→14. PDF generation.
+  1618→
+  1619→15. Offline support.
+  1620→
+  1621→16. Synchronization engine.
+  1622→
+  1623→17. Conflict handling.
+  1624→
+  1625→18. Dashboard.
+  1626→
+  1627→19. Reports.
+  1628→
+  1629→20. Automated tests.
+  1630→
+  1631→21. Environment templates.
+  1632→
+  1633→22. CI/CD configuration.
+  1634→
+  1635→23. Development setup guide.
+  1636→
+  1637→24. Deployment guide.
+  1638→
+  1639→25. Changelog.
+  1640→
+  1641→---
+  1642→
+  1643→# 21. IMPLEMENTATION RULES FOR THE AI
+  1644→
+  1645→Work incrementally.
+  1646→
+  1647→Before writing code:
+  1648→
+  1649→1. Inspect the repository.
+  1650→
+  1651→2. Read the existing documentation.
+  1652→
+  1653→3. Identify the current implementation status.
+  1654→
+  1655→4. Identify missing modules.
+  1656→
+  1657→5. Create or update the relevant Markdown documentation.
+  1658→
+  1659→6. Explain architectural decisions briefly.
+  1660→
+  1661→7. Implement one coherent feature at a time.
+  1662→
+  1663→8. Run relevant tests and type checks.
+  1664→
+  1665→9. Fix errors before proceeding.
+  1666→
+  1667→10. Update the changelog.
+  1668→
+  1669→Do not overwrite existing working code unnecessarily.
+  1670→
+  1671→Do not generate the entire application as one unreviewable code dump.
+  1672→
+  1673→If a requirement is ambiguous, choose a reasonable implementation, document the assumption, and proceed.
+  1674→
+  1675→If a feature is not suitable for the MVP, create an extension point and mark it as future functionality.
+  1676→
+  1677→Always maintain offline-first compatibility.
+  1678→
+  1679→## FIRST TASK
+  1680→
+  1681→Start by creating:
+  1682→
+  1683→1. The complete repository structure.
+  1684→
+  1685→2. All required Markdown documentation files.
+  1686→
+  1687→3. 01-PROJECT-OVERVIEW.md.
+  1688→
+  1689→4. 02-REQUIREMENTS.md.
+  1690→
+  1691→5. 04-TECH-STACK.md.
+  1692→
+  1693→6. 05-SYSTEM-ARCHITECTURE.md.
+  1694→
+  1695→7. 06-DATABASE-DESIGN.md.
+  1696→
+  1697→8. 15-OFFLINE-FIRST.md.
+  1698→
+  1699→9. 17-SYNC-ENGINE.md.
+  1700→
+  1701→10. 31-UI-UX.md.
+  1702→
+  1703→11. A complete architecture diagram set.
+  1704→
+  1705→12. A detailed implementation plan.
+  1706→
+  1707→Then create the foundation of the Electron + Next.js application.
+  1708→
+  1709→Do not skip architecture design or the local-first data model.
+  1710→
+  1711→Begin now.
+  1712→
+  1713→## 2. Recommended architecture
+  1714→
+  1715→This is the architecture I recommend for your software. Electron is the desktop shell, Next.js and React are the user interface, and the shared domain layer ensures that offline and online workflows behave consistently.
+  1716→
+  1717→## InvoiceFlow system architecture
+  1718→
+  1719→Shared business logic • Local-first storage • Cloud synchronization
+  1720→
+  1721→### Application clients
+  1722→
+  1723→Electron desktop
+  1724→
+  1725→Next.js web / PWA
+  1726→
+  1727→Windows · macOS · Linux · Browser
+  1728→
+  1729→### Shared application layer
+  1730→
+  1731→React UI · Use cases · Validation · Business rules · GST calculations · Repository interfaces
+  1732→
+  1733→### Local-first data layer
+  1734→
+  1735→Dexie.js
+  1736→
+  1737→IndexedDB
+  1738→
+  1739→Outbox queue
+  1740→
+  1741→Local CRUD · Offline PDFs · Pending operations · Local migrations
+  1742→
+  1743→### Synchronization engine
+  1744→
+  1745→Push outbox → Server validation → Pull changes → Conflict detection → Local transaction
+  1746→
+  1747→### Supabase backend
+  1748→
+  1749→Auth
+  1750→
+  1751→PostgreSQL
+  1752→
+  1753→RLS
+  1754→
+  1755→Storage
+  1756→
+  1757→Sync API
+  1758→
+  1759→### Electron-specific architecture
+  1760→
+  1761→Diagram options
+  1762→
+  1763→![](data\:image/svg+xml;utf8,%3Csvg%20id%3D%22mermaid-_r_8d_%22%20width%3D%22529.01953125%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22flowchart%22%20height%3D%22686.5999755859375%22%20viewBox%3D%224%204%20529.01953125%20686.5999755859375%22%20role%3D%22graphics-document%20document%22%20aria-roledescription%3D%22flowchart-v2%22%3E%3Cstyle%3E%23mermaid-_r_8d_%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A14px%3Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%40keyframes%20edge-animation-frame%7Bfrom%7Bstroke-dashoffset%3A0%3B%7D%7D%40keyframes%20dash%7Bto%7Bstroke-dashoffset%3A0%3B%7D%7D%23mermaid-_r_8d_%20.edge-animation-slow%7Bstroke-dasharray%3A9%2C5!important%3Bstroke-dashoffset%3A900%3Banimation%3Adash%2050s%20linear%20infinite%3Bstroke-linecap%3Around%3B%7D%23mermaid-_r_8d_%20.edge-animation-fast%7Bstroke-dasharray%3A9%2C5!important%3Bstroke-dashoffset%3A900%3Banimation%3Adash%2020s%20linear%20infinite%3Bstroke-linecap%3Around%3B%7D%23mermaid-_r_8d_%20.error-icon%7Bfill%3Argb\(33%2C%2033%2C%2033\)%3B%7D%23mermaid-_r_8d_%20.error-text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3Bstroke%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.edge-thickness-normal%7Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.edge-thickness-thick%7Bstroke-width%3A3.5px%3B%7D%23mermaid-_r_8d_%20.edge-pattern-solid%7Bstroke-dasharray%3A0%3B%7D%23mermaid-_r_8d_%20.edge-thickness-invisible%7Bstroke-width%3A0%3Bfill%3Anone%3B%7D%23mermaid-_r_8d_%20.edge-pattern-dashed%7Bstroke-dasharray%3A3%3B%7D%23mermaid-_r_8d_%20.edge-pattern-dotted%7Bstroke-dasharray%3A2%3B%7D%23mermaid-_r_8d_%20.marker%7Bfill%3Argb\(205%2C%20205%2C%20205\)%3Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8d_%20.marker.cross%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8d_%20svg%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A14px%3B%7D%23mermaid-_r_8d_%20p%7Bmargin%3A0%3B%7D%23mermaid-_r_8d_%20.label%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.cluster-label%20text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.cluster-label%20span%7Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.cluster-label%20span%20p%7Bbackground-color%3Atransparent%3B%7D%23mermaid-_r_8d_%20.label%20text%2C%23mermaid-_r_8d_%20span%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.node%20rect%2C%23mermaid-_r_8d_%20.node%20circle%2C%23mermaid-_r_8d_%20.node%20ellipse%2C%23mermaid-_r_8d_%20.node%20polygon%2C%23mermaid-_r_8d_%20.node%20path%7Bfill%3Argb\(9%2C%2023%2C%2044\)%3Bstroke%3Argb\(31%2C%2078%2C%20148\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.rough-node%20.label%20text%2C%23mermaid-_r_8d_%20.node%20.label%20text%2C%23mermaid-_r_8d_%20.image-shape%20.label%2C%23mermaid-_r_8d_%20.icon-shape%20.label%7Btext-anchor%3Amiddle%3B%7D%23mermaid-_r_8d_%20.node%20.katex%20path%7Bfill%3A%23000%3Bstroke%3A%23000%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.rough-node%20.label%2C%23mermaid-_r_8d_%20.node%20.label%2C%23mermaid-_r_8d_%20.image-shape%20.label%2C%23mermaid-_r_8d_%20.icon-shape%20.label%7Btext-align%3Acenter%3B%7D%23mermaid-_r_8d_%20.node.clickable%7Bcursor%3Apointer%3B%7D%23mermaid-_r_8d_%20.root%20.anchor%20path%7Bfill%3Argb\(205%2C%20205%2C%20205\)!important%3Bstroke-width%3A0%3Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8d_%20.arrowheadPath%7Bfill%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8d_%20.edgePath%20.path%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3Bstroke-width%3A2.0px%3B%7D%23mermaid-_r_8d_%20.flowchart-link%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3Bfill%3Anone%3B%7D%23mermaid-_r_8d_%20.edgeLabel%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Btext-align%3Acenter%3B%7D%23mermaid-_r_8d_%20.edgeLabel%20p%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8d_%20.edgeLabel%20rect%7Bopacity%3A0.5%3Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bfill%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8d_%20.labelBkg%7Bbackground-color%3Argba\(0%2C%200%2C%200%2C%200.5\)%3B%7D%23mermaid-_r_8d_%20.cluster%20rect%7Bfill%3Argb\(33%2C%2033%2C%2033\)%3Bstroke%3Argba\(255%2C%20255%2C%20255%2C%200.05\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.cluster%20text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20.cluster%20span%7Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20div.mermaidTooltip%7Bposition%3Aabsolute%3Btext-align%3Acenter%3Bmax-width%3A200px%3Bpadding%3A2px%3Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A12px%3Bbackground%3Argb\(33%2C%2033%2C%2033\)%3Bborder%3A1px%20solid%20rgba\(255%2C%20255%2C%20255%2C%200.05\)%3Bborder-radius%3A2px%3Bpointer-events%3Anone%3Bz-index%3A100%3B%7D%23mermaid-_r_8d_%20.flowchartTitleText%7Btext-anchor%3Amiddle%3Bfont-size%3A18px%3Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8d_%20rect.text%7Bfill%3Anone%3Bstroke-width%3A0%3B%7D%23mermaid-_r_8d_%20.icon-shape%2C%23mermaid-_r_8d_%20.image-shape%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Btext-align%3Acenter%3B%7D%23mermaid-_r_8d_%20.icon-shape%20p%2C%23mermaid-_r_8d_%20.image-shape%20p%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bpadding%3A2px%3B%7D%23mermaid-_r_8d_%20.icon-shape%20rect%2C%23mermaid-_r_8d_%20.image-shape%20rect%7Bopacity%3A0.5%3Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bfill%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8d_%20.label-icon%7Bdisplay%3Ainline-block%3Bheight%3A1em%3Boverflow%3Avisible%3Bvertical-align%3A-0.125em%3B%7D%23mermaid-_r_8d_%20.node%20.label-icon%20path%7Bfill%3AcurrentColor%3Bstroke%3Arevert%3Bstroke-width%3Arevert%3B%7D%23mermaid-_r_8d_%20.node%20text%7Bfont-size%3A16px%3Bfont-weight%3A600%3Bletter-spacing%3A-0.32px%3Bfill%3A%2399ceff%3B%7D%23mermaid-_r_8d_%20.edgeLabels%20text%7Bfont-size%3A13px%3Bfont-weight%3A600%3Bletter-spacing%3A-0.08px%3Bfill%3A%2399ceff%3B%7D%23mermaid-_r_8d_%20.node%20tspan%5Bfont-weight%3D%22normal%22%5D%2C%23mermaid-_r_8d_%20.edgeLabels%20tspan%5Bfont-weight%3D%22normal%22%5D%7Bfont-weight%3A600%3B%7D%23mermaid-_r_8d_%20.edgeLabel%20.label%20rect%7Bopacity%3A1%3Brx%3A13px%3Bry%3A13px%3Bfill%3A%23000e1a%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.node%20rect%2C%23mermaid-_r_8d_%20.node%20circle%2C%23mermaid-_r_8d_%20.node%20ellipse%2C%23mermaid-_r_8d_%20.node%20polygon%2C%23mermaid-_r_8d_%20.node%20path%7Bfill%3Argb\(0%2C%2040%2C%2077\)%3Bstroke%3Argba\(255%2C%20255%2C%20255%2C%200.1\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8d_%20.node%20rect%7Brx%3A16px%3Bry%3A16px%3B%7D%23mermaid-_r_8d_%20.node.mermaid-decision%20.label-container%7Bfill%3A%23000e1a%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-dasharray%3A2%202%3B%7D%23mermaid-_r_8d_%20.edgePaths%20.flowchart-link%7Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-width%3A1px%3Bstroke-linecap%3Around%3Bstroke-linejoin%3Around%3B%7D%23mermaid-_r_8d_%20.marker%7Bfill%3Argb\(26%2C%2062%2C%2095\)%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3B%7D%23mermaid-_r_8d_%20.node%7Bcolor-scheme%3Adark%3B%7D%23mermaid-_r_8d_%20%3Aroot%7B--mermaid-font-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3B%7D%3C%2Fstyle%3E%3Cg%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-pointEnd%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%22-5%20-5%2010%2010%22%20refX%3D%220%22%20refY%3D%220%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2210%22%20markerHeight%3D%2210%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%200%200%20L%204%200%20M%200.8180194846605362%20-3.181980515339464%20L%204%200%20L%200.8180194846605362%203.181980515339464%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%20none%3B%20fill%3A%20none%3B%20stroke-linecap%3A%20round%3B%20stroke-linejoin%3A%20round%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-pointStart%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%22-5%20-5%2010%2010%22%20refX%3D%220%22%20refY%3D%220%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2210%22%20markerHeight%3D%2210%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%200%200%20L%20-4%200%20M%20-0.8180194846605362%20-3.181980515339464%20L%20-4%200%20L%20-0.8180194846605362%203.181980515339464%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%20none%3B%20fill%3A%20none%3B%20stroke-linecap%3A%20round%3B%20stroke-linejoin%3A%20round%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-circleEnd%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%220%200%2010%2010%22%20refX%3D%2211%22%20refY%3D%225%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%225%22%20r%3D%225%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fcircle%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-circleStart%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%220%200%2010%2010%22%20refX%3D%22-1%22%20refY%3D%225%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%225%22%20r%3D%225%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fcircle%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-crossEnd%22%20class%3D%22marker%20cross%20flowchart-v2%22%20viewBox%3D%220%200%2011%2011%22%20refX%3D%2212%22%20refY%3D%225.2%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%201%2C1%20l%209%2C9%20M%2010%2C1%20l%20-9%2C9%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%202%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8d__flowchart-v2-crossStart%22%20class%3D%22marker%20cross%20flowchart-v2%22%20viewBox%3D%220%200%2011%2011%22%20refX%3D%22-1%22%20refY%3D%225.2%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%201%2C1%20l%209%2C9%20M%2010%2C1%20l%20-9%2C9%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%202%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3C%2Fg%3E%3Cg%20class%3D%22subgraphs%22%3E%3C%2Fg%3E%3Cg%20class%3D%22nodes%22%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-A-0%22%20transform%3D%22translate\(194.7312494913737%2C%2042\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-112.3136215209961%22%20y%3D%22-30%22%20width%3D%22224.6272430419922%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EElectron%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Main%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Process%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-B-1%22%20transform%3D%22translate\(157.29337565104166%2C%20142\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-87.73143005371094%22%20y%3D%22-30%22%20width%3D%22175.46286010742188%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EPreload%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Bridge%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-C-3%22%20transform%3D%22translate\(157.29337565104166%2C%20247.29999923706055\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-93.95831298828125%22%20y%3D%22-30%22%20width%3D%22187.9166259765625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ENext.js%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Renderer%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-D-5%22%20transform%3D%22translate\(157.29337565104166%2C%20352.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-111.05548858642578%22%20y%3D%22-30%22%20width%3D%22222.11097717285156%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EShared%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Domain%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Layer%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-E-7%22%20transform%3D%22translate\(120.2748794555664%2C%20452.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-108.2748794555664%22%20y%3D%22-30%22%20width%3D%22216.5497589111328%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EDexie.js%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2F%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20IndexedDB%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-F-9%22%20transform%3D%22translate\(346.69915771484375%2C%20452.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-78.14939880371094%22%20y%3D%22-30%22%20width%3D%22156.29879760742188%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ESync%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Engine%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-G-11%22%20transform%3D%22translate\(346.69915771484375%2C%20552.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-83.1953125%22%20y%3D%22-30%22%20width%3D%22166.390625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ESupabase%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20API%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-H-13%22%20transform%3D%22translate\(346.69915771484375%2C%20652.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-98.70360565185547%22%20y%3D%22-30%22%20width%3D%22197.40721130371094%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EPostgreSQL%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2B%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20RLS%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-I-15%22%20transform%3D%22translate\(405.0221811930338%2C%20142\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-119.99737548828125%22%20y%3D%22-30%22%20width%3D%22239.9947509765625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ENative%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Desktop%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Services%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-J-17%22%20transform%3D%22translate\(405.0221811930338%2C%20247.29999923706055\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-100.22297668457031%22%20y%3D%22-35.29999923706055%22%20width%3D%22200.44595336914062%22%20height%3D%2270.5999984741211%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-19.299999237060547\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EPrint%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2F%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Export%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2F%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20OS%3C%2Ftspan%3E%3C%2Ftspan%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%221em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EIntegration%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edges%20edgePaths%22%3E%3Cpath%20d%3D%22M157.29337565104166%2C72L157.29337565104166%2C100%22%20id%3D%22L_A_B_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_A_B_0%22%20data-points%3D%22W3sieCI6MTU3LjI5MzM3NTY1MTA0MTY2LCJ5Ijo3Mn0seyJ4IjoxNTcuMjkzMzc1NjUxMDQxNjYsInkiOjEwNH1d%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M157.29337565104166%2C172L157.29337565104166%2C205.29999923706055%22%20id%3D%22L_B_C_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_B_C_0%22%20data-points%3D%22W3sieCI6MTU3LjI5MzM3NTY1MTA0MTY2LCJ5IjoxNzJ9LHsieCI6MTU3LjI5MzM3NTY1MTA0MTY2LCJ5IjoyMDkuMjk5OTk5MjM3MDYwNTV9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M157.29337565104166%2C277.29999923706055L157.29337565104166%2C310.5999984741211%22%20id%3D%22L_C_D_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_C_D_0%22%20data-points%3D%22W3sieCI6MTU3LjI5MzM3NTY1MTA0MTY2LCJ5IjoyNzcuMjk5OTk5MjM3MDYwNTV9LHsieCI6MTU3LjI5MzM3NTY1MTA0MTY2LCJ5IjozMTQuNTk5OTk4NDc0MTIxMX1d%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M120.27487945556638%2C382.5999984741211L120.2748794555664%2C410.5999984741211%22%20id%3D%22L_D_E_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_D_E_0%22%20data-points%3D%22W3sieCI6MTIwLjI3NDg3OTQ1NTU2NjM4LCJ5IjozODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxMjAuMjc0ODc5NDU1NTY2NCwieSI6NDE0LjU5OTk5ODQ3NDEyMTF9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M194.31187184651696%2C382.5999984741211L194.31187184651694%2C395.5289306622556Q194.31187184651694%2C402.5999984741211%20201.3829396583824%2C402.5999984741211L339.9162016895491%2C402.5999984741211Q341.69915771484375%2C402.5999984741211%20343.11337127721686%2C403.685784911748L343.11337127721686%2C403.685784911748Q344.52758483958996%2C404.7715713493749%20345.61337127721686%2C406.185784911748L345.61337127721686%2C406.185784911748Q346.69915771484375%2C407.5999984741211%20346.69915771484375%2C409.38295449941575L346.69915771484375%2C412.5999984741211%22%20id%3D%22L_D_F_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_D_F_0%22%20data-points%3D%22W3sieCI6MTk0LjMxMTg3MTg0NjUxNjk2LCJ5IjozODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxOTQuMzExODcxODQ2NTE2OTQsInkiOjQwMi41OTk5OTg0NzQxMjExfSx7IngiOjM0Ni42OTkxNTc3MTQ4NDM3NSwieSI6NDAyLjU5OTk5ODQ3NDEyMTF9LHsieCI6MzQ2LjY5OTE1NzcxNDg0Mzc1LCJ5Ijo0MTYuNTk5OTk4NDc0MTIxMX1d%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M346.69915771484375%2C482.5999984741211L346.69915771484375%2C510.5999984741211%22%20id%3D%22L_F_G_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_F_G_0%22%20data-points%3D%22W3sieCI6MzQ2LjY5OTE1NzcxNDg0Mzc1LCJ5Ijo0ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjozNDYuNjk5MTU3NzE0ODQzNzUsInkiOjUxNC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M346.69915771484375%2C582.5999984741211L346.69915771484375%2C610.5999984741211%22%20id%3D%22L_G_H_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_G_H_0%22%20data-points%3D%22W3sieCI6MzQ2LjY5OTE1NzcxNDg0Mzc1LCJ5Ijo1ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjozNDYuNjk5MTU3NzE0ODQzNzUsInkiOjYxNC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M232.16912333170572%2C72L232.16912333170572%2C85.21704397470535Q232.16912333170572%2C87%20233.25490976933264%2C88.41421356237309L233.25490976933264%2C88.41421356237309Q234.34069620695954%2C89.82842712474618%20235.75490976933264%2C90.91421356237309L235.75490976933264%2C90.91421356237309Q237.16912333170572%2C92%20238.95207935700037%2C92L398.23922516773916%2C92Q400.0221811930338%2C92%20401.4363947554069%2C93.08578643762691L401.4363947554069%2C93.08578643762692Q402.85060831778003%2C94.17157287525382%20403.9363947554069%2C95.58578643762691L403.9363947554069%2C95.58578643762691Q405.0221811930338%2C97%20405.0221811930338%2C98.78295602529465L405.0221811930338%2C102%22%20id%3D%22L_A_I_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_A_I_0%22%20data-points%3D%22W3sieCI6MjMyLjE2OTEyMzMzMTcwNTcyLCJ5Ijo3Mn0seyJ4IjoyMzIuMTY5MTIzMzMxNzA1NzIsInkiOjkyfSx7IngiOjQwNS4wMjIxODExOTMwMzM4LCJ5Ijo5Mn0seyJ4Ijo0MDUuMDIyMTgxMTkzMDMzOCwieSI6MTA2fV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M405.0221811930338%2C172L405.0221811930338%2C200%22%20id%3D%22L_I_J_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_I_J_0%22%20data-points%3D%22W3sieCI6NDA1LjAyMjE4MTE5MzAzMzgsInkiOjE3Mn0seyJ4Ijo0MDUuMDIyMTgxMTkzMDMzOCwieSI6MjA0fV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8d__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabels%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_A_B_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_B_C_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_C_D_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_D_E_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_D_F_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_F_G_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_G_H_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_A_I_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_I_J_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E)
+  1764→
+  1765→Important: The renderer should not directly access Node.js APIs. Electron's main process should only expose narrowly scoped, validated capabilities.
+  1766→
+  1767→## 3. Offline and online operation diagram
+  1768→
+  1769→The application should behave like this when a user creates an invoice.
+  1770→
+  1771→Diagram options
+  1772→
+  1773→![](data\:image/svg+xml;utf8,%3Csvg%20id%3D%22mermaid-_r_8e_%22%20width%3D%22941.3518676757812%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22flowchart%22%20height%3D%221563.199951171875%22%20viewBox%3D%224%204%20941.3518676757812%201563.199951171875%22%20role%3D%22graphics-document%20document%22%20aria-roledescription%3D%22flowchart-v2%22%3E%3Cstyle%3E%23mermaid-_r_8e_%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A14px%3Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%40keyframes%20edge-animation-frame%7Bfrom%7Bstroke-dashoffset%3A0%3B%7D%7D%40keyframes%20dash%7Bto%7Bstroke-dashoffset%3A0%3B%7D%7D%23mermaid-_r_8e_%20.edge-animation-slow%7Bstroke-dasharray%3A9%2C5!important%3Bstroke-dashoffset%3A900%3Banimation%3Adash%2050s%20linear%20infinite%3Bstroke-linecap%3Around%3B%7D%23mermaid-_r_8e_%20.edge-animation-fast%7Bstroke-dasharray%3A9%2C5!important%3Bstroke-dashoffset%3A900%3Banimation%3Adash%2020s%20linear%20infinite%3Bstroke-linecap%3Around%3B%7D%23mermaid-_r_8e_%20.error-icon%7Bfill%3Argb\(33%2C%2033%2C%2033\)%3B%7D%23mermaid-_r_8e_%20.error-text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3Bstroke%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.edge-thickness-normal%7Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.edge-thickness-thick%7Bstroke-width%3A3.5px%3B%7D%23mermaid-_r_8e_%20.edge-pattern-solid%7Bstroke-dasharray%3A0%3B%7D%23mermaid-_r_8e_%20.edge-thickness-invisible%7Bstroke-width%3A0%3Bfill%3Anone%3B%7D%23mermaid-_r_8e_%20.edge-pattern-dashed%7Bstroke-dasharray%3A3%3B%7D%23mermaid-_r_8e_%20.edge-pattern-dotted%7Bstroke-dasharray%3A2%3B%7D%23mermaid-_r_8e_%20.marker%7Bfill%3Argb\(205%2C%20205%2C%20205\)%3Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8e_%20.marker.cross%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8e_%20svg%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A14px%3B%7D%23mermaid-_r_8e_%20p%7Bmargin%3A0%3B%7D%23mermaid-_r_8e_%20.label%7Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.cluster-label%20text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.cluster-label%20span%7Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.cluster-label%20span%20p%7Bbackground-color%3Atransparent%3B%7D%23mermaid-_r_8e_%20.label%20text%2C%23mermaid-_r_8e_%20span%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.node%20rect%2C%23mermaid-_r_8e_%20.node%20circle%2C%23mermaid-_r_8e_%20.node%20ellipse%2C%23mermaid-_r_8e_%20.node%20polygon%2C%23mermaid-_r_8e_%20.node%20path%7Bfill%3Argb\(9%2C%2023%2C%2044\)%3Bstroke%3Argb\(31%2C%2078%2C%20148\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.rough-node%20.label%20text%2C%23mermaid-_r_8e_%20.node%20.label%20text%2C%23mermaid-_r_8e_%20.image-shape%20.label%2C%23mermaid-_r_8e_%20.icon-shape%20.label%7Btext-anchor%3Amiddle%3B%7D%23mermaid-_r_8e_%20.node%20.katex%20path%7Bfill%3A%23000%3Bstroke%3A%23000%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.rough-node%20.label%2C%23mermaid-_r_8e_%20.node%20.label%2C%23mermaid-_r_8e_%20.image-shape%20.label%2C%23mermaid-_r_8e_%20.icon-shape%20.label%7Btext-align%3Acenter%3B%7D%23mermaid-_r_8e_%20.node.clickable%7Bcursor%3Apointer%3B%7D%23mermaid-_r_8e_%20.root%20.anchor%20path%7Bfill%3Argb\(205%2C%20205%2C%20205\)!important%3Bstroke-width%3A0%3Bstroke%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8e_%20.arrowheadPath%7Bfill%3Argb\(205%2C%20205%2C%20205\)%3B%7D%23mermaid-_r_8e_%20.edgePath%20.path%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3Bstroke-width%3A2.0px%3B%7D%23mermaid-_r_8e_%20.flowchart-link%7Bstroke%3Argb\(205%2C%20205%2C%20205\)%3Bfill%3Anone%3B%7D%23mermaid-_r_8e_%20.edgeLabel%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Btext-align%3Acenter%3B%7D%23mermaid-_r_8e_%20.edgeLabel%20p%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8e_%20.edgeLabel%20rect%7Bopacity%3A0.5%3Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bfill%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8e_%20.labelBkg%7Bbackground-color%3Argba\(0%2C%200%2C%200%2C%200.5\)%3B%7D%23mermaid-_r_8e_%20.cluster%20rect%7Bfill%3Argb\(33%2C%2033%2C%2033\)%3Bstroke%3Argba\(255%2C%20255%2C%20255%2C%200.05\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.cluster%20text%7Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20.cluster%20span%7Bcolor%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20div.mermaidTooltip%7Bposition%3Aabsolute%3Btext-align%3Acenter%3Bmax-width%3A200px%3Bpadding%3A2px%3Bfont-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3Bfont-size%3A12px%3Bbackground%3Argb\(33%2C%2033%2C%2033\)%3Bborder%3A1px%20solid%20rgba\(255%2C%20255%2C%20255%2C%200.05\)%3Bborder-radius%3A2px%3Bpointer-events%3Anone%3Bz-index%3A100%3B%7D%23mermaid-_r_8e_%20.flowchartTitleText%7Btext-anchor%3Amiddle%3Bfont-size%3A18px%3Bfill%3Argb\(255%2C%20255%2C%20255\)%3B%7D%23mermaid-_r_8e_%20rect.text%7Bfill%3Anone%3Bstroke-width%3A0%3B%7D%23mermaid-_r_8e_%20.icon-shape%2C%23mermaid-_r_8e_%20.image-shape%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Btext-align%3Acenter%3B%7D%23mermaid-_r_8e_%20.icon-shape%20p%2C%23mermaid-_r_8e_%20.image-shape%20p%7Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bpadding%3A2px%3B%7D%23mermaid-_r_8e_%20.icon-shape%20rect%2C%23mermaid-_r_8e_%20.image-shape%20rect%7Bopacity%3A0.5%3Bbackground-color%3Argb\(0%2C%200%2C%200\)%3Bfill%3Argb\(0%2C%200%2C%200\)%3B%7D%23mermaid-_r_8e_%20.label-icon%7Bdisplay%3Ainline-block%3Bheight%3A1em%3Boverflow%3Avisible%3Bvertical-align%3A-0.125em%3B%7D%23mermaid-_r_8e_%20.node%20.label-icon%20path%7Bfill%3AcurrentColor%3Bstroke%3Arevert%3Bstroke-width%3Arevert%3B%7D%23mermaid-_r_8e_%20.node%20text%7Bfont-size%3A16px%3Bfont-weight%3A600%3Bletter-spacing%3A-0.32px%3Bfill%3A%2399ceff%3B%7D%23mermaid-_r_8e_%20.edgeLabels%20text%7Bfont-size%3A13px%3Bfont-weight%3A600%3Bletter-spacing%3A-0.08px%3Bfill%3A%2399ceff%3B%7D%23mermaid-_r_8e_%20.node%20tspan%5Bfont-weight%3D%22normal%22%5D%2C%23mermaid-_r_8e_%20.edgeLabels%20tspan%5Bfont-weight%3D%22normal%22%5D%7Bfont-weight%3A600%3B%7D%23mermaid-_r_8e_%20.edgeLabel%20.label%20rect%7Bopacity%3A1%3Brx%3A13px%3Bry%3A13px%3Bfill%3A%23000e1a%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.node%20rect%2C%23mermaid-_r_8e_%20.node%20circle%2C%23mermaid-_r_8e_%20.node%20ellipse%2C%23mermaid-_r_8e_%20.node%20polygon%2C%23mermaid-_r_8e_%20.node%20path%7Bfill%3Argb\(0%2C%2040%2C%2077\)%3Bstroke%3Argba\(255%2C%20255%2C%20255%2C%200.1\)%3Bstroke-width%3A1px%3B%7D%23mermaid-_r_8e_%20.node%20rect%7Brx%3A16px%3Bry%3A16px%3B%7D%23mermaid-_r_8e_%20.node.mermaid-decision%20.label-container%7Bfill%3A%23000e1a%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-dasharray%3A2%202%3B%7D%23mermaid-_r_8e_%20.edgePaths%20.flowchart-link%7Bstroke%3Argb\(26%2C%2062%2C%2095\)%3Bstroke-width%3A1px%3Bstroke-linecap%3Around%3Bstroke-linejoin%3Around%3B%7D%23mermaid-_r_8e_%20.marker%7Bfill%3Argb\(26%2C%2062%2C%2095\)%3Bstroke%3Argb\(26%2C%2062%2C%2095\)%3B%7D%23mermaid-_r_8e_%20.node%7Bcolor-scheme%3Adark%3B%7D%23mermaid-_r_8e_%20%3Aroot%7B--mermaid-font-family%3A%22-apple-system%22%2C%22BlinkMacSystemFont%22%2C%22Segoe%20UI%22%2C%22Roboto%22%2C%22Oxygen%22%2C%22Ubuntu%22%2C%22Cantarell%22%2C%22Helvetica%20Neue%22%2C%22Arial%22%2C%22sans-serif%22%3B%7D%3C%2Fstyle%3E%3Cg%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-pointEnd%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%22-5%20-5%2010%2010%22%20refX%3D%220%22%20refY%3D%220%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2210%22%20markerHeight%3D%2210%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%200%200%20L%204%200%20M%200.8180194846605362%20-3.181980515339464%20L%204%200%20L%200.8180194846605362%203.181980515339464%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%20none%3B%20fill%3A%20none%3B%20stroke-linecap%3A%20round%3B%20stroke-linejoin%3A%20round%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-pointStart%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%22-5%20-5%2010%2010%22%20refX%3D%220%22%20refY%3D%220%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2210%22%20markerHeight%3D%2210%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%200%200%20L%20-4%200%20M%20-0.8180194846605362%20-3.181980515339464%20L%20-4%200%20L%20-0.8180194846605362%203.181980515339464%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%20none%3B%20fill%3A%20none%3B%20stroke-linecap%3A%20round%3B%20stroke-linejoin%3A%20round%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-circleEnd%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%220%200%2010%2010%22%20refX%3D%2211%22%20refY%3D%225%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%225%22%20r%3D%225%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fcircle%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-circleStart%22%20class%3D%22marker%20flowchart-v2%22%20viewBox%3D%220%200%2010%2010%22%20refX%3D%22-1%22%20refY%3D%225%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Ccircle%20cx%3D%225%22%20cy%3D%225%22%20r%3D%225%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%201%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fcircle%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-crossEnd%22%20class%3D%22marker%20cross%20flowchart-v2%22%20viewBox%3D%220%200%2011%2011%22%20refX%3D%2212%22%20refY%3D%225.2%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%201%2C1%20l%209%2C9%20M%2010%2C1%20l%20-9%2C9%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%202%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3Cmarker%20id%3D%22mermaid-_r_8e__flowchart-v2-crossStart%22%20class%3D%22marker%20cross%20flowchart-v2%22%20viewBox%3D%220%200%2011%2011%22%20refX%3D%22-1%22%20refY%3D%225.2%22%20markerUnits%3D%22userSpaceOnUse%22%20markerWidth%3D%2211%22%20markerHeight%3D%2211%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M%201%2C1%20l%209%2C9%20M%2010%2C1%20l%20-9%2C9%22%20class%3D%22arrowMarkerPath%22%20style%3D%22stroke-width%3A%202%3B%20stroke-dasharray%3A%201%2C%200%3B%22%3E%3C%2Fpath%3E%3C%2Fmarker%3E%3C%2Fg%3E%3Cg%20class%3D%22subgraphs%22%3E%3C%2Fg%3E%3Cg%20class%3D%22nodes%22%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-A-0%22%20transform%3D%22translate\(180.24987284342447%2C%2042\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-105.1573715209961%22%20y%3D%22-30%22%20width%3D%22210.3147430419922%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EUser%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20creates%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20invoice%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-B-1%22%20transform%3D%22translate\(180.24987284342447%2C%20142\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-106.2511215209961%22%20y%3D%22-30%22%20width%3D%22212.5022430419922%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EValidate%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20data%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20locally%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-C-3%22%20transform%3D%22translate\(180.24987284342447%2C%20242\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-89.10252380371094%22%20y%3D%22-30%22%20width%3D%22178.20504760742188%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ECalculate%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20totals%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-D-5%22%20transform%3D%22translate\(180.24987284342447%2C%20342\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-127.7280044555664%22%20y%3D%22-30%22%20width%3D%22255.4560089111328%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ESave%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20invoice%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20in%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20IndexedDB%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-E-7%22%20transform%3D%22translate\(180.24987284342447%2C%20447.29999923706055\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-108.140625%22%20y%3D%22-35.29999923706055%22%20width%3D%22216.28125%22%20height%3D%2270.5999984741211%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-19.299999237060547\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ESave%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20invoice%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20items%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20in%3C%2Ftspan%3E%3C%2Ftspan%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%221em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3Etransaction%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-F-9%22%20transform%3D%22translate\(180.24987284342447%2C%20552.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-121.3359375%22%20y%3D%22-30%22%20width%3D%22242.671875%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ECreate%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20outbox%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20operation%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-G-11%22%20transform%3D%22translate\(180.24987284342447%2C%20652.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-116.97832489013672%22%20y%3D%22-30%22%20width%3D%22233.95664978027344%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EUpdate%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20UI%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20immediately%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%20%20mermaid-decision%22%20id%3D%22flowchart-H-13%22%20transform%3D%22translate\(180.24987284342447%2C%20752.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-99.47816467285156%22%20y%3D%22-30%22%20width%3D%22198.95632934570312%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EInternet%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20available%3F%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-I-15%22%20transform%3D%22translate\(147.09048461914062%2C%20918.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-135.09048461914062%22%20y%3D%22-30%22%20width%3D%22270.18096923828125%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EShow%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Offline%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2F%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Pending%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Sync%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-J-17%22%20transform%3D%22translate\(147.09048461914062%2C%201018.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-109.18551635742188%22%20y%3D%22-30%22%20width%3D%22218.37103271484375%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EWait%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20for%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20connectivity%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-K-19%22%20transform%3D%22translate\(147.09048461914062%2C%201118.599998474121\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-111.4453125%22%20y%3D%22-30%22%20width%3D%22222.890625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ERetry%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20synchronization%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-L-21%22%20transform%3D%22translate\(628.4690500895182%2C%20918.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-122.78611755371094%22%20y%3D%22-30%22%20width%3D%22245.57223510742188%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ESend%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20operation%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20to%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20server%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%20%20mermaid-decision%22%20id%3D%22flowchart-M-23%22%20transform%3D%22translate\(587.5403442382812%2C%201018.5999984741211\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-89.66925048828125%22%20y%3D%22-30%22%20width%3D%22179.3385009765625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EServer%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20accepts%3F%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-N-25%22%20transform%3D%22translate\(321.0357971191406%2C%201223.8999977111816\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-116.2109375%22%20y%3D%22-30%22%20width%3D%22232.421875%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EMark%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20operation%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20synced%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-O-27%22%20transform%3D%22translate\(837.592887878418%2C%201218.599998474121\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-99.7589340209961%22%20y%3D%22-30%22%20width%3D%22199.5178680419922%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ERetry%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20with%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20backoff%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-P-29%22%20transform%3D%22translate\(587.5403442382812%2C%201223.8999977111816\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-110.29360961914062%22%20y%3D%22-35.29999923706055%22%20width%3D%22220.58721923828125%22%20height%3D%2270.5999984741211%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-19.299999237060547\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ERecord%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20failure%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20%2F%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20show%3C%2Ftspan%3E%3C%2Ftspan%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%221em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3Econflict%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-Q-33%22%20transform%3D%22translate\(321.0357971191406%2C%201329.1999969482422\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-106.9815902709961%22%20y%3D%22-30%22%20width%3D%22213.9631805419922%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EPull%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20remote%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20changes%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-R-35%22%20transform%3D%22translate\(321.0357971191406%2C%201429.1999969482422\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-113.55206298828125%22%20y%3D%22-30%22%20width%3D%22227.1041259765625%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EUpdate%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20local%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20database%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22node%20default%22%20id%3D%22flowchart-S-37%22%20transform%3D%22translate\(321.0357971191406%2C%201529.1999969482422\)%22%3E%3Crect%20class%3D%22basic%20label-container%22%20style%3D%22%22%20x%3D%22-82.015625%22%20y%3D%22-30%22%20width%3D%22164.03125%22%20height%3D%2260%22%3E%3C%2Frect%3E%3Cg%20class%3D%22label%22%20style%3D%22%22%20transform%3D%22translate\(0%2C%20-10.5\)%22%3E%3Crect%3E%3C%2Frect%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EShow%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20Synced%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edges%20edgePaths%22%3E%3Cpath%20d%3D%22M180.24987284342447%2C72L180.24987284342447%2C100%22%20id%3D%22L_A_B_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_A_B_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5Ijo3Mn0seyJ4IjoxODAuMjQ5ODcyODQzNDI0NDcsInkiOjEwNH1d%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C172L180.24987284342447%2C200%22%20id%3D%22L_B_C_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_B_C_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5IjoxNzJ9LHsieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5IjoyMDR9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C272L180.24987284342447%2C300%22%20id%3D%22L_C_D_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_C_D_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5IjoyNzJ9LHsieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5IjozMDR9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C372L180.24987284342447%2C400%22%20id%3D%22L_D_E_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_D_E_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5IjozNzJ9LHsieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5Ijo0MDR9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C482.5999984741211L180.24987284342447%2C510.5999984741211%22%20id%3D%22L_E_F_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_E_F_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5Ijo0ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxODAuMjQ5ODcyODQzNDI0NDcsInkiOjUxNC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C582.5999984741211L180.24987284342447%2C610.5999984741211%22%20id%3D%22L_F_G_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_F_G_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5Ijo1ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxODAuMjQ5ODcyODQzNDI0NDcsInkiOjYxNC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M180.24987284342447%2C682.5999984741211L180.24987284342447%2C710.5999984741211%22%20id%3D%22L_G_H_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_G_H_0%22%20data-points%3D%22W3sieCI6MTgwLjI0OTg3Mjg0MzQyNDQ3LCJ5Ijo2ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxODAuMjQ5ODcyODQzNDI0NDcsInkiOjcxNC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M147.09048461914062%2C782.5999984741211L147.09048461914062%2C876.5999984741211%22%20id%3D%22L_H_I_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_H_I_0%22%20data-points%3D%22W3sieCI6MTQ3LjA5MDQ4NDYxOTE0MDYyLCJ5Ijo3ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoxNDcuMDkwNDg0NjE5MTQwNjIsInkiOjg4MC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M147.09048461914062%2C948.5999984741211L147.09048461914062%2C976.5999984741211%22%20id%3D%22L_I_J_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_I_J_0%22%20data-points%3D%22W3sieCI6MTQ3LjA5MDQ4NDYxOTE0MDYyLCJ5Ijo5NDguNTk5OTk4NDc0MTIxMX0seyJ4IjoxNDcuMDkwNDg0NjE5MTQwNjIsInkiOjk4MC41OTk5OTg0NzQxMjExfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M147.09048461914062%2C1048.599998474121L147.09048461914062%2C1076.599998474121%22%20id%3D%22L_J_K_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_J_K_0%22%20data-points%3D%22W3sieCI6MTQ3LjA5MDQ4NDYxOTE0MDYyLCJ5IjoxMDQ4LjU5OTk5ODQ3NDEyMX0seyJ4IjoxNDcuMDkwNDg0NjE5MTQwNjIsInkiOjEwODAuNTk5OTk4NDc0MTIxfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M213.40926106770831%2C782.5999984741211L213.40926106770834%2C795.5289306622556Q213.40926106770834%2C802.5999984741211%20220.48032887957382%2C802.5999984741211L621.6860940642235%2C802.5999984741211Q623.4690500895182%2C802.5999984741211%20624.8832636518913%2C803.685784911748L624.8832636518913%2C803.685784911748Q626.2974772142644%2C804.7715713493749%20627.3832636518913%2C806.185784911748L627.3832636518913%2C806.185784911748Q628.4690500895182%2C807.5999984741211%20628.4690500895182%2C809.3829544994157L628.4690500895182%2C876.5999984741211%22%20id%3D%22L_H_L_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_H_L_0%22%20data-points%3D%22W3sieCI6MjEzLjQwOTI2MTA2NzcwODMxLCJ5Ijo3ODIuNTk5OTk4NDc0MTIxMX0seyJ4IjoyMTMuNDA5MjYxMDY3NzA4MzQsInkiOjgwMi41OTk5OTg0NzQxMjExfSx7IngiOjYyOC40NjkwNTAwODk1MTgyLCJ5Ijo4MDIuNTk5OTk4NDc0MTIxMX0seyJ4Ijo2MjguNDY5MDUwMDg5NTE4MiwieSI6ODgwLjU5OTk5ODQ3NDEyMTF9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M587.5403442382814%2C948.5999984741211L587.5403442382812%2C976.5999984741211%22%20id%3D%22L_L_M_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_L_M_0%22%20data-points%3D%22W3sieCI6NTg3LjU0MDM0NDIzODI4MTQsInkiOjk0OC41OTk5OTg0NzQxMjExfSx7IngiOjU4Ny41NDAzNDQyMzgyODEyLCJ5Ijo5ODAuNTk5OTk4NDc0MTIxMX1d%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M542.7057189941405%2C1048.599998474121L542.7057189941406%2C1061.5289306622556Q542.7057189941406%2C1068.599998474121%20535.6346511822752%2C1068.599998474121L327.8187531444353%2C1068.599998474121Q326.0357971191406%2C1068.599998474121%20324.6215835567675%2C1069.685784911748L324.6215835567675%2C1069.685784911748Q323.2073699943944%2C1070.7715713493749%20322.1215835567675%2C1072.185784911748L322.1215835567675%2C1072.185784911748Q321.0357971191406%2C1073.599998474121%20321.0357971191406%2C1075.3829544994157L321.0357971191406%2C1181.8999977111816%22%20id%3D%22L_M_N_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_M_N_0%22%20data-points%3D%22W3sieCI6NTQyLjcwNTcxODk5NDE0MDUsInkiOjEwNDguNTk5OTk4NDc0MTIxfSx7IngiOjU0Mi43MDU3MTg5OTQxNDA2LCJ5IjoxMDY4LjU5OTk5ODQ3NDEyMX0seyJ4IjozMjEuMDM1Nzk3MTE5MTQwNiwieSI6MTA2OC41OTk5OTg0NzQxMjF9LHsieCI6MzIxLjAzNTc5NzExOTE0MDYsInkiOjExODUuODk5OTk3NzExMTgxNn1d%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M632.374969482422%2C1048.599998474121L632.3749694824219%2C1061.5289306622556Q632.3749694824219%2C1068.599998474121%20639.4460372942873%2C1068.599998474121L797.5569538461247%2C1068.599998474121Q799.3399098714193%2C1068.599998474121%20800.7541234337924%2C1069.685784911748L800.7541234337924%2C1069.685784911748Q802.1683369961655%2C1070.7715713493749%20803.2541234337924%2C1072.185784911748L803.2541234337924%2C1072.185784911748Q804.3399098714193%2C1073.599998474121%20804.3399098714193%2C1075.3829544994157L804.3399098714193%2C1176.599998474121%22%20id%3D%22L_M_O_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_M_O_0%22%20data-points%3D%22W3sieCI6NjMyLjM3NDk2OTQ4MjQyMiwieSI6MTA0OC41OTk5OTg0NzQxMjF9LHsieCI6NjMyLjM3NDk2OTQ4MjQyMTksInkiOjEwNjguNTk5OTk4NDc0MTIxfSx7IngiOjgwNC4zMzk5MDk4NzE0MTkzLCJ5IjoxMDY4LjU5OTk5ODQ3NDEyMX0seyJ4Ijo4MDQuMzM5OTA5ODcxNDE5MywieSI6MTE4MC41OTk5OTg0NzQxMjF9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M587.5403442382812%2C1048.599998474121L587.5403442382812%2C1176.599998474121%22%20id%3D%22L_M_P_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_M_P_0%22%20data-points%3D%22W3sieCI6NTg3LjU0MDM0NDIzODI4MTIsInkiOjEwNDguNTk5OTk4NDc0MTIxfSx7IngiOjU4Ny41NDAzNDQyMzgyODEyLCJ5IjoxMTgwLjU5OTk5ODQ3NDEyMX1d%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M870.8458658854167%2C1188.599998474121L870.8458658854167%2C1175.3829544994157Q870.8458658854167%2C1173.599998474121%20871.9316523230436%2C1172.185784911748L871.9316523230436%2C1172.185784911748Q873.0174387606705%2C1170.7715713493749%20874.4316523230436%2C1169.685784911748L874.4316523230436%2C1169.685784911748Q875.8458658854167%2C1168.599998474121%20877.6288219107114%2C1168.599998474121L889.0027241097965%2C1168.599998474121Q890.7856801350912%2C1168.599998474121%20892.1998936974643%2C1167.5142120364942L892.1998936974643%2C1167.5142120364942Q893.6141072598374%2C1166.4284255988673%20894.6998936974643%2C1165.0142120364942L894.6998936974643%2C1165.0142120364942Q895.7856801350912%2C1163.599998474121%20895.7856801350912%2C1161.8170424488264L895.7856801350912%2C1118.599998474121L895.7856801350912%2C1018.5999984741211L895.7856801350912%2C975.3829544994157Q895.7856801350912%2C973.5999984741211%20894.6998936974643%2C972.185784911748L894.6998936974643%2C972.185784911748Q893.6141072598374%2C970.7715713493749%20892.1998936974643%2C969.685784911748L892.1998936974643%2C969.685784911748Q890.7856801350912%2C968.5999984741211%20889.0027241097965%2C968.5999984741211L676.1807119660498%2C968.5999984741211Q674.3977559407551%2C968.5999984741211%20672.983542378382%2C967.5142120364942L672.983542378382%2C967.5142120364942Q671.5693288160089%2C966.4284255988673%20670.483542378382%2C965.0142120364942L670.483542378382%2C965.0142120364942Q669.3977559407551%2C963.5999984741211%20669.3977559407551%2C961.8170424488264L669.3977559407551%2C958.5999984741211%22%20id%3D%22L_O_L_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_O_L_0%22%20data-points%3D%22W3sieCI6ODcwLjg0NTg2NTg4NTQxNjcsInkiOjExODguNTk5OTk4NDc0MTIxfSx7IngiOjg3MC44NDU4NjU4ODU0MTY3LCJ5IjoxMTY4LjU5OTk5ODQ3NDEyMX0seyJ4Ijo4OTUuNzg1NjgwMTM1MDkxMiwieSI6MTE2OC41OTk5OTg0NzQxMjF9LHsieCI6ODk1Ljc4NTY4MDEzNTA5MTIsInkiOjExMTguNTk5OTk4NDc0MTIxfSx7IngiOjg5NS43ODU2ODAxMzUwOTEyLCJ5IjoxMDE4LjU5OTk5ODQ3NDEyMTF9LHsieCI6ODk1Ljc4NTY4MDEzNTA5MTIsInkiOjk2OC41OTk5OTg0NzQxMjExfSx7IngiOjY2OS4zOTc3NTU5NDA3NTUxLCJ5Ijo5NjguNTk5OTk4NDc0MTIxMX0seyJ4Ijo2NjkuMzk3NzU1OTQwNzU1MSwieSI6OTU0LjU5OTk5ODQ3NDEyMTF9XQ%3D%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M321.0357971191406%2C1253.8999977111816L321.0357971191406%2C1287.1999969482422%22%20id%3D%22L_N_Q_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_N_Q_0%22%20data-points%3D%22W3sieCI6MzIxLjAzNTc5NzExOTE0MDYsInkiOjEyNTMuODk5OTk3NzExMTgxNn0seyJ4IjozMjEuMDM1Nzk3MTE5MTQwNiwieSI6MTI5MS4xOTk5OTY5NDgyNDIyfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M321.0357971191406%2C1359.1999969482422L321.0357971191406%2C1387.1999969482422%22%20id%3D%22L_Q_R_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_Q_R_0%22%20data-points%3D%22W3sieCI6MzIxLjAzNTc5NzExOTE0MDYsInkiOjEzNTkuMTk5OTk2OTQ4MjQyMn0seyJ4IjozMjEuMDM1Nzk3MTE5MTQwNiwieSI6MTM5MS4xOTk5OTY5NDgyNDIyfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M321.0357971191406%2C1459.1999969482422L321.0357971191406%2C1487.1999969482422%22%20id%3D%22L_R_S_0%22%20class%3D%22edge-thickness-normal%20edge-pattern-solid%20edge-thickness-normal%20edge-pattern-solid%20flowchart-link%22%20style%3D%22%3B%22%20data-edge%3D%22true%22%20data-et%3D%22edge%22%20data-id%3D%22L_R_S_0%22%20data-points%3D%22W3sieCI6MzIxLjAzNTc5NzExOTE0MDYsInkiOjE0NTkuMTk5OTk2OTQ4MjQyMn0seyJ4IjozMjEuMDM1Nzk3MTE5MTQwNiwieSI6MTQ5MS4xOTk5OTY5NDgyNDIyfV0%3D%22%20marker-end%3D%22url\(%23mermaid-_r_8e__flowchart-v2-pointEnd\)%22%3E%3C%2Fpath%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabels%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22stroke%3A%20none%22%3E%3C%2Frect%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_A_B_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_B_C_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_C_D_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_D_E_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_E_F_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_F_G_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_G_H_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%20transform%3D%22translate\(147.0365753173828%2C%20835.5999984741211\)%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_H_I_0%22%20transform%3D%22translate\(-8.946090698242188%2C-7.5\)%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22%22%20x%3D%22-12%22%20y%3D%22-5.5%22%20width%3D%2241.892181396484375%22%20height%3D%2226%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ENo%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_I_J_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_J_K_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%20transform%3D%22translate\(628.0160166422526%2C%20835.5999984741211\)%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_H_L_0%22%20transform%3D%22translate\(-9.046966552734375%2C-7.5\)%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22%22%20x%3D%22-13%22%20y%3D%22-5.5%22%20width%3D%2244.09393310546875%22%20height%3D%2226%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EYes%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_L_M_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%20transform%3D%22translate\(320.582763671875%2C%201118.599998474121\)%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_M_N_0%22%20transform%3D%22translate\(-9.046966552734375%2C-7.5\)%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22%22%20x%3D%22-13%22%20y%3D%22-5.5%22%20width%3D%2244.09393310546875%22%20height%3D%2226%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3EYes%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%20transform%3D%22translate\(804.3127950032552%2C%201118.599998474121\)%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_M_O_0%22%20transform%3D%22translate\(-59.47288513183594%2C-7.5\)%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22%22%20x%3D%22-12%22%20y%3D%22-5.5%22%20width%3D%22142.94577026367188%22%20height%3D%2226%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ENo%3A%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20temporary%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20error%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%20transform%3D%22translate\(587.0601043701172%2C%201118.599998474121\)%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_M_P_0%22%20transform%3D%22translate\(-88.51976013183594%2C-7.5\)%22%3E%3Cg%3E%3Crect%20class%3D%22background%22%20style%3D%22%22%20x%3D%22-12%22%20y%3D%22-5.5%22%20width%3D%22201.03952026367188%22%20height%3D%2226%22%3E%3C%2Frect%3E%3Ctext%20y%3D%22-10.1%22%20style%3D%22%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3ENo%3A%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20conflict%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20or%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20validation%3C%2Ftspan%3E%3Ctspan%20font-style%3D%22normal%22%20class%3D%22text-inner-tspan%22%20font-weight%3D%22normal%22%3E%20error%3C%2Ftspan%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_O_L_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_N_Q_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_Q_R_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3Cg%20class%3D%22edgeLabel%22%3E%3Cg%20class%3D%22label%22%20data-id%3D%22L_R_S_0%22%20transform%3D%22translate\(0%2C%200\)%22%3E%3Ctext%20y%3D%22-10.1%22%3E%3Ctspan%20class%3D%22text-outer-tspan%22%20x%3D%220%22%20y%3D%22-0.1em%22%20dy%3D%221.1em%22%3E%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E)
+  1774→
+  1775→### Example of the user experience
+  1776→
+  1777→|
+  1778→Action
+  1779→
+  1780→|
+  1781→
+  1782→Offline
+  1783→
+  1784→|
+  1785→
+  1786→Online
+  1787→
+  1788→|
+  1789→| --- | --- | --- |
+  1790→|
+  1791→
+  1792→Create customer
+  1793→
+  1794→|
+  1795→
+  1796→Saved locally
+  1797→
+  1798→|
+  1799→
+  1800→Saved locally, then synced
+  1801→
+  1802→|
+  1803→|
+  1804→
+  1805→Create quotation
+  1806→
+  1807→|
+  1808→
+  1809→Available
+  1810→
+  1811→|
+  1812→
+  1813→Available
+  1814→
+  1815→|
+  1816→|
+  1817→
+  1818→Generate PDF
+  1819→
+  1820→|
+  1821→
+  1822→Available if assets are cached
+  1823→
+  1824→|
+  1825→
+  1826→Available
+  1827→
+  1828→|
+  1829→|
+  1830→
+  1831→Create invoice
+  1832→
+  1833→|
+  1834→
+  1835→Available
+  1836→
+  1837→|
+  1838→
+  1839→Available
+  1840→
+  1841→|
+  1842→|
+  1843→
+  1844→Cloud backup
+  1845→
+  1846→|
+  1847→
+  1848→Pending
+  1849→
+  1850→|
+  1851→
+  1852→Available after synchronization
+  1853→
+  1854→|
+  1855→|
+  1856→
+  1857→Shared team data
+  1858→
+  1859→|
+  1860→
+  1861→Previously synchronized data only
+  1862→
+  1863→|
+  1864→
+  1865→Available subject to permissions
+  1866→
+  1867→|
+  1868→|
+  1869→
+  1870→Google login
+  1871→
+  1872→|
+  1873→
+  1874→Requires a prior authenticated session or guest mode
+  1875→
+  1876→|
+  1877→
+  1878→Available
+  1879→
+  1880→|
+  1881→|
+  1882→
+  1883→Subscription purchase
+  1884→
+  1885→|
+  1886→
+  1887→Unavailable until connectivity returns
+  1888→
+  1889→|
+  1890→
+  1891→Available when implemented
+  1892→
+  1893→|
+  1894→
+  1895→Important limitation: Offline mode cannot guarantee that cloud data or the latest shared workspace changes are available. You must clearly show the user whether data is local, synced, or pending.
+  1896→
+  1897→## 4. Essential database design
+  1898→
+  1899→Use UUIDs for synchronized entities. Keep document numbers separate from entity IDs.
+  1900→
+  1901→## Core database relationships
+  1902→
+  1903→Simplified relational model for the MVP
+  1904→
+  1905→workspaces
+  1906→
+  1907→id · name · owner_id
+  1908→
+  1909→customers
+  1910→
+  1911→id · workspace_id · name · GSTIN
+  1912→
+  1913→quotations
+  1914→
+  1915→id · customer_id · status · total_minor
+  1916→
+  1917→quotation_items
+  1918→
+  1919→id · quotation_id · description · quantity · unit_price_minor
+  1920→
+  1921→invoices
+  1922→
+  1923→id · quotation_id? · customer_id · status · total_minor
+  1924→
+  1925→payments
+  1926→
+  1927→id · invoice_id · amount_minor · payment_date
+  1928→
+  1929→sync_operations
+  1930→
+  1931→id · entity_id · operation · status · retry_count
+  1932→
+  1933→### Money representation
+  1934→
+  1935→Use integer minor units or a decimal library.
+  1936→
+  1937→For example, for Indian rupees:
+  1938→
+  1939→TypeScript
+  1940→
+  1941→```
+  1942→type Money = {
+  1943→  currency: "INR";
+  1944→  minorUnits: bigint;
+  1945→};
+  1946→```
+  1947→
+  1948→A value of ₹1,250.50 would be represented as `125050` paise when using integer paise.
+  1949→
+  1950→For production financial software, ensure that serialization, database types, calculations, rounding, and PDF formatting are consistent.
+  1951→
+  1952→## 5. How to instruct the AI to work step by step
+  1953→
+  1954→Do not ask the coding AI to generate all 41 documents and the entire application in one response. Use the master prompt first, then proceed with focused prompts.
+  1955→
+  1956→## Choose the next implementation phase
+  1957→
+  1958→Select a phase to generate a ready-to-use instruction for your coding assistant.
+  1959→
+  1960→Phase 1 — Project foundation
+  1961→
+  1962→Phase 2 — Local database
+  1963→
+  1964→Phase 3 — Invoice & quotation MVP
+  1965→
+  1966→Phase 4 — Cloud synchronization
+  1967→
+  1968→Phase 5 — Electron integration
+  1969→
+  1970→Phase 6 — Testing & security
+  1971→
+  1972→Phase 7 — Deployment
+  1973→
+  1974→Ready-to-use prompt
+  1975→
+  1976→Now implement Phase 1 of InvoiceFlow. Set up the monorepo, Next.js, Electron, TypeScript, Tailwind CSS, shared packages, ESLint, environment templates, and a secure Electron preload bridge. First inspect the repository and create the necessary architecture documentation. Run type checks and tests.
+  1977→
+  1978→Copy promptStart this phase in ChatGPT
+  1979→
+  1980→## 6. Important design decisions before development
+  1981→
+  1982→|
+  1983→Decision
+  1984→
+  1985→|
+  1986→
+  1987→Recommendation
+  1988→
+  1989→|
+  1990→| --- | --- |
+  1991→|
+  1992→
+  1993→Desktop framework
+  1994→
+  1995→|
+  1996→
+  1997→Electron
+  1998→
+  1999→|
+  2000→|
+
+[showing lines 1-2000 of 2107; use offset=2001 with limit to continue reading]

@@ -1,0 +1,183 @@
+     1→# InvoiceFlow — Agent Worklog
+     2→
+     3→Shared handover document. Every agent MUST read this file before working and append a section (never overwrite) when finished.
+     4→
+     5→---
+     6→
+     7→Task ID: 0
+     8→Agent: Z.ai Code (main orchestrator)
+     9→Task: Project inspection, baseline setup, canonical spec creation.
+    10→
+    11→Work Log:
+    12→- Inspected repo: Next.js 16 (App Router) + TypeScript strict + Tailwind 4 + shadcn/ui (full set) + Prisma/SQLite + Zustand + Zod + RHF + recharts + sonner already installed.
+    13→- Dev server already running on port 3000 (logs: /home/z/my-project/dev.log). DB: file:/home/z/my-project/db/custom.db
+    14→- Installed: dexie, dexie-react-hooks, jspdf, jspdf-autotable.
+    15→- Created docs/_CANON.md — the canonical architecture/data-model/sync-protocol spec. ALL agents must derive their docs/code from it for consistency.
+    16→- Plan: docs via parallel agents (D1..D8), Supabase SQL agent (E1), Electron scaffold agent (E2), core app built by orchestrator, PDF/Reports/Settings via agents (F1..F3), then lint, browser E2E verification, cron handoff.
+    17→
+    18→Stage Summary:
+    19→- Baseline ready. Canonical spec at docs/_CANON.md is the source of truth for all modules.
+    20→- Constraint notes: sandbox preview can only serve the `/` route → the app is an offline-first SPA with hash-based internal navigation; API routes are used (no server actions); tests are described in docs (35/36) but not bundled in the sandbox per environment rules.
+    21→
+    22→---
+    23→Task ID: 2-j
+    24→Agent: E2-electron-scaffold
+    25→Task: Electron desktop scaffold (CANON §2 apps/desktop → electron/)
+    26→Work Log:
+    27→- Read worklog.md + docs/_CANON.md in full (§2 mapping, §13 PDF, §16 security baseline, §17 desktop offline, §19.6 scaffold scope).
+    28→- Created the security-hardened Electron scaffold entirely inside electron/ (root package.json/tsconfig/eslint untouched, Next build unaffected).
+    29→- package.json (`@invoiceflow/desktop`, main dist/main.js, compile/start/package scripts, electron ^33 / electron-builder ^25 / typescript ^5 / @types/node ^22 — deps NOT installed in sandbox) + tsconfig.json (ES2022/commonjs/strict, noUnusedLocals/Parameters).
+    30→- main.ts: single-instance lock; BrowserWindow 1440×900 (min 1024×700, show:false) with contextIsolation+sandbox+nodeIntegration:false+webSecurity; ready-to-show → show+maximize; renderer modes (ELECTRON_START_URL dev/remote → embedded static export via file:// → localhost:3000 fallback); strict will-navigate allow-list (hash routing unaffected, file:// only inside bundle); setWindowOpenHandler deny + shell.openExternal https allow-list; CSP injection via onHeadersReceived (exact CANON §16 policy; dev adds 'unsafe-eval' for HMR); deny-all permission handler; will-attach-webview blocked; lifecycle (window-all-closed/activate/will-quit), menu wiring, graceful dialog.showErrorBox for fatal errors (uncaughtException/unhandledRejection/render-process-gone).
+    31→- preload.ts: self-contained (sandbox-safe, only `electron` require in emitted JS — verified) contextBridge `window.invoiceflow`: isDesktop/platform/appVersion (one-shot sync bootstrap channel, since `app` is not importable in sandboxed preloads), getDeviceInfo/savePdf/printPdf/exportFile/openExternal/onNetworkChange (returns unsubscribe); all args validated + structuredClone'd before IPC.
+    32→- ipc/channels.ts: IPC_CHANNELS const object (required set + 3 documented deviations: app:get-version, menu:export-pdf, app:open-external — each justified in comments), request/response interfaces, type guards for every payload, EXTERNAL_HOST_ALLOWLIST + isAllowedExternalUrl.
+    33→- ipc/handlers.ts: registerIpcHandlers(getMainWindow) — every channel type-guards `unknown` payloads; app:get-device-info (os/hostname/release/versions), pdf:save, pdf:print, file:export, app:open-external (authoritative allow-list), updater:check; only user-chosen paths ever returned.
+    34→- services: file-service (savePdf → documents-dir save dialog + writeFile, writeTempPdf randomized temp, printPdf via temp file + shell.openPath with documented printToPDF trade-off, sanitizeFileName), menu-service (File: New Invoice/Print/Export PDF/Quit; Edit/View/Window/Help roles, devtools+reload dev-only), network-service (net.online + DNS probe of app origin every 15 s → network:change push, rebroadcast on did-finish-load), update-service (INVOICEFLOW_UPDATE_URL JSON {version,url} stub with timeout/size-cap/https-redirects, semver-ish compare; electron-updater marked Phase 8).
+    35→- invoiceflow.d.ts: global `Window.invoiceflow: InvoiceFlowBridge | undefined` typing for renderer runtime detection.
+    36→- electron-builder.yml: appId com.invoiceflow.app, NSIS (oneClick:false, dir choice), DMG (business, hardenedRuntime + signing/notarization notes), AppImage+deb (Office), publish github, optional renderer/** embed comment.
+    37→- README.md: mermaid architecture (Main → preload bridge → Next renderer → domain → Dexie → sync → cloud; main → native services), runtime detection, shared-code story, security-model table (CANON §16), dev workflow (ELECTRON_START_URL=http://localhost:3000 npm start), per-OS packaging + code-signing notes, IPC table, limitations/roadmap. Plus electron/.gitignore.
+    38→- VERIFICATION (no electron dep in sandbox): type-checked all of electron/src under strict TS 5.9 against a faithful Electron-33 typings stub in a temp harness — tsc exit 0, zero errors; verified tsc emit layout produces dist/main.js + dist/preload.js exactly as package.json expects; verified emitted preload.js requires only `electron` (type-only imports erased → sandbox-safe single file); JSON/YAML validated; grep confirms zero `any` usage.
+    39→- NOTE FOR ORCHESTRATOR: root tsconfig `include: ["**/*.ts"]` currently pulls electron/src into Next's type-check → add "electron" to root tsconfig `exclude` (and eslint ignores) as planned; no other root changes needed.
+    40→Stage Summary:
+    41→- Files written: electron/package.json, electron/tsconfig.json, electron/electron-builder.yml, electron/README.md, electron/.gitignore, electron/src/main.ts, electron/src/preload.ts, electron/src/invoiceflow.d.ts, electron/src/ipc/channels.ts, electron/src/ipc/handlers.ts, electron/src/services/{file-service,menu-service,network-service,update-service}.ts.
+    42→- Desktop shell is scaffold-complete and strict-type-verified; renderer remains the untouched Next.js app; worklog appended, nothing outside electron/ modified.
+    43→
+    44→---
+    45→Task ID: 2-g
+    46→Agent: D7-docs-writer
+    47→Task: docs 35-41 (testing/deploy/env/backup/perf/roadmap)
+    48→Work Log:
+    49→- Read worklog.md and docs/_CANON.md completely (all 266 lines) before writing; derived every file from CANON §2–§19 (sandbox mapping, §4 money math, §7 Dexie indexes, §9 sync protocol, §16 security, §17 PWA/Electron, §19.3/§19.5 assumptions).
+    50→- Wrote docs/35-TESTING.md: full pyramid (unit domain/integration fake-indexeddb+temp SQLite/component RTL/e2e Playwright web+Electron), edge-case contract tables (odd-paise CGST/SGST split per §4 formula, tax-inclusive extraction, round-off ±, FY boundaries, in-words CANON example), test builders, CI GitHub Actions, coverage gates (domain 95%+), Supabase mocking, example vitest + playwright configs, sample computeDocumentTotals test (grandTotalRaw 235999 → roundOff +1 → 236000), explicit CANON §19.5 no-bundled-tests statement.
+    51→- Wrote docs/36-OFFLINE-TESTING.md: setOffline/blockServer interception, SW update (invoiceflow-v1→v2), persistence across reloads, 13-step outbox→online drain walkthrough, two-context conflict recipe, clock tests (overdue, Mar 31/Apr 1 FY boundary, lazy EXPIRED), Electron offline launch via _electron, 16-row scenario×steps×expected checklist.
+    52→- Wrote docs/37-DEPLOYMENT.md: Vercel (env vars, build, CSP/HSTS headers, SW prod-only), Supabase (migrations 0001→0003 order, RLS verification gates, storage buckets, PITR), electron-builder matrix (Win NSIS, macOS DMG signed+notarized, Linux AppImage/deb), code signing, semver + GH Actions release flow with YAML, deployment architecture mermaid, rollback, health checks.
+    53→- Wrote docs/38-ENVIRONMENT.md: every env var table (DATABASE_URL, NEXT_PUBLIC_*, SUPABASE_* with service-role warning box, SUPABASE_JWT_SECRET + NEXTAUTH_SECRET equivalence note, ELECTRON_START_URL, 3 feature flags), zod env validation, .env.example block, dev/preview/prod/desktop matrix, 90-day rotation policy.
+    54→- Wrote docs/39-BACKUP-RESTORE.md: JSON export schema {meta:{app,version,exported_at,device_id},tables:{17 CANON §7 tables}}, Zod import validation, merge policy (keep newer version/updated_at, never auto-delete, sequences = max), scheduled reminder, Supabase PITR + logical dumps, desktop userData pointer, restore-flow mermaid, corrupted-DB DR runbook, acceptance criteria.
+    55→- Wrote docs/40-PERFORMANCE.md: budgets (TTI<2s, list<100ms, PDF<1s/50 items, totals<5ms/100 items, pull 500<3s, JS≤300KB gz), verbatim CANON §7 Dexie index list with query rules, useLiveQuery granularity, 500-row virtualization threshold, 10/page pagination, memoized aggregations, lazy jsPDF/recharts dynamic imports, logo ≤1MB + downscale, SW cache strategy, bulkPut 25/batch in one pull transaction, web-vitals monitoring.
+    56→- Wrote docs/41-FUTURE-ROADMAP.md: v1.1 (team members UI, email, WhatsApp Cloud API, payment links), v1.2 (Razorpay/Stripe, subscription billing, expenses, purchases), v2.0 (multi-company, multi-currency, inventory, e-invoice IRN note, e-way bill, TDS, mobile via same core) — each with rationale, docs/24–28 pointer, S/M/L effort, CANON §19.3/§19.7 alignment table, timeline mermaid gantt.
+    57→- All 7 files use the standard skeleton (Purpose/Scope/Business requirements/Technical design/Data models/Offline/Online/Security/Error-handling/Acceptance criteria/References) with production-quality English and no placeholders.
+    58→- Cross-reference alignment pass (post concurrent-appends): docs/41 roadmap pointers updated to the actual extension-doc titles landed by 2-e (WhatsApp→docs/24-WHATSAPP-SHARING, email→docs/25-EMAIL, subscription→docs/26-SUBSCRIPTION, payments/links→docs/27-PAYMENT-INTEGRATION; expenses/purchases/multi-company/currency/inventory→docs/28 design slot); docs/36 drain walkthrough totals restated as ₹2,360.00 (raw 235999 + 1 round-off) matching docs/35 §4.3 exactly.
+    59→
+    60→Stage Summary:
+    61→- Files written: docs/35-TESTING.md, docs/36-OFFLINE-TESTING.md, docs/37-DEPLOYMENT.md, docs/38-ENVIRONMENT.md, docs/39-BACKUP-RESTORE.md, docs/40-PERFORMANCE.md, docs/41-FUTURE-ROADMAP.md (7/7 complete; worklog appended, nothing overwritten).
+    62→
+    63→---
+    64→
+    65→Task ID: 2-d
+    66→Agent: D4-docs-writer
+    67→Task: docs 14-19
+    68→Work Log:
+    69→- Read worklog.md and docs/_CANON.md in full; treated _CANON.md as the single source of truth (§1 pipeline, §3 metadata, §6 numbering, §7 Dexie schema, §8 cloud, §9 sync protocol, §10 conflict matrix, §11 guest/claim, §13 PDF, §14 API, §16 security, §17 PWA, §19 limitations).
+    70→- Wrote docs/14-PDF-GENERATION.md: jsPDF + jspdf-autotable rationale table, UnifiedDocumentModel (snapshots-in, domain-engine totals only), full A4 zone/layout spec, multi-page behavior, offline generation flowchart, Electron printToPDF/save IPC contract, Rs.-vs-₹ font limitation, error matrix, acceptance criteria.
+    71→- Wrote docs/15-OFFLINE-FIRST.md: golden-rule pipeline as normative mermaid flowchart (create-invoice trace incl. conflict/validation/backoff branches), IndexedDB source-of-truth table, outbox pattern summary, network detection (navigator.onLine + /api/health heartbeat), guest mode + claim path, PWA sw.js caching rules, offline capabilities matrix, browser limitations & mitigations.
+    72→- Wrote docs/16-INDEXEDDB-DATABASE.md: verbatim CANON §7 v1 schema code block (17 tables + index strings) plus reference table, why-Dexie rationale, metadata conventions, one-transaction finalize example (invoice+sequence+audit+outbox), v2 migration example code, storage estimates & eviction mitigations (JSON backup), DevTools debugging tips, local erDiagram, repository "API contract" surface.
+    73→- Wrote docs/17-SYNC-ENGINE.md: CANON §9 push/pull JSON reproduced verbatim + all 7 server rules; engine lifecycle (5 triggers, mutex guards, push-then-pull, reclaim of in_flight); op statuses stateDiagram; ProcessedOp idempotency; ChangeLog.seq cursors (push_cursor reserved/unused in v1); retry schedule table (2s→256s, cap 10 min, 8 attempts → failed, manual retry resets); auth-expiry & schema-version guard; batch rules (25 push / 500 pull); two-devices+server sequenceDiagram; outbox lifecycle flowchart; "no silent data loss" guarantee matrix.
+    74→- Wrote docs/18-CONFLICT-RESOLUTION.md: CANON §10 matrix reproduced; 3-way merge pseudocode (customer/product/draft docs) with an explicitly justified local-only unindexed sync_operations.base_json deviation (merge-base snapshot; never on the wire, no index change); never-auto-merge list (finalized docs, payments, tombstones, numbers); conflict UI spec (side-by-side diff, Keep mine / Keep server's / Delete); SYNC_CONFLICT audit detail_json; reconnect sequenceDiagram (first wins, second → conflict UI), delete-vs-edit, double-finalize, duplicate-number (§6 server authority), record conflict-lifecycle stateDiagram.
+    75→- Wrote docs/19-CLOUD-SYNC.md: Supabase production design (tables mirroring CANON §7 + change_log/processed_ops, RLS SQL excerpts with is_workspace_member/has_role and the 4-role matrix, company-assets/attachments buckets with {workspace_id}/{entity}/{filename}), Edge Functions alternative with trade-offs, dev-cloud adapter (Next API routes + Prisma SQLite, PrismaSyncStore vs SupabaseSyncStore behind a SyncServerStore port), claim flow, deployment architecture flowchart (dev & prod subgraphs), service-keys-server-only security posture.
+    76→- Consistency pass: all numeric contracts pinned to CANON (backoff 2^n×2s cap 10 min / 8 attempts; batch 25; pull limit 500; prune 7 days; roles VIEWER read-only, MEMBER no delete, ADMIN no workspace delete; number format {prefix}/{FY}/{seq4}; DRAFT-xxxxxxxx; Rs. in PDFs); each file carries the full section set (Purpose, Scope, Business requirements, Technical design, Data models, API contracts, Offline behavior, Online behavior, Security considerations, Error-handling rules, Acceptance criteria) and the specified mermaid diagrams.
+    77→Stage Summary:
+    78→- docs/14-PDF-GENERATION.md (PDF system: jsPDF rationale, UnifiedDocumentModel, A4 layout, offline flow + Electron IPC, limitations)
+    79→- docs/15-OFFLINE-FIRST.md (offline-first philosophy, pipeline flowchart, capabilities matrix, network detection, guest mode, PWA, browser limits)
+    80→- docs/16-INDEXEDDB-DATABASE.md (Dexie v1 schema verbatim, transactions, migrations, storage/eviction, debugging, local ERD)
+    81→- docs/17-SYNC-ENGINE.md (definitive sync spec: §9 contracts, lifecycle, statuses, idempotency, cursors, backoff table, sequence/state/outbox diagrams)
+    82→- docs/18-CONFLICT-RESOLUTION.md (conflict matrix, 3-way merge pseudocode, conflict UI, audit, reconnect scenarios, conflict state machine)
+    83→- docs/19-CLOUD-SYNC.md (Supabase design + RLS SQL + buckets + Edge Functions, dev-cloud Prisma adapter, SyncServerStore port, deployment diagram)
+    84→
+    85→---
+    86→
+    87→Task ID: 2-e
+    88→Agent: D5-docs-writer
+    89→Task: docs 20-27
+    90→Work Log:
+    91→- Read worklog.md and docs/_CANON.md in full; derived all content from CANON §3-§17/§19 (money in paise, statuses, outbox protocol, storage buckets, UI states, extension-point list).
+    92→- Wrote 20-DASHBOARD.md: 8 KPI cards with exact formulas (Total invoices = all non-deleted except CANCELLED incl. drafts; Drafts/PAID/Unpaid/Overdue per status predicates; Total quotations; Accepted = ACCEPTED+CONVERTED; Outstanding = Σ(grand_total−paid_total) of FINALIZED+PARTIALLY_PAID), supporting metrics (Total revenue = Σ payments; Invoiced = Σ grand_total of FINALIZED+PARTIALLY_PAID+PAID), FY-default period selector, monthly invoiced-vs-collected chart (trailing 6 buckets), recent transactions, sync status + workspace cards, pure-aggregator design, mermaid Dexie→aggregation→cards data flow.
+    93→- Wrote 21-REPORTS.md: 5 reports (Sales; GST Summary grouped by month with CGST/SGST/IGST; Outstanding with 0-30/31-60/61-90/90+ aging clamped at due_date-or-invoice_date; Customers by collected revenue; Products by Σqty_milli + Σ line totals), FY-default date ranges, exact CSV spec (UTF-8 BOM, comma, RFC-4180 quoting, CRLF, per-report column dictionaries), client-side pure aggregation over IndexedDB snapshot columns, GST-summary PDF export marked as extension point.
+    94→- Wrote 22-STORAGE.md: attachments table (inline blobs ≤2 MB MVP, local-only), logo/signature dataURLs ≤1 MB PNG/JPEG on company_profiles, Supabase buckets company-assets/attachments with {workspace_id}/{entity}/{filename} paths + RLS policy sketch, quota guidance (50 MB soft budget, storage.estimate), orphan sweep + future cloud GC, signed-upload API sketch, lifecycle mermaid.
+    95→- Wrote 23-NOTIFICATIONS.md: sonner toast catalog with coalescing/dedupe/duration rules via notify.ts typed event bus, sync pill state machine (Synced/Pending N/Syncing/Offline/Error/Reauth) with stateDiagram, overdue badges, browser-push + Electron-desktop extension points, future notification_prefs design.
+    96→- Wrote 24-WHATSAPP-SHARING.md: banner-marked extension point; MVP = PDF download + Web Share API; future wa.me deep-link tier + WhatsApp Business Cloud API server-side design (why server+public URL is mandatory), share_outbox queue with engine backoff + idempotency, template compliance (opt-in, 24h window, {{1..5}} mapping), registration/send payload examples, webhook signature verification, sequence diagram.
+    97→- Wrote 25-EMAIL.md: banner-marked extension point; Edge Function + Resend/SES adapter, client-rendered PDF uploaded to storage and attached server-side, templates (invoice_sent/payment_reminder/quotation_sent/trial_ending) with merge-field tables, email_log table + statuses, email ops join the outbox (entity enum v2 bump, same retry/backoff), SPF/DKIM/DMARC note, no SMTP creds client-side, render pseudocode.
+    98→- Wrote 26-SUBSCRIPTION.md: banner-marked extension point; Free/Pro/Business catalog, plan_limits/subscriptions/usage_counters SQL sketch, assertEntitlement in push pipeline returning per-op rejected/plan_limit (reuses CANON push contract), entitlements cache TTL pattern, Stripe/Razorpay adapter + webhook lifecycle mermaid, 14-day no-card trial with grace, BILLING_ENFORCED=false dev flag.
+    99→- Wrote 27-PAYMENT-INTEGRATION.md: per-feature status header; IMPLEMENTED manual recording (eligibility, exact allocation/recalc pseudocode, overpayment-as-advance, two-op enqueue + audit), future Razorpay/Stripe collection (server-side order creation from server-computed balance, signed webhooks → same trusted allocation, 3-layer idempotency), sequence diagram, UPI intent links (manual reconciliation), refunds design (refunds table, refunded_total_paise, effective_paid recalc, cancel invariant preserved).
+   100→- Validation pass: all 8 files contain the 11 required sections; 157-189 lines each; mermaid blocks present in 20/22/23/24/26/27; cross-references use canonical doc numbers from CANON.
+   101→Stage Summary:
+   102→- docs/20-DASHBOARD.md — KPI formulas, period/chart/cards, data-flow diagram (170 lines)
+   103→- docs/21-REPORTS.md — 5 reports, aging buckets, CSV spec + column dictionaries (164 lines)
+   104→- docs/22-STORAGE.md — local/cloud attachment design, RLS sketch, quotas, cleanup (166 lines)
+   105→- docs/23-NOTIFICATIONS.md — toast catalog, sync pill machine, overdue badge, push/desktop extension points (162 lines)
+   106→- docs/24-WHATSAPP-SHARING.md — MVP sharing + WhatsApp Cloud API future design, share queue, sequence diagram (189 lines)
+   107→- docs/25-EMAIL.md — Edge-Function email pipeline, templates, email_log, outbox integration (157 lines)
+   108→- docs/26-SUBSCRIPTION.md — plans, entitlements, billing tables/hooks, gating, trials (178 lines)
+   109→- docs/27-PAYMENT-INTEGRATION.md — manual payments (implemented) vs gateway/UPI/refunds (extension points), sequence diagram (157 lines)
+   110→
+   111→---
+   112→
+   113→Task ID: 2-b
+   114→Agent: D2-docs-writer
+   115→Task: docs 05-08
+   116→Work Log:
+   117→- Read worklog.md and docs/_CANON.md in full (all 19 sections); cross-checked the sandbox scaffold (prisma/schema.prisma, src/lib tree) and the master-prompt reference material in upload/ to mirror the user's Electron architecture diagram.
+   118→- Wrote docs/05-SYSTEM-ARCHITECTURE.md: 4 mermaid diagrams (high-level system, Electron process architecture mirroring main→preload contextBridge→renderer→domain→Dexie/IndexedDB+sync engine→cloud API→PostgreSQL+RLS and main→native services→print/export/OS, web application, deployment incl. sandbox), source-of-truth master principle, offline-first pipeline (CANON §1), layered design with sync engine as separate bounded context, monorepo→sandbox mapping (CANON §2), ADR-001..007 each with Context/Decision/Consequences, API surface, offline/online behavior, security, error-handling, acceptance criteria.
+   119→- Wrote docs/06-DATABASE-DESIGN.md: storage-tier ownership matrix, common sync-metadata block (CANON §3) + sync_state state diagram, big erDiagram covering all 17 required tables, full field tables for every CANON §7 entity (name/type/Postgres type/nullable/meaning), server-only tables (users, sessions, changelog, processed_op) with mini erDiagram, Supabase mapping + RLS policy summary (CANON §8), Dexie v1 index set verbatim + Postgres index strategy, retention & soft-deletion policy, dual migration strategy (Dexie versions + supabase/migrations 0001-0003 + schema_version handshake).
+   120→- Wrote docs/07-AUTHENTICATION.md: guest-first model, dev auth (scrypt 16B salt/64B key, if_session httpOnly SameSite=Lax 30-day cookie, Session table, 10 req/min/IP token bucket), mermaid sequences for register→session→claim→sync, login, and auth-expiry mid-sync, workspace claim contract, Supabase Auth production design (email/password + Google OAuth, JWT→RLS), logout & account deletion, CSRF stance (SameSite=Lax + JSON-only APIs), error table, acceptance criteria.
+   121→- Wrote docs/08-COMPANY-MANAGEMENT.md: full company_profiles field reference, CompanyView form UX sections + validation (GSTIN regex, INDIAN_STATES reference, PNG/JPEG ≤1MB dataURL branding), prefixes/numbering config, tax defaults (default_gst_rate_bps/price_includes_tax/enable_round_off), multi-workspace design (workspaces + workspace_members + future multi-company), company→documents flow diagram, save/sync sequence, offline (outbox op upsert company) vs online (server revalidate + ChangeLog) behavior, security, error rules, acceptance criteria.
+   122→- Verified consistency against CANON throughout: exact names (sync_operations, sync_metadata, app_settings, if_session, number_reassigned, computeDocumentTotals, UnifiedDocumentModel), §19 limitations quoted, no invented endpoints or fields; docs cross-reference 06/07/14/16/17/18/19/29/30/32/35/36/39.
+   123→
+   124→Stage Summary:
+   125→- Files written: docs/05-SYSTEM-ARCHITECTURE.md (flagship architecture, 4 diagrams, ADR-001..007), docs/06-DATABASE-DESIGN.md (17-store model + Postgres/RLS + migrations), docs/07-AUTHENTICATION.md (guest-first + dev auth + Supabase Auth, 3 sequences), docs/08-COMPANY-MANAGEMENT.md (profile reference + UX + flows).
+   126→- All four docs follow the standard section set (Purpose/Scope/Business requirements/Technical design/Data models/API contracts/Offline/Online/Security/Error-handling/Acceptance criteria) and are fully CANON-consistent; worklog appended, nothing overwritten.
+   127→
+   128→---
+   129→
+   130→Task ID: 2-a
+   131→Agent: D1-docs-writer
+   132→Task: docs 01-04
+   133→Work Log:
+   134→- Read worklog.md and docs/_CANON.md in full; treated CANON (§1–§19) as the single source of truth for entities, field names (qty_milli / unit_price_paise / gst_rate_bps / *_paise / *_bps), sync protocol, lifecycles, phases, and §2 sandbox mapping.
+   135→- Wrote docs/01-PROJECT-OVERVIEW.md: vision, problem statement, target users, goals/non-goals, environment matrix (Electron Win/Mac/Linux, web PWA, offline/online), golden-rule pipeline as mermaid flowchart, module map (CANON §2 fold), success metrics, phase summary (CANON §18), high-level architecture mermaid (Renderer UI → Domain → Dexie/IndexedDB → Outbox → Sync Engine → Cloud API → Postgres/RLS; Electron main+preload), plus overview-depth data/API/offline/online/security/error/acceptance sections.
+   136→- Wrote docs/02-REQUIREMENTS.md: 13 functional modules with FR-IDs (FR-CMP/CUS/PRD/QTN/INV/GST/PAY/DSH/RPT/SET/SYN/AUT/PDF) each with acceptance statements; NFRs for performance, offline, security, WCAG 2.1 AA accessibility, data integrity (integer paise math per CANON §4), auditability, error handling; constraints quoting CANON §19 verbatim; module-graph mermaid; traceability matrix to CANON sections and deep-dive docs.
+   137→- Wrote docs/03-FEATURES.md: catalog F-01…F-20 each with description, user story, offline behavior, online behavior, edge cases, status (Implemented in MVP / Designed extension point per CANON §19.3/§19.6); quotation and invoice state-machine mermaid diagrams per CANON §12; sync push/pull sequence diagram per CANON §9; conflict UI per §10; guest→claim per §11; numbering per §6; PDF per §13.
+   138→- Wrote docs/04-TECH-STACK.md: justified every choice (Next.js 16 App Router + TS strict, Tailwind 4, shadcn/ui New York + lucide-react, RHF+Zod with document-editor controlled-state exception per §15, Zustand, Dexie/IndexedDB with explicit NO-SQLITE-in-MVP decision, Supabase Postgres+Auth+Storage+RLS, dev-cloud via Next API routes + Prisma/SQLite per §8, jsPDF+jspdf-autotable per §13, hand-rolled PWA SW, Electron+electron-builder hardening, Vitest/RTL/Playwright docs-defined per §19.5, GitHub Actions, Vercel, pnpm+Turborepo with §2 sandbox mapping table, version pinning policy); package dependency mermaid with layering rules.
+   139→- Verified all four files start with a `# <Title>`, contain Purpose/Scope, the required section set where relevant, ≥1 mermaid diagram each, no placeholders, and exact CANON terminology.
+   140→Stage Summary:
+   141→- docs/01-PROJECT-OVERVIEW.md — product overview: vision, users, goals/non-goals, environments, golden-rule + architecture diagrams, phases, success metrics.
+   142→- docs/02-REQUIREMENTS.md — full FR/NFR specification with stable REQ-IDs, acceptance statements, CANON §19 constraints, traceability matrix.
+   143→- docs/03-FEATURES.md — 20-feature catalog with offline/online behavior, edge cases, status labels, and lifecycle/sync mermaid diagrams.
+   144→- docs/04-TECH-STACK.md — every technology choice justified against CANON, monorepo/sandbox mapping, pinning policy, package dependency graph.
+   145→
+   146→---
+   147→Task ID: 2-h
+   148→Agent: D8-docs-writer
+   149→Task: root docs (README/DEVELOPMENT/DATABASE/API/SECURITY/CHANGELOG)
+   150→Work Log:
+   151→- Read worklog.md and docs/_CANON.md in full (§1–§19); verified project scaffold (package.json scripts, prisma/, electron/, supabase/, src/lib layout) and system date.
+   152→- Wrote README.md: product identity + one-liner, Next.js/TypeScript/MIT shields badges, ✓-style grouped features, compact mermaid architecture (UI → Domain → Dexie → Outbox → Sync → Cloud, Electron beside), quick start (bun install → db:push → dev, guest mode + Load sample data + register-to-sync), project structure tree matching CANON §2 sandbox mapping, documentation index table listing all 41 docs (01–41) with one-line summaries, roadmap summary (Supabase swap, payments, sharing, SaaS, testing/release), MIT license, GST non-compliance disclaimer quoting CANON §19.2.
+   153→- Wrote DEVELOPMENT.md: prerequisites, install/env (points to .env.example + docs/38), scripts table (dev/lint/db:push…), code style (strict TS, no any, domain-layer rule, integer paise/milli/bps + half-up, YYYY-MM-DD date strings, Zod both ends, server recompute), Dexie migration recipe (append db.version(n+1), never mutate v1), 6-step add-a-sync-entity checklist (Dexie table → zod schema → repository → server model → ChangeLog/outbox → docs), dev-cloud note (API routes auto-run), Electron dev workflow (ELECTRON_START_URL, sandbox cannot execute → electron/README.md), conventional commits, PR checklist.
+   154→- Wrote DATABASE.md: three-store overview (Dexie local source of truth / Prisma-SQLite dev cloud / Supabase Postgres + RLS), common metadata + sync_state conventions, all-17-table v1 schema table with indexes, index strategy rationale, ChangeLog/ProcessedOp explanation, op-push + cursor-pull sync relationship, common operations (db:push, db:reset, Settings → Data export/import); links docs/06 + docs/16.
+   155→- Wrote API.md: base URL, session-cookie auth (if_session, scrypt, 10 req/min/IP), CANON §14 endpoint table, `{error, code}` error format + status table, push/pull sync envelope quick reference with server rules, rate limits/batch bounds, curl quickstart (health, register, login, claim, push, pull).
+   156→- Wrote SECURITY.md: CANON §16 baseline reproduced as area × measure × status table (honest statuses: implemented / migrations provided / scaffold / defined), password storage (scrypt details), session handling (32-byte token, httpOnly SameSite=Lax 30-day, needs_reauth), server-side authorization + RLS roles, money integrity (server recompute), Electron hardening list, secrets warning box (service keys server-only), private reporting policy with security.txt deployment note; links docs/29.
+   157→- Wrote CHANGELOG.md: Keep-a-Changelog format, `## [0.1.0] - 2025-09-21` with Added (offline-first core, domain engine, quotation/invoice lifecycles, PDF, dashboard/reports/CSV, sync engine + dev cloud + auth + claim, conflicts, settings, PWA, Electron scaffold, Supabase migrations + RLS, 41 docs), Changed (hash-SPA routing, shared editor/engine), Security (hashing/sessions/validation/RLS/Electron/secrets/audit) — factual, no marketing.
+   158→- Consistency pass: all content derived from docs/_CANON.md (§1,§2,§4,§6,§7,§8,§9,§10,§11,§13,§14,§15,§16,§17,§19); removed a fabricated release URL from CHANGELOG and a LICENSE-file link from README (only the 6 permitted files were written).
+   159→Stage Summary:
+   160→- Files written: /home/z/my-project/README.md, /home/z/my-project/DEVELOPMENT.md, /home/z/my-project/DATABASE.md, /home/z/my-project/API.md, /home/z/my-project/SECURITY.md, /home/z/my-project/CHANGELOG.md. No other files modified.
+   161→
+   162→---
+   163→
+   164→Task ID: 2-i
+   165→Agent: E1-supabase-sql
+   166→Task: Supabase migrations + RLS + seed
+   167→Work Log:
+   168→- Read worklog.md + docs/_CANON.md in full (§3 metadata, §4 money rules, §6 numbering, §7 entity model, §8 cloud schema, §9 sync protocol, §11 roles).
+   169→- 0001_init.sql: pgcrypto; 17 tables (profiles, workspaces, workspace_members, company_profiles, customers, products, quotations(+items), invoices(+items), payments, tax_rates, document_sequences, attachments, audit_logs, change_log identity-PK, processed_ops) — UUID PKs (gen_random_uuid), common metadata (created_at/updated_at/deleted_at/version/workspace_id CASCADE/origin_device_id), paise bigint + bps CHECKs, FK indexes + workspace/status/date indexes, set_updated_at() trigger attached to all 14 mutable tables via DO block. Circular quotation↔invoice FKs resolved with ON DELETE SET NULL so workspace cascade deletes work.
+   170→- 0002_rls.sql: RLS enabled on all 17 tables; SECURITY DEFINER STABLE helpers is_workspace_member(uuid) + has_role(uuid,text[]) + storage_path_workspace_id(text) (fail-closed uuid parse); 58 policies (SELECT=member, INSERT/UPDATE=OWNER/ADMIN/MEMBER, DELETE=OWNER/ADMIN; company_profiles INSERT=OWNER/ADMIN + MEMBER can UPDATE but not DELETE; workspace_members managed by OWNER/ADMIN; workspaces SELECT/UPDATE member only; change_log/processed_ops/document_sequences SELECT-only; audit_logs append-only with actor_user_id=auth.uid()); storage buckets company-assets+attachments (idempotent insert) with path-convention policies {workspace_id}/{entity}/{filename}.
+   171→- 0003_functions.sql: round_half_up(numeric) + fiscal_year_of(date) helpers; allocate_document_number (insert-if-missing → SELECT FOR UPDATE → increment → '{prefix}/{FY}/{seq4}', prefix from company_profiles); sync_finalize_invoice (full SECURITY DEFINER finalize op: processed_ops idempotency → role ≥ MEMBER → CAS base_version → DRAFT-only → server-recomputes all totals/items per CANON §4 incl. charges tax + rupee round-off → allocates number → replaces items atomically → change_log + audit_logs + processed_ops; returns applied|duplicate|conflict|rejected JSON; execute granted to service_role only); handle_new_user() trigger on auth.users → profile + personal workspace + OWNER membership. Every object COMMENTed.
+   172→- seed.sql: DO-block wrapped, idempotent, "DEV ONLY — do not run in production" guard (skips if slug exists); demo workspace acme-traders-demo, Acme Traders Pvt Ltd (Maharashtra 27), device-OWNER membership row, 3 customers (2× intra 27, 1× inter 29), 4 products at 5/12/18% (500/1200/1800 bps), 2 tax rates, 1 INVOICE 2025-26 sequence.
+   173→- README.md: apply via supabase link/db push or psql, seed warning, RLS verification snippets (anon → 0 rows, authenticated → workspace-scoped), role matrix table, storage path convention, service-role key warnings, numbering/finalize integration notes.
+   174→- Validation: no postgres in sandbox → structural checks on all 4 SQL files (dollar-quote pairing, paren balance per statement, string-literal quote parity) all pass; fixed one drafting artifact in 0003 during review.
+   175→Stage Summary:
+   176→- supabase/migrations/0001_init.sql — tables/indexes/triggers (CANON §7 snake_case)
+   177→- supabase/migrations/0002_rls.sql — RLS helpers + 58 policies + storage buckets/policies
+   178→- supabase/migrations/0003_functions.sql — numbering, finalize op, handle_new_user trigger
+   179→- supabase/seed.sql — DEV ONLY demo dataset (guarded)
+   180→- supabase/README.md — apply/verify/operate guide
+   181→- Next actions (for orchestrator): run `supabase db push` against a real project to smoke-test; implement sync-push Edge Function calling sync_finalize_invoice; keep Prisma dev-cloud field names aligned with these tables.
+   182→
+   183→

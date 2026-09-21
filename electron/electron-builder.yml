@@ -1,0 +1,49 @@
+# electron-builder configuration — InvoiceFlow desktop (CANON §2 apps/desktop, Phase 8 packaging)
+# Docs: https://www.electron.build/configuration
+#
+# The packaged app contains the compiled main/preload/IPC bundle (dist/**).
+# The renderer is either:
+#   - loaded from ELECTRON_START_URL / APP_ORIGIN (dev / remote-hosted mode), or
+#   - embedded: run `next build` with output:'export', copy out/ → renderer/,
+#     and uncomment the renderer entry in `files` below.
+
+appId: com.invoiceflow.app
+productName: InvoiceFlow
+copyright: Copyright © 2025 InvoiceFlow
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  # - renderer/**/*   # uncomment when embedding the exported Next.js renderer
+
+# Windows — NSIS assisted installer (users pick the install directory).
+win:
+  target: nsis
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+# macOS — DMG. hardenedRuntime is required for notarization.
+mac:
+  target: dmg
+  category: public.app-category.business
+  hardenedRuntime: true
+  # Code signing / notarization (Phase 8): set CSC_LINK + CSC_KEY_PASSWORD (and
+  # APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD for notarytool) in CI, and provide an
+  # entitlements plist (allow JIT + network) via:
+  #   entitlements: build/entitlements.mac.plist
+  #   entitlementsInherit: build/entitlements.mac.plist
+
+# Linux — AppImage (portable) + deb (Debian/Ubuntu); Office category.
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Office
+
+# Release channel — GitHub Releases; pairs with the Phase 8 electron-updater plan.
+publish:
+  provider: github

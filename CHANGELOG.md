@@ -1,0 +1,40 @@
+# Changelog
+
+All notable changes to InvoiceFlow are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2025-09-21
+
+### Added
+
+- Offline-first core: Dexie schema v1 (17 tables) with a compound-index strategy, typed repositories, and an operation outbox (`sync_operations`) tracking per-op status, attempts, and backoff.
+- Domain engine: integer-paise money math (quantities in milli-units, rates/discounts in basis points, half-up rounding), tax-inclusive and tax-exclusive pricing, document totals with additional charges and round-off, CGST/SGST/IGST split by place of supply, GSTIN/state-code validation, Indian-numbering amount in words, and fiscal-year document numbering (April–March) with provisional draft numbers and server-authoritative allocation.
+- Quotation module with full lifecycle (DRAFT → SENT → ACCEPTED/REJECTED, CONVERTED, lazy EXPIRED) and conversion into invoices.
+- Invoice module with lifecycle (DRAFT → FINALIZED → PARTIALLY_PAID → PAID, CANCELLED), finalization immutability, payment-driven status, cancellation blocked when payments exist, and manual payment recording (CASH/BANK_TRANSFER/UPI/CHEQUE/CARD/OTHER).
+- PDF generation with jsPDF + jspdf-autotable from a shared UnifiedDocumentModel: A4 portrait layout, GST breakdown, bank details, amount in words, signature block, page numbering; save/preview outputs (`Rs.` renders instead of `₹` due to jsPDF core-font limitation).
+- Dashboard with 8 KPI stat cards, monthly invoiced-vs-collected revenue trend, recent activity, and quick actions.
+- Reports (Sales, GST Summary, Outstanding, Customers, Products) with date ranges and CSV export (UTF-8 BOM).
+- Sync engine: batched push (25 ops) and cursor-based pull (500 changes), single-run mutex, retry with exponential backoff capped at 10 minutes and failure after 8 attempts, schema-version guard (409), auth-expiry pause with `needs_reauth`, and done-op pruning.
+- Dev cloud: Next.js API routes (auth register/login/logout/session/account, workspace claim, sync push/pull, health) over Prisma/SQLite with a server-side ChangeLog and `ProcessedOp` idempotency.
+- Auth: scrypt password hashing (random salt, timing-safe compare), httpOnly `SameSite=Lax` session cookies with 30-day expiry, in-memory rate limiting (10 req/min/IP) on auth routes, and guest-workspace claim flow (guest → account migration).
+- Conflict-resolution framework: compare-and-swap on `base_version`, six documented conflict classes with a policy matrix, and a side-by-side conflict UI (keep mine / keep server's / delete) with `SYNC_CONFLICT` audit logging.
+- Settings: JSON backup export/import, CSV shortcuts, clear local data, sync status with outbox inspector and failed-op retry, preferences, and security (account, guest→cloud, delete account).
+- PWA: `manifest.webmanifest` and service worker (cache-first static assets, network-first navigation with offline fallback, versioned caches), offline badge driven by `navigator.onLine` plus a `/api/health` heartbeat.
+- Electron desktop scaffold: hardened main/preload with typed IPC, services, CSP, and electron-builder configuration (scaffold only; renderer reuses the web app verbatim).
+- Supabase migrations: initial DDL, row-level-security policies with `is_workspace_member`/`has_role` helpers on every table, functions, and seed data.
+- Documentation: canonical specification (`docs/_CANON.md`) plus 41 module documents (`docs/01-PROJECT-OVERVIEW` through `docs/41-FUTURE-ROADMAP`).
+
+### Changed
+
+- The sandbox build serves the app as a single-page application at `/` with hash navigation (`#/invoices`, `#/quotations`, …) so every screen works from one served route; the production route table is documented in `docs/32-ROUTES.md`.
+- Quotation and invoice editing shares one document editor and domain engine rather than parallel implementations; totals shown anywhere come exclusively from `computeDocumentTotals`.
+
+### Security
+
+- Server-side recomputation of all monetary totals and workspace membership/role checks on every operation; Zod validation on both client and server.
+- scrypt password hashing (16-byte random salt, 64-byte key, timing-safe comparison), httpOnly `SameSite=Lax` session cookies with 30-day expiry, and JSON-only API (no GET mutations) for CSRF safety.
+- Rate limiting on auth routes (10 requests/min/IP, in-memory token bucket) and upload validation for logos/signatures (PNG/JPEG ≤ 1 MB).
+- Supabase row-level security on every table with OWNER/ADMIN/MEMBER/VIEWER role helpers (migrations provided; enforcement server-side only).
+- Electron hardening baseline: contextIsolation enabled, nodeIntegration disabled, sandbox enabled, strict CSP, typed contextBridge API only, https allow-listed external links, no remote content.
+- Service-role keys restricted to server-side code (never bundled); audit logs recorded for finalize/convert/cancel/payment/conflict events.

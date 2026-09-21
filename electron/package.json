@@ -1,0 +1,19 @@
+{
+  "name": "@invoiceflow/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "InvoiceFlow desktop shell — security-hardened Electron main/preload/IPC around the Next.js renderer (CANON §2: apps/desktop).",
+  "license": "UNLICENSED",
+  "main": "dist/main.js",
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "start": "npm run compile && electron .",
+    "package": "npm run compile && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "electron": "^33",
+    "electron-builder": "^25",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,350 @@
+// InvoiceFlow — Dev Cloud schema (Prisma/SQLite)
+// This mirrors the production Supabase PostgreSQL schema 1:1 (see supabase/migrations/).
+// The sync API routes (src/app/api/sync/*) treat this store as the authoritative
+// shared cloud for the development environment. See docs/19-CLOUD-SYNC.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+  workspaces   WorkspaceMember[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Workspace {
+  id          String   @id
+  name        String
+  ownerUserId String?
+  version     Int      @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     WorkspaceMember[]
+  changeLogs  ChangeLog[]
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String?
+  deviceId    String?
+  role        String    @default("OWNER") // OWNER | ADMIN | MEMBER | VIEWER
+  createdAt   DateTime  @default(now())
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model CompanyProfile {
+  id                  String    @id
+  workspaceId         String
+  name                String
+  businessType        String?
+  logoData            String?
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateName           String?
+  stateCode           String?
+  pincode             String?
+  gstin               String?
+  pan                 String?
+  phone               String?
+  email               String?
+  website             String?
+  bankName            String?
+  bankAccount         String?
+  bankIfsc            String?
+  bankBranch          String?
+  authorizedSignatory String?
+  signatureData       String?
+  invoicePrefix       String    @default("INV")
+  quotationPrefix     String    @default("QT")
+  defaultGstRateBps   Int       @default(1800)
+  priceIncludesTax    Boolean   @default(false)
+  enableRoundOff      Boolean   @default(true)
+  defaultTerms        String?
+  defaultNotes        String?
+  originDeviceId String?
+  version             Int       @default(1)
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([workspaceId])
+
+}
+
+model Customer {
+  id              String    @id
+  workspaceId     String
+  code            String?
+  type            String    @default("BUSINESS") // BUSINESS | INDIVIDUAL
+  businessName    String
+  contactPerson   String?
+  email           String?
+  phone           String?
+  gstin           String?
+  billingAddress  String?
+  shippingAddress String?
+  stateName       String?
+  stateCode       String?
+  notes           String?
+  originDeviceId String?
+  version         Int       @default(1)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceId])
+
+}
+
+model Product {
+  id               String    @id
+  workspaceId      String
+  name             String
+  sku              String?
+  hsnSac           String?
+  description      String?
+  unit             String    @default("NOS")
+  sellingPricePaise Int      @default(0)
+  costPricePaise   Int?
+  gstRateBps       Int       @default(1800)
+  priceIncludesTax Boolean   @default(false)
+  active           Boolean   @default(true)
+  originDeviceId String?
+  version          Int       @default(1)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([workspaceId])
+
+}
+
+model Quotation {
+  id                    String    @id
+  workspaceId           String
+  number                String
+  status                String    @default("DRAFT") // DRAFT|SENT|ACCEPTED|REJECTED|EXPIRED|CONVERTED
+  quotationDate         String
+  validUntil            String?
+  customerId            String
+  customerNameSnapshot  String?
+  customerGstinSnapshot String?
+  placeOfSupplyCode     String?
+  taxMode               String    @default("INTRA") // INTRA | INTER
+  priceIncludesTax      Boolean   @default(false)
+  subtotalGrossPaise    Int       @default(0)
+  discountTotalPaise    Int       @default(0)
+  taxableTotalPaise     Int       @default(0)
+  cgstPaise             Int       @default(0)
+  sgstPaise             Int       @default(0)
+  igstPaise             Int       @default(0)
+  chargesTotalPaise     Int       @default(0)
+  chargesTaxPaise       Int       @default(0)
+  roundOffPaise         Int       @default(0)
+  grandTotalPaise       Int       @default(0)
+  charges               String    @default("[]") // JSON DocCharge[]
+  notes                 String?
+  terms                 String?
+  convertedInvoiceId    String?
+  finalizedAt           DateTime?
+  originDeviceId String?
+  version               Int       @default(1)
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  items                 QuotationItem[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+
+}
+
+model QuotationItem {
+  id                String    @id
+  quotationId       String
+  position          Int       @default(0)
+  description       String
+  hsnSac            String?
+  qtyMilli          Int       @default(1000)
+  unit              String?
+  unitPricePaise    Int       @default(0)
+  discountBps       Int       @default(0)
+  gstRateBps        Int       @default(1800)
+  grossPaise        Int       @default(0)
+  discountPaise     Int       @default(0)
+  taxablePaise      Int       @default(0)
+  cgstPaise         Int       @default(0)
+  sgstPaise         Int       @default(0)
+  igstPaise         Int       @default(0)
+  taxPaise          Int       @default(0)
+  totalPaise        Int       @default(0)
+  priceIncludesTax  Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  quotation         Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+model Invoice {
+  id                    String    @id
+  workspaceId           String
+  number                String
+  status                String    @default("DRAFT") // DRAFT|FINALIZED|PARTIALLY_PAID|PAID|CANCELLED
+  invoiceDate           String
+  dueDate               String?
+  customerId            String
+  customerNameSnapshot  String?
+  customerGstinSnapshot String?
+  placeOfSupplyCode     String?
+  taxMode               String    @default("INTRA")
+  priceIncludesTax      Boolean   @default(false)
+  subtotalGrossPaise    Int       @default(0)
+  discountTotalPaise    Int       @default(0)
+  taxableTotalPaise     Int       @default(0)
+  cgstPaise             Int       @default(0)
+  sgstPaise             Int       @default(0)
+  igstPaise             Int       @default(0)
+  chargesTotalPaise     Int       @default(0)
+  chargesTaxPaise       Int       @default(0)
+  roundOffPaise         Int       @default(0)
+  grandTotalPaise       Int       @default(0)
+  paidTotalPaise        Int       @default(0)
+  charges               String    @default("[]")
+  notes                 String?
+  terms                 String?
+  sourceQuotationId     String?
+  finalizedAt           DateTime?
+  cancelledAt           DateTime?
+  originDeviceId String?
+  version               Int       @default(1)
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  items                 InvoiceItem[]
+  payments              Payment[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, dueDate])
+
+}
+
+model InvoiceItem {
+  id               String   @id
+  invoiceId        String
+  position         Int      @default(0)
+  description      String
+  hsnSac           String?
+  qtyMilli         Int      @default(1000)
+  unit             String?
+  unitPricePaise   Int      @default(0)
+  discountBps     Int      @default(0)
+  gstRateBps       Int      @default(1800)
+  grossPaise       Int      @default(0)
+  discountPaise    Int      @default(0)
+  taxablePaise     Int      @default(0)
+  cgstPaise        Int      @default(0)
+  sgstPaise        Int      @default(0)
+  igstPaise        Int      @default(0)
+  taxPaise         Int      @default(0)
+  totalPaise       Int      @default(0)
+  priceIncludesTax Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  invoice          Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id          String    @id
+  workspaceId String
+  invoiceId   String
+  amountPaise Int
+  paidAt      String
+  method      String    @default("BANK_TRANSFER")
+  reference   String?
+  notes       String?
+  originDeviceId String?
+  version     Int       @default(1)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([invoiceId])
+
+}
+
+model TaxRate {
+  id            String    @id
+  workspaceId   String
+  name          String
+  rateBps       Int
+  active        Boolean   @default(true)
+  effectiveFrom String?
+  version       Int       @default(1)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
+
+model DocumentSequence {
+  id          String @id @default(uuid())
+  workspaceId String
+  docType     String // INVOICE | QUOTATION
+  fiscalYear  String
+  nextSeq     Int    @default(1)
+
+  @@unique([workspaceId, docType, fiscalYear])
+}
+
+model ChangeLog {
+  seq         Int      @id @default(autoincrement())
+  workspaceId String
+  entity      String
+  entityId    String
+  op          String
+  payload     String // full record JSON (items embedded for documents)
+  at          DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, seq])
+}
+
+model ProcessedOp {
+  opId        String   @id
+  workspaceId String
+  result      String   @default("{}")
+  appliedAt   DateTime @default(now())
+}
