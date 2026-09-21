@@ -4,7 +4,7 @@
 // Renders inside AppShell — content only. Local-first: every action here works offline
 // against Dexie; cloud actions (sync, account) degrade gracefully per CANON §9/§11.
 
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { APP_VERSION } from '@/lib/version'
 import type { Table as DexieTable } from 'dexie'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -12,7 +12,9 @@ import { useTheme } from 'next-themes'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { toast } from 'sonner'
 import {
+  Activity,
   AlertTriangle,
+  Banknote,
   Building2,
   CheckCircle2,
   Cloud,
@@ -20,12 +22,15 @@ import {
   Copy,
   Database,
   Download,
+  FileText,
   HardDrive,
   Loader2,
   LogIn,
   LogOut,
   Monitor,
   Moon,
+  Package,
+  Receipt,
   RotateCcw,
   Share2,
   ShieldCheck,
@@ -821,6 +826,156 @@ async function mergeBackupIntoDb(backup: ParsedBackup): Promise<{ inserted: numb
   return { inserted, updated, skippedNewer }
 }
 
+// ---------- Local data health card ----------
+
+const HEALTH_TABLES: Array<{ name: string; label: string; icon: typeof Receipt }> = [
+  { name: 'invoices', label: 'Invoices', icon: Receipt },
+  { name: 'quotations', label: 'Quotations', icon: FileText },
+  { name: 'customers', label: 'Customers', icon: UserRound },
+  { name: 'products', label: 'Products', icon: Package },
+  { name: 'payments', label: 'Payments', icon: Banknote },
+  { name: 'sync_operations', label: 'Sync ops', icon: Cloud },
+]
+
+function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`
+}
+
+/**
+ * Live snapshot of what this device is holding: storage estimate, per-table record
+ * counts, outbox health and the last backup. Counts recompute live via Dexie
+ * observers; the storage estimate refreshes on demand (browsers cap its frequency).
+ */
+function LocalHealthCard({ lastBackupAt }: { lastBackupAt: string | null | undefined }) {
+  const [nonce, setNonce] = useState(0)
+  const [storage, setStorage] = useState<{ usage: number | null; quota: number | null } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    // deferred so the read happens off the render/effect body
+    const t = setTimeout(() => {
+      navigator.storage
+        ?.estimate?.()
+        .then((est) => {
+          if (alive) setStorage({ usage: est.usage ?? null, quota: est.quota ?? null })
+        })
+        .catch(() => {})
+    }, 0)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [nonce])
+
+  const counts = useLiveQuery(async () => {
+    const db = getDb()
+    const out: Record<string, number> = {}
+    for (const t of HEALTH_TABLES) out[t.name] = await db.table(t.name).count()
+    return out
+  }, [])
+
+  const ops = useLiveQuery(() => getDb().sync_operations.toArray(), [])
+  const pendingOps = (ops ?? []).filter((o) => o.status === 'pending' || o.status === 'in_flight').length
+  const failedOps = (ops ?? []).filter((o) => o.status === 'failed' || o.status === 'conflict').length
+
+  const usagePct =
+    storage?.usage != null && storage.quota ? Math.min(100, Math.round((storage.usage / storage.quota) * 100)) : null
+
+  return (
+    <Card className="lg:col-span-2 overflow-hidden py-0">
+      <div className="h-0.5 w-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/60 to-emerald-500/0" aria-hidden="true" />
+      <CardContent className="space-y-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+              <Activity className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Local data health</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                What this device is holding and how healthy the offline store is — live counts, no server round-trip.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setNonce((n) => n + 1)}
+            title="Re-read the browser's storage estimate"
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Refresh
+          </Button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {/* storage */}
+          <div className="space-y-2 rounded-lg border p-3.5">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Storage used</p>
+            <p className="text-lg font-semibold tabular-nums">
+              {storage?.usage != null ? fmtBytes(storage.usage) : '—'}
+              {storage?.quota != null && <span className="ml-1 text-xs font-normal text-muted-foreground">of {fmtBytes(storage.quota)} quota</span>}
+            </p>
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
+              role="img"
+              aria-label={usagePct != null ? `${usagePct}% of browser storage quota used` : 'Storage usage unknown'}
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-[width] duration-500"
+                style={{ width: `${usagePct ?? 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* outbox health */}
+          <div className="space-y-2 rounded-lg border p-3.5">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Outbox</p>
+            <div className="flex items-end gap-5">
+              <div>
+                <p className={`text-lg font-semibold tabular-nums ${pendingOps > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>{pendingOps}</p>
+                <p className="text-[11px] text-muted-foreground">pending</p>
+              </div>
+              <div>
+                <p className={`text-lg font-semibold tabular-nums ${failedOps > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{failedOps}</p>
+                <p className="text-[11px] text-muted-foreground">failed</p>
+              </div>
+            </div>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {failedOps > 0 ? 'Something needs attention — review in the Sync tab.' : pendingOps > 0 ? 'Queued changes will sync automatically.' : 'Everything is synced.'}
+            </p>
+          </div>
+
+          {/* backup */}
+          <div className="space-y-2 rounded-lg border p-3.5">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Last backup</p>
+            <p className={`text-lg font-semibold ${lastBackupAt ? '' : 'text-amber-600 dark:text-amber-400'}`}>{lastBackupAt ? relative(lastBackupAt) : 'Never'}</p>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {lastBackupAt ? 'Export again below any time — it only takes a second.' : 'Export a backup below to keep an off-device copy of your books.'}
+            </p>
+          </div>
+        </div>
+
+        {/* record counts */}
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {HEALTH_TABLES.map((t) => (
+            <div key={t.name} className="rounded-lg bg-muted/40 p-2.5 text-center transition-colors hover:bg-accent/40">
+              <t.icon className="mx-auto h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <p className="mt-1 text-sm font-semibold tabular-nums" aria-label={`${t.label}: ${counts?.[t.name] ?? '…'}`}>
+                {counts?.[t.name] ?? '…'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{t.label}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function DataTab() {
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -937,6 +1092,8 @@ function DataTab() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
+        <LocalHealthCard lastBackupAt={lastBackupAt} />
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

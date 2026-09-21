@@ -18,11 +18,11 @@ import {
 import { navigate } from '@/lib/router'
 import { formatMoney } from '@/lib/domain/money'
 import { addDaysStr, formatDateDisplay, todayStr } from '@/lib/date'
-import { setQuotationStatus, softDeleteQuotationDraft } from '@/lib/db/repositories'
+import { setQuotationStatus, softDeleteQuotationDraft, convertQuotationToInvoice } from '@/lib/db/repositories'
 import { toCsv, downloadCsv } from '@/lib/csv'
 import { toast } from 'sonner'
 import {
-  ChevronLeft, ChevronRight, ChevronRight as RowChevron, Clock3, Download, FileDown, FileText, Loader2, Plus, Search,
+  ArrowRightLeft, ChevronLeft, ChevronRight, ChevronRight as RowChevron, Clock3, Download, FileDown, FileText, Loader2, Plus, Search,
   Send, Trash2, X,
 } from 'lucide-react'
 
@@ -72,6 +72,7 @@ export function QuotationsView() {
   // ---- bulk selection ------------------------------------------------------
   const selectedRows = useMemo(() => filtered.filter((q) => selected.has(q.id)), [filtered, selected])
   const draftSelected = selectedRows.filter((q) => q.status === 'DRAFT')
+  const acceptedSelected = selectedRows.filter((q) => q.status === 'ACCEPTED')
   const selectedValue = selectedRows.reduce((s, q) => s + q.grand_total_paise, 0)
   const pageAllSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id))
   const pageSomeSelected = pageRows.some((r) => selected.has(r.id)) && !pageAllSelected
@@ -132,6 +133,38 @@ export function QuotationsView() {
     setConfirmDelete(false)
     if (ok > 0) toast.success(`${ok} draft${ok === 1 ? '' : 's'} deleted`, { description: 'Removed locally and queued for cloud deletion.' })
     for (const f of failed) toast.error(`Could not delete ${f.number}`, { description: f.reason })
+    clearSelection()
+  }
+
+  /** Bulk-convert every ACCEPTED quotation in the selection into a draft invoice. */
+  const runConvertAccepted = async () => {
+    if (!ws || acceptedSelected.length === 0) return
+    setBusy(true)
+    let ok = 0
+    const created: string[] = []
+    const failed: Array<{ number: string; reason: string }> = []
+    for (const q of acceptedSelected) {
+      try {
+        const { invoice } = await convertQuotationToInvoice(
+          ws.id,
+          company?.state_code ?? null,
+          { enable_round_off: company?.enable_round_off ?? true },
+          q.id,
+        )
+        ok++
+        created.push(invoice.number)
+      } catch (err) {
+        failed.push({ number: q.number, reason: (err as Error).message })
+      }
+    }
+    setBusy(false)
+    if (ok > 0) {
+      const preview = created.slice(0, 3).join(', ')
+      toast.success(`${ok} invoice${ok === 1 ? '' : 's'} drafted from quotations`, {
+        description: `${preview}${created.length > 3 ? ` + ${created.length - 3} more` : ''} — review and finalize when ready.`,
+      })
+    }
+    for (const f of failed) toast.error(`Could not convert ${f.number}`, { description: f.reason })
     clearSelection()
   }
 
@@ -302,6 +335,11 @@ export function QuotationsView() {
                 · {draftSelected.length} draft{draftSelected.length === 1 ? '' : 's'} ready to send
               </span>
             )}
+            {acceptedSelected.length > 0 && (
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                · {acceptedSelected.length} accepted, ready to convert
+              </span>
+            )}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -312,6 +350,17 @@ export function QuotationsView() {
               >
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 Mark {draftSelected.length > 0 ? `${draftSelected.length} draft${draftSelected.length === 1 ? '' : 's'}` : 'drafts'} sent
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                disabled={busy || acceptedSelected.length === 0}
+                onClick={() => void runConvertAccepted()}
+                title={acceptedSelected.length === 0 ? 'Select at least one ACCEPTED quotation — only accepted quotes can become invoices' : `Draft invoices from ${acceptedSelected.length} accepted quotation${acceptedSelected.length === 1 ? '' : 's'}`}
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
+                Convert {acceptedSelected.length > 0 ? `${acceptedSelected.length} accepted` : 'accepted'}
               </Button>
               <Button
                 size="sm"
@@ -357,6 +406,11 @@ export function QuotationsView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+        Sent quotations past their valid-until date expire automatically. Tip: select rows to mark sent, convert accepted quotes to invoices, or export PDFs/CSV in bulk.
+      </p>
     </div>
   )
 }

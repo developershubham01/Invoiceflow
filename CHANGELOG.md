@@ -4,6 +4,30 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2025-09-21
+
+### Fixed
+
+- **Dexie schema defect — phantom `[quotation_id]`/`[invoice_id]` indexes** (found while verifying bulk convert): the v1 stores string declared single-key compound indexes (`[quotation_id]`, `[invoice_id]`). Dexie's parser collapsed the simple index and the phantom into one entry keyed by name `[quotation_id]`, so `where('quotation_id')` resolved to an index whose keys are array-wrapped → **0 rows for every lookup** (`convertQuotationToInvoice` failed with "Quotation has no line items"; any other `quotation_id`/`invoice_id` query on affected installs would silently return nothing). New schema v2 drops the phantom tokens; a fresh install was re-seeded end-to-end and convert now finds its line items. Existing installs receive the v2 upgrade automatically (native version 10 → 20).
+
+### Added
+
+- **Bulk convert accepted quotations → invoices** (quotations bulk bar): new emerald-outline **Convert N accepted** action drafts one invoice per ACCEPTED quotation in the selection (reuses `convertQuotationToInvoice` — real totals, per-row transactions), toasts the created draft numbers (first 3 + "+N more"), surfaces per-item failure toasts, and clears the selection. Bulk bar hint now reads "N accepted, ready to convert"; quotations footer tip teaches the full set. The bulk story is now complete: Mark drafts sent · Convert accepted · Delete drafts · PDFs · CSV · Clear.
+- **Local data health card** (Settings → Data): a live, offline-only diagnostics panel — browser **storage estimate** (usage of quota with an emerald progress bar, e.g. "336.0 KB of 10.00 GB"), **outbox health** (pending in amber when > 0, failed in red, contextual hint), **last backup** (amber "Never" warning until first export), and six **live record-count tiles** (invoices, quotations, customers, products, payments, sync ops) via Dexie observers. Refresh re-reads the storage estimate (browsers throttle it).
+- **Command palette recency**: Recent Invoices / Recent Quotations now sort by `created_at` descending (previously DB insertion order), so the palette opens with the document you just made; customers and products sort alphabetically.
+
+### Improved (styling)
+
+- Health card: emerald hairline gradient, activity icon chip, three bordered metric panels and muted count tiles that tint on hover — consistent with the install card's design language.
+- Convert action styled as an emerald-outline chip in the bulk bar (distinct from destructive red and neutral actions).
+
+### Verified (QA round 9)
+
+- Bulk convert exercised end-to-end on a fresh install: detail-view Accept → list bulk "Convert 1 accepted" → toast "1 invoice drafted from quotations · DRAFT-F6ZZF68D — review and finalize when ready", row flipped to CONVERTED, and DRAFT-F6ZZF68D (Priya Design Studio, dated today) appeared atop the invoices list.
+- Health card cross-checked: storage 336 KB/10 GB, outbox 34 pending/0 failed (guest mode — correct), counts 9 invoices · 3 quotations · 5 customers · 6 products · 4 payments · 34 sync ops (9 = 8 seeded + 1 converted draft).
+- Palette: Ctrl+K lists the convert-created draft first under Recent Invoices.
+- Desktop 1440 + mobile 390, light + dark screenshots; `bun run lint` exit 0; `tsc --noEmit` 0 errors in `src/`; console clean after instrumentation removed.
+
 ## [0.9.0] - 2025-09-21
 
 ### Fixed

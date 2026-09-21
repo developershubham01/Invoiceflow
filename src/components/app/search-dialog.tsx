@@ -44,14 +44,22 @@ export function SearchDialog() {
 
   const groups = useMemo(() => {
     if (!results) return []
-    const inv = results.invoices.slice(0, 5).map((i) => ({
+    const byRecency = (a: { created_at: string }, b: { created_at: string }) =>
+      (b.created_at ?? '').localeCompare(a.created_at ?? '')
+    const inv = [...results.invoices].sort(byRecency).slice(0, 5).map((i) => ({
       id: i.id, label: i.number, sub: i.customer_name_snapshot ?? '', amount: formatMoneyCompact(i.grand_total_paise), path: `invoices/${i.id}`,
     }))
-    const q = results.quotations.slice(0, 5).map((x) => ({
+    const q = [...results.quotations].sort(byRecency).slice(0, 5).map((x) => ({
       id: x.id, label: x.number, sub: x.customer_name_snapshot ?? '', amount: formatMoneyCompact(x.grand_total_paise), path: `quotations/${x.id}`,
     }))
-    const c = results.customers.slice(0, 5).map((x) => ({ id: x.id, label: x.business_name, sub: x.code ?? '', amount: '', path: `customers/${x.id}` }))
-    const p = results.products.slice(0, 5).map((x) => ({ id: x.id, label: x.name, sub: x.sku ?? '', amount: formatMoneyCompact(x.selling_price_paise), path: 'products' }))
+    const c = [...results.customers]
+      .sort((a, b) => (a.business_name ?? '').localeCompare(b.business_name ?? ''))
+      .slice(0, 5)
+      .map((x) => ({ id: x.id, label: x.business_name, sub: x.code ?? '', amount: '', path: `customers/${x.id}` }))
+    const p = [...results.products]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 5)
+      .map((x) => ({ id: x.id, label: x.name, sub: x.sku ?? '', amount: formatMoneyCompact(x.selling_price_paise), path: 'products' }))
     return [
       { heading: 'Recent Invoices', icon: Receipt, items: inv },
       { heading: 'Recent Quotations', icon: FileText, items: q },

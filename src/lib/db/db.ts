@@ -44,6 +44,10 @@ export class InvoiceFlowDB extends Dexie {
   constructor() {
     super('invoiceflow')
     // Schema v1 — see docs/16-INDEXEDDB-DATABASE.md for migration policy.
+    // v2: dropped the bogus single-key compound indexes '[quotation_id]' / '[invoice_id]'.
+    // Dexie parsed them into an index whose key is an ARRAY-wrapped value, which shadowed
+    // the plain 'quotation_id' / 'invoice_id' indexes and made where('quotation_id')
+    // return 0 rows (bulk convert failed with "Quotation has no line items").
     this.version(1).stores({
       workspaces: 'id, name, updated_at',
       workspace_members: 'id, workspace_id, user_id, role',
@@ -51,9 +55,9 @@ export class InvoiceFlowDB extends Dexie {
       customers: 'id, workspace_id, code, gstin, phone, sync_state, updated_at, deleted_at, [workspace_id+deleted_at]',
       products: 'id, workspace_id, sku, hsn_sac, active, sync_state, updated_at, deleted_at, [workspace_id+active], [workspace_id+deleted_at]',
       quotations: 'id, workspace_id, number, status, quotation_date, customer_id, sync_state, updated_at, deleted_at, [workspace_id+status], [workspace_id+deleted_at]',
-      quotation_items: 'id, quotation_id, workspace_id, [quotation_id]',
+      quotation_items: 'id, quotation_id, workspace_id',
       invoices: 'id, workspace_id, number, status, invoice_date, due_date, customer_id, sync_state, updated_at, deleted_at, [workspace_id+status], [workspace_id+deleted_at]',
-      invoice_items: 'id, invoice_id, workspace_id, [invoice_id]',
+      invoice_items: 'id, invoice_id, workspace_id',
       payments: 'id, workspace_id, invoice_id, paid_at, sync_state, updated_at, deleted_at, [workspace_id+paid_at], [invoice_id]',
       tax_rates: 'id, workspace_id, active, [workspace_id+active]',
       document_sequences: 'id, [workspace_id+doc_type+fiscal_year]',
@@ -62,6 +66,10 @@ export class InvoiceFlowDB extends Dexie {
       sync_operations: 'id, workspace_id, entity_id, status, created_at, next_attempt_at, [workspace_id+status], [status+created_at]',
       sync_metadata: 'workspace_id',
       app_settings: 'key',
+    })
+    this.version(2).stores({
+      quotation_items: 'id, quotation_id, workspace_id',
+      invoice_items: 'id, invoice_id, workspace_id',
     })
   }
 }
