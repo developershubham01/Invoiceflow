@@ -1,0 +1,1236 @@
+     1→'use client'
+     2→
+     3→// InvoiceFlow — Settings view (CANON §15): Preferences | Sync | Data | Security.
+     4→// Renders inside AppShell — content only. Local-first: every action here works offline
+     5→// against Dexie; cloud actions (sync, account) degrade gracefully per CANON §9/§11.
+     6→
+     7→import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+     8→import { APP_VERSION } from '@/lib/version'
+     9→import type { Table as DexieTable } from 'dexie'
+    10→import { useLiveQuery } from 'dexie-react-hooks'
+    11→import { useTheme } from 'next-themes'
+    12→import { formatDistanceToNowStrict } from 'date-fns'
+    13→import { toast } from 'sonner'
+    14→import {
+    15→  AlertTriangle,
+    16→  Building2,
+    17→  CheckCircle2,
+    18→  Cloud,
+    19→  CloudOff,
+    20→  Copy,
+    21→  Database,
+    22→  Download,
+    23→  HardDrive,
+    24→  Loader2,
+    25→  LogIn,
+    26→  LogOut,
+    27→  Monitor,
+    28→  Moon,
+    29→  RotateCcw,
+    30→  ShieldCheck,
+    31→  Sun,
+    32→  Trash2,
+    33→  Upload,
+    34→  UserPlus,
+    35→  UserRound,
+    36→  XCircle,
+    37→} from 'lucide-react'
+    38→
+    39→import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+    40→import {
+    41→  AlertDialog,
+    42→  AlertDialogAction,
+    43→  AlertDialogCancel,
+    44→  AlertDialogContent,
+    45→  AlertDialogDescription,
+    46→  AlertDialogFooter,
+    47→  AlertDialogHeader,
+    48→  AlertDialogTitle,
+    49→  AlertDialogTrigger,
+    50→} from '@/components/ui/alert-dialog'
+    51→import { Badge } from '@/components/ui/badge'
+    52→import { Button } from '@/components/ui/button'
+    53→import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+    54→import { Label } from '@/components/ui/label'
+    55→import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+    56→import { Separator } from '@/components/ui/separator'
+    57→import { Skeleton } from '@/components/ui/skeleton'
+    58→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    59→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    60→import { useAppStore } from '@/lib/stores/app-store'
+    61→import { useActiveWorkspace, useAppSetting, useUser } from '@/lib/hooks/app-hooks'
+    62→import { getDb } from '@/lib/db/db'
+    63→import { setSetting } from '@/lib/db/repositories'
+    64→import { getDeviceId } from '@/lib/device'
+    65→import { nowIso, toYMD } from '@/lib/date'
+    66→import { navigate } from '@/lib/router'
+    67→import { runSync } from '@/lib/sync/engine'
+    68→import {
+    69→  discardFailedOp,
+    70→  resolveConflict,
+    71→  retryFailedOp,
+    72→  type ConflictChoice,
+    73→} from '@/lib/sync/conflicts'
+    74→import { apiDeleteAccount, apiLogout } from '@/lib/sync/client'
+    75→import type { SyncOpStatus, SyncOperation } from '@/lib/domain/types'
+    76→import { cn } from '@/lib/utils'
+    77→
+    78→const BACKUP_FORMAT_VERSION = 1
+    79→const OUTBOX_RENDER_LIMIT = 100
+    80→
+    81→type SettingsTab = 'preferences' | 'sync' | 'data' | 'security'
+    82→
+    83→export interface SettingsViewProps {
+    84→  initialTab?: SettingsTab
+    85→}
+    86→
+    87→// ---------- small shared helpers ----------
+    88→
+    89→function relative(iso: string | null | undefined): string {
+    90→  if (!iso) return 'Never'
+    91→  const d = new Date(iso)
+    92→  if (Number.isNaN(d.getTime())) return 'Never'
+    93→  return formatDistanceToNowStrict(d, { addSuffix: true })
+    94→}
+    95→
+    96→function readVersion(obj: unknown): number | null {
+    97→  if (!obj || typeof obj !== 'object') return null
+    98→  const v = (obj as Record<string, unknown>).version
+    99→  return typeof v === 'number' && Number.isFinite(v) ? v : null
+   100→}
+   101→
+   102→const ENTITY_LABELS: Record<string, string> = {
+   103→  invoice: 'Invoice',
+   104→  quotation: 'Quotation',
+   105→  customer: 'Customer',
+   106→  product: 'Product',
+   107→  company: 'Company',
+   108→  payment: 'Payment',
+   109→  workspace: 'Workspace',
+   110→}
+   111→
+   112→function entityLabel(entity: string): string {
+   113→  return ENTITY_LABELS[entity] ?? entity
+   114→}
+   115→
+   116→// Status colors: pending=amber · in_flight=teal · done=emerald · failed=red · conflict=orange (no blue/indigo, docs/31)
+   117→const OP_STATUS_META: Record<SyncOpStatus, { label: string; badge: string }> = {
+   118→  pending: {
+   119→    label: 'Pending',
+   120→    badge: 'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+   121→  },
+   122→  in_flight: {
+   123→    label: 'In flight',
+   124→    badge: 'border-transparent bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300',
+   125→  },
+   126→  done: {
+   127→    label: 'Synced',
+   128→    badge: 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+   129→  },
+   130→  failed: {
+   131→    label: 'Failed',
+   132→    badge: 'border-transparent bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300',
+   133→  },
+   134→  conflict: {
+   135→    label: 'Conflict',
+   136→    badge: 'border-transparent bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
+   137→  },
+   138→}
+   139→
+   140→function StatusBadge({ status }: { status: SyncOpStatus }) {
+   141→  const meta = OP_STATUS_META[status]
+   142→  return <Badge className={cn('border-transparent', meta.badge)}>{meta.label}</Badge>
+   143→}
+   144→
+   145→function SectionHeading({ children }: { children: React.ReactNode }) {
+   146→  return <h3 className="text-sm font-semibold">{children}</h3>
+   147→}
+   148→
+   149→function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+   150→  return (
+   151→    <div className="flex items-center justify-between gap-4">
+   152→      <dt className="text-xs text-muted-foreground">{label}</dt>
+   153→      <dd className="text-right text-sm font-medium tabular-nums">{children}</dd>
+   154→    </div>
+   155→  )
+   156→}
+   157→
+   158→// ---------- Preferences tab ----------
+   159→
+   160→const THEME_OPTIONS = [
+   161→  { value: 'light', label: 'Light', description: 'Bright interface for daylight work', icon: Sun },
+   162→  { value: 'dark', label: 'Dark', description: 'Low-glare interface for late-night billing', icon: Moon },
+   163→  { value: 'system', label: 'System', description: 'Follow your device appearance setting', icon: Monitor },
+   164→] as const
+   165→
+   166→// Hydration-safe "we're on the client" flag + device id (no effect, no cascading render).
+   167→const noopSubscribe = () => () => {}
+   168→
+   169→function PreferencesTab() {
+   170→  const { theme, setTheme } = useTheme()
+   171→  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
+   172→  const deviceIdShort = useSyncExternalStore(noopSubscribe, () => getDeviceId().slice(0, 8), () => '')
+   173→  const storageAvailable = useAppStore((s) => s.storageAvailable)
+   174→
+   175→  async function handleCopyDeviceId() {
+   176→    try {
+   177→      await navigator.clipboard.writeText(getDeviceId())
+   178→      toast.success('Device ID copied to clipboard')
+   179→    } catch {
+   180→      toast.error('Could not copy — clipboard is unavailable')
+   181→    }
+   182→  }
+   183→
+   184→  return (
+   185→    <div className="grid gap-4 lg:grid-cols-2">
+   186→      <Card>
+   187→        <CardHeader>
+   188→          <CardTitle className="flex items-center gap-2 text-base">
+   189→            <Sun className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+   190→            Appearance
+   191→          </CardTitle>
+   192→          <CardDescription className="text-xs">
+   193→            Choose how InvoiceFlow looks on this device. The preference is saved instantly.
+   194→          </CardDescription>
+   195→        </CardHeader>
+   196→        <CardContent>
+   197→          <RadioGroup
+   198→            value={mounted ? (theme ?? 'system') : 'system'}
+   199→            onValueChange={(v) => setTheme(v)}
+   200→            className="grid gap-3 sm:grid-cols-3"
+   201→            aria-label="Theme preference"
+   202→          >
+   203→            {THEME_OPTIONS.map((opt) => (
+   204→              <Label
+   205→                key={opt.value}
+   206→                htmlFor={`theme-${opt.value}`}
+   207→                className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/40 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-accent/50"
+   208→              >
+   209→                <RadioGroupItem id={`theme-${opt.value}`} value={opt.value} className="mt-0.5" />
+   210→                <span className="grid gap-0.5">
+   211→                  <span className="flex items-center gap-1.5 text-sm font-medium">
+   212→                    <opt.icon className="h-3.5 w-3.5" aria-hidden="true" />
+   213→                    {opt.label}
+   214→                  </span>
+   215→                  <span className="text-xs font-normal text-muted-foreground">{opt.description}</span>
+   216→                </span>
+   217→              </Label>
+   218→            ))}
+   219→          </RadioGroup>
+   220→        </CardContent>
+   221→      </Card>
+   222→
+   223→      <Card>
+   224→        <CardHeader>
+   225→          <CardTitle className="flex items-center gap-2 text-base">
+   226→            <HardDrive className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+   227→            App &amp; device
+   228→          </CardTitle>
+   229→          <CardDescription className="text-xs">
+   230→            Installation details used for sync bookkeeping and support.
+   231→          </CardDescription>
+   232→        </CardHeader>
+   233→        <CardContent className="space-y-4">
+   234→          <dl className="space-y-2.5">
+   235→            <InfoRow label="Version">InvoiceFlow v{APP_VERSION}</InfoRow>
+   236→            <InfoRow label="Device ID">
+   237→              {deviceIdShort ? (
+   238→                <span className="inline-flex items-center gap-1.5">
+   239→                  <span className="font-mono text-xs">{deviceIdShort}…</span>
+   240→                  <Button
+   241→                    variant="ghost"
+   242→                    size="icon"
+   243→                    className="h-6 w-6"
+   244→                    onClick={() => void handleCopyDeviceId()}
+   245→                    aria-label="Copy full device ID"
+   246→                  >
+   247→                    <Copy className="h-3 w-3" aria-hidden="true" />
+   248→                  </Button>
+   249→                </span>
+   250→              ) : (
+   251→                <Skeleton className="h-4 w-20" />
+   252→              )}
+   253→            </InfoRow>
+   254→            <InfoRow label="Storage mode">
+   255→              {storageAvailable ? 'IndexedDB (persistent)' : 'Unavailable'}
+   256→            </InfoRow>
+   257→          </dl>
+   258→
+   259→          {!storageAvailable && (
+   260→            <Alert className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+   261→              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+   262→              <AlertTitle>Local storage unavailable</AlertTitle>
+   263→              <AlertDescription className="text-xs">
+   264→                Your browser blocked IndexedDB (private mode or storage policy). Data will not persist
+   265→                across reloads — export a backup or switch browsers before continuing.
+   266→              </AlertDescription>
+   267→            </Alert>
+   268→          )}
+   269→
+   270→          <Separator />
+   271→
+   272→          <div className="flex flex-wrap items-center justify-between gap-2">
+   273→            <div className="min-w-0">
+   274→              <p className="text-sm font-medium">Company profile</p>
+   275→              <p className="text-xs text-muted-foreground">
+   276→                Business details, GSTIN and numbering used across invoices and quotations.
+   277→              </p>
+   278→            </div>
+   279→            <Button variant="link" className="h-auto p-0 text-emerald-700 dark:text-emerald-400" onClick={() => navigate('company')}>
+   280→              Go to My Company
+   281→              <Building2 className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+   282→            </Button>
+   283→          </div>
+   284→        </CardContent>
+   285→      </Card>
+   286→    </div>
+   287→  )
+   288→}
+   289→
+   290→// ---------- Sync tab ----------
+   291→
+   292→function SyncNowButton() {
+   293→  const [busy, setBusy] = useState(false)
+   294→  const syncStatus = useAppStore((s) => s.sync.status)
+   295→  const spinning = busy || syncStatus === 'syncing'
+   296→
+   297→  async function handleSyncNow() {
+   298→    setBusy(true)
+   299→    try {
+   300→      await runSync()
+   301→    } finally {
+   302→      setBusy(false)
+   303→    }
+   304→  }
+   305→
+   306→  return (
+   307→    <Button size="sm" variant="outline" onClick={() => void handleSyncNow()} disabled={spinning} className="gap-1.5">
+   308→      <Loader2 className={cn('h-3.5 w-3.5', spinning && 'animate-spin')} aria-hidden="true" />
+   309→      Sync now
+   310→    </Button>
+   311→  )
+   312→}
+   313→
+   314→function ReauthAlert() {
+   315→  return (
+   316→    <Alert className="border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+   317→      <UserRound className="h-4 w-4" aria-hidden="true" />
+   318→      <AlertTitle>Sign-in required</AlertTitle>
+   319→      <AlertDescription className="text-xs">
+   320→        Your cloud session expired. Sign in again to resume syncing — queued operations are safe and no
+   321→        local data is lost.{' '}
+   322→        <Button
+   323→          variant="link"
+   324→          className="h-auto p-0 text-amber-900 underline underline-offset-2 dark:text-amber-200"
+   325→          onClick={() => navigate('login')}
+   326→        >
+   327→          Sign in
+   328→        </Button>
+   329→      </AlertDescription>
+   330→    </Alert>
+   331→  )
+   332→}
+   333→
+   334→function ConflictItem({ op }: { op: SyncOperation }) {
+   335→  const [busy, setBusy] = useState(false)
+   336→
+   337→  const localVersion = readVersion(op.payload) ?? op.base_version
+   338→  const serverVersion = readVersion(op.server_record)
+   339→  const diffHint =
+   340→    serverVersion === null
+   341→      ? `Local v${localVersion} · Server version unknown`
+   342→      : `Local v${localVersion} · Server v${serverVersion}`
+   343→
+   344→  async function handleResolve(choice: ConflictChoice) {
+   345→    setBusy(true)
+   346→    try {
+   347→      await resolveConflict(op.id, choice)
+   348→      toast.success(
+   349→        choice === 'mine'
+   350→          ? 'Conflict resolved — your version will be re-pushed'
+   351→          : choice === 'theirs'
+   352→            ? "Conflict resolved — server's version adopted"
+   353→            : 'Conflict resolved — record marked as deleted',
+   354→      )
+   355→    } catch (err) {
+   356→      toast.error(`Could not resolve conflict: ${(err as Error).message}`)
+   357→    } finally {
+   358→      setBusy(false)
+   359→    }
+   360→  }
+   361→
+   362→  return (
+   363→    <div className="flex flex-col gap-3 rounded-lg border border-orange-200 bg-orange-50/50 p-3 dark:border-orange-900 dark:bg-orange-950/30 sm:flex-row sm:items-center sm:justify-between">
+   364→      <div className="min-w-0">
+   365→        <p className="text-sm font-medium">
+   366→          {entityLabel(op.entity)}{' '}
+   367→          <span className="font-mono text-xs font-normal text-muted-foreground">{op.entity_id.slice(0, 8)}</span>
+   368→        </p>
+   369→        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">{diffHint}</p>
+   370→        <p className="mt-0.5 text-xs text-orange-700 dark:text-orange-300">
+   371→          {op.last_error ?? 'A newer server version exists for this record.'}
+   372→        </p>
+   373→      </div>
+   374→      <AlertDialog>
+   375→        <AlertDialogTrigger asChild>
+   376→          <Button size="sm" variant="outline" className="shrink-0" disabled={busy}>
+   377→            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+   378→            Resolve
+   379→          </Button>
+   380→        </AlertDialogTrigger>
+   381→        <AlertDialogContent>
+   382→          <AlertDialogHeader>
+   383→            <AlertDialogTitle>Resolve sync conflict</AlertDialogTitle>
+   384→            <AlertDialogDescription>
+   385→              {entityLabel(op.entity)} <span className="font-mono">{op.entity_id.slice(0, 8)}</span> — {diffHint}.
+   386→              Your local change conflicts with the server&apos;s newer version. Choose which one to keep; this
+   387→              cannot be undone. &quot;Delete&quot; marks the record as deleted on every synced device.
+   388→            </AlertDialogDescription>
+   389→          </AlertDialogHeader>
+   390→          <AlertDialogFooter className="flex-wrap gap-2 sm:justify-between">
+   391→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   392→            <div className="flex flex-wrap gap-2">
+   393→              <AlertDialogAction
+   394→                className="bg-destructive text-white hover:bg-destructive/90"
+   395→                onClick={() => void handleResolve('delete')}
+   396→              >
+   397→                Delete
+   398→              </AlertDialogAction>
+   399→              <AlertDialogAction
+   400→                className="border bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground"
+   401→                onClick={() => void handleResolve('theirs')}
+   402→              >
+   403→                Keep server&apos;s
+   404→              </AlertDialogAction>
+   405→              <AlertDialogAction onClick={() => void handleResolve('mine')}>Keep mine</AlertDialogAction>
+   406→            </div>
+   407→          </AlertDialogFooter>
+   408→        </AlertDialogContent>
+   409→      </AlertDialog>
+   410→    </div>
+   411→  )
+   412→}
+   413→
+   414→function FailedOpItem({ op }: { op: SyncOperation }) {
+   415→  const [busy, setBusy] = useState(false)
+   416→
+   417→  async function handleRetry() {
+   418→    setBusy(true)
+   419→    try {
+   420→      await retryFailedOp(op.id)
+   421→      toast.success('Operation re-queued for sync')
+   422→    } catch (err) {
+   423→      toast.error(`Could not retry: ${(err as Error).message}`)
+   424→    } finally {
+   425→      setBusy(false)
+   426→    }
+   427→  }
+   428→
+   429→  async function handleDiscard() {
+   430→    setBusy(true)
+   431→    try {
+   432→      await discardFailedOp(op.id)
+   433→      toast.success('Operation discarded — the local record is unchanged')
+   434→    } catch (err) {
+   435→      toast.error(`Could not discard: ${(err as Error).message}`)
+   436→    } finally {
+   437→      setBusy(false)
+   438→    }
+   439→  }
+   440→
+   441→  return (
+   442→    <div className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+   443→      <div className="min-w-0 flex-1">
+   444→        <p className="text-sm font-medium">
+   445→          {entityLabel(op.entity)}{' '}
+   446→          <span className="font-mono text-xs font-normal text-muted-foreground">{op.entity_id.slice(0, 8)}</span>
+   447→          <span className="ml-2 text-xs font-normal text-muted-foreground">
+   448→            {op.attempts} {op.attempts === 1 ? 'attempt' : 'attempts'}
+   449→          </span>
+   450→        </p>
+   451→        <p className="mt-0.5 break-words text-xs text-red-600 dark:text-red-400">{op.last_error ?? 'Rejected by server'}</p>
+   452→      </div>
+   453→      <div className="flex shrink-0 items-center gap-2">
+   454→        <Button size="sm" variant="outline" onClick={() => void handleRetry()} disabled={busy} className="gap-1.5">
+   455→          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+   456→          Retry
+   457→        </Button>
+   458→        <AlertDialog>
+   459→          <AlertDialogTrigger asChild>
+   460→            <Button
+   461→              size="sm"
+   462→              variant="ghost"
+   463→              className="gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400"
+   464→              disabled={busy}
+   465→              aria-label={`Discard failed ${entityLabel(op.entity).toLowerCase()} operation ${op.id.slice(0, 8)}`}
+   466→            >
+   467→              <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+   468→              Discard
+   469→            </Button>
+   470→          </AlertDialogTrigger>
+   471→          <AlertDialogContent>
+   472→            <AlertDialogHeader>
+   473→              <AlertDialogTitle>Discard this operation?</AlertDialogTitle>
+   474→              <AlertDialogDescription>
+   475→                The queued change for {entityLabel(op.entity).toLowerCase()}{' '}
+   476→                <span className="font-mono">{op.entity_id.slice(0, 8)}</span> will be dropped and never sent to
+   477→                the cloud. The local record stays on this device.
+   478→              </AlertDialogDescription>
+   479→            </AlertDialogHeader>
+   480→            <AlertDialogFooter>
+   481→              <AlertDialogCancel>Cancel</AlertDialogCancel>
+   482→              <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void handleDiscard()}>
+   483→                Discard operation
+   484→              </AlertDialogAction>
+   485→            </AlertDialogFooter>
+   486→          </AlertDialogContent>
+   487→        </AlertDialog>
+   488→      </div>
+   489→    </div>
+   490→  )
+   491→}
+   492→
+   493→function SyncTab() {
+   494→  const user = useUser()
+   495→  const ws = useActiveWorkspace()
+   496→  const needsReauth = useAppStore((s) => s.needsReauth)
+   497→  const { lastSyncAt, pending, lastError } = useAppStore((s) => s.sync)
+   498→
+   499→  const ops = useLiveQuery(async () => {
+   500→    if (!ws?.id) return []
+   501→    const rows = await getDb().sync_operations.where('workspace_id').equals(ws.id).toArray()
+   502→    return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
+   503→  }, [ws?.id])
+   504→
+   505→  const conflicts = useMemo(() => (ops ?? []).filter((o) => o.status === 'conflict'), [ops])
+   506→  const failed = useMemo(() => (ops ?? []).filter((o) => o.status === 'failed'), [ops])
+   507→  const cloudLinked = Boolean(user && ws?.cloud_linked_at)
+   508→
+   509→  return (
+   510→    <div className="space-y-4">
+   511→      <Card>
+   512→        <CardHeader className="flex-row items-start justify-between space-y-0">
+   513→          <div className="space-y-1">
+   514→            <CardTitle className="text-base">Sync status</CardTitle>
+   515→            <CardDescription className="text-xs">
+   516→              Push-then-pull runs automatically when online; queued work never expires (CANON §9).
+   517→            </CardDescription>
+   518→          </div>
+   519→          <SyncNowButton />
+   520→        </CardHeader>
+   521→        <CardContent className="space-y-4">
+   522→          <dl className="grid gap-2.5 sm:grid-cols-3">
+   523→            <InfoRow label="Cloud link">
+   524→              {cloudLinked ? (
+   525→                <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+   526→                  <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
+   527→                  Linked
+   528→                </span>
+   529→              ) : (
+   530→                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+   531→                  <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
+   532→                  Guest — local only
+   533→                </span>
+   534→              )}
+   535→            </InfoRow>
+   536→            <InfoRow label="Last sync">{relative(lastSyncAt)}</InfoRow>
+   537→            <InfoRow label="Pending operations">{pending}</InfoRow>
+   538→          </dl>
+   539→
+   540→          {!cloudLinked && (
+   541→            <p className="text-xs text-muted-foreground">
+   542→              Sign in and link this workspace to enable cloud sync. Until then everything stays safely on this
+   543→              device.
+   544→            </p>
+   545→          )}
+   546→          {lastError && (
+   547→            <p className="break-words text-xs text-red-600 dark:text-red-400" role="status">
+   548→              Last sync error: {lastError}
+   549→            </p>
+   550→          )}
+   551→          {needsReauth && <ReauthAlert />}
+   552→        </CardContent>
+   553→      </Card>
+   554→
+   555→      <Card>
+   556→        <CardHeader>
+   557→          <CardTitle className="text-base">Outbox</CardTitle>
+   558→          <CardDescription className="text-xs">
+   559→            Every local mutation queues here before reaching the cloud. Done operations are pruned after 7 days.
+   560→          </CardDescription>
+   561→        </CardHeader>
+   562→        <CardContent>
+   563→          {ops === undefined ? (
+   564→            <div className="space-y-2">
+   565→              {Array.from({ length: 4 }).map((_, i) => (
+   566→                <Skeleton key={i} className="h-9 w-full" />
+   567→              ))}
+   568→            </div>
+   569→          ) : ops.length === 0 ? (
+   570→            <div className="flex flex-col items-center gap-1.5 py-8 text-center">
+   571→              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+   572→              <p className="text-sm font-medium">All operations synced</p>
+   573→              <p className="text-xs text-muted-foreground">
+   574→                Queued changes appear here while they wait for the cloud.
+   575→              </p>
+   576→            </div>
+   577→          ) : (
+   578→            <div className="max-h-[50vh] overflow-y-auto rounded-md border scrollbar-thin">
+   579→              <Table>
+   580→                <TableHeader className="sticky top-0 z-10 bg-card">
+   581→                  <TableRow>
+   582→                    <TableHead className="w-24">Op</TableHead>
+   583→                    <TableHead>Entity</TableHead>
+   584→                    <TableHead>Action</TableHead>
+   585→                    <TableHead>Status</TableHead>
+   586→                    <TableHead className="text-right">Attempts</TableHead>
+   587→                    <TableHead className="text-right">Created</TableHead>
+   588→                  </TableRow>
+   589→                </TableHeader>
+   590→                <TableBody>
+   591→                  {ops.slice(0, OUTBOX_RENDER_LIMIT).map((op) => (
+   592→                    <TableRow key={op.id}>
+   593→                      <TableCell className="font-mono text-xs text-muted-foreground">{op.id.slice(0, 8)}</TableCell>
+   594→                      <TableCell className="text-sm">{entityLabel(op.entity)}</TableCell>
+   595→                      <TableCell className="text-sm capitalize">{op.action}</TableCell>
+   596→                      <TableCell>
+   597→                        <StatusBadge status={op.status} />
+   598→                      </TableCell>
+   599→                      <TableCell className="text-right text-sm tabular-nums">{op.attempts}</TableCell>
+   600→                      <TableCell className="whitespace-nowrap text-right text-xs text-muted-foreground">
+   601→                        {relative(op.created_at)}
+   602→                      </TableCell>
+   603→                    </TableRow>
+   604→                  ))}
+   605→                  {ops.length > OUTBOX_RENDER_LIMIT && (
+   606→                    <TableRow>
+   607→                      <TableCell colSpan={6} className="text-center text-xs text-muted-foreground">
+   608→                        + {ops.length - OUTBOX_RENDER_LIMIT} older operations hidden
+   609→                      </TableCell>
+   610→                    </TableRow>
+   611→                  )}
+   612→                </TableBody>
+   613→              </Table>
+   614→            </div>
+   615→          )}
+   616→        </CardContent>
+   617→      </Card>
+   618→
+   619→      {(conflicts.length > 0 || failed.length > 0) && (
+   620→        <div className="grid gap-4 lg:grid-cols-2">
+   621→          {conflicts.length > 0 && (
+   622→            <Card className="border-orange-200 dark:border-orange-900">
+   623→              <CardHeader>
+   624→                <CardTitle className="text-base">Conflicts</CardTitle>
+   625→                <CardDescription className="text-xs">
+   626→                  The server has a newer version of these records. Choose what to keep — conflicts are never
+   627→                  resolved automatically.
+   628→                </CardDescription>
+   629→              </CardHeader>
+   630→              <CardContent className="space-y-3">
+   631→                {conflicts.map((op) => (
+   632→                  <ConflictItem key={op.id} op={op} />
+   633→                ))}
+   634→              </CardContent>
+   635→            </Card>
+   636→          )}
+   637→          {failed.length > 0 && (
+   638→            <Card className="border-red-200 dark:border-red-900">
+   639→              <CardHeader>
+   640→                <CardTitle className="text-base">Failed operations</CardTitle>
+   641→                <CardDescription className="text-xs">
+   642→                  Rejected after the retry schedule (8 attempts). Retry or discard — nothing is dropped
+   643→                  silently.
+   644→                </CardDescription>
+   645→              </CardHeader>
+   646→              <CardContent className="space-y-3">
+   647→                {failed.map((op) => (
+   648→                  <FailedOpItem key={op.id} op={op} />
+   649→                ))}
+   650→              </CardContent>
+   651→            </Card>
+   652→          )}
+   653→        </div>
+   654→      )}
+   655→    </div>
+   656→  )
+   657→}
+   658→
+   659→// ---------- Data tab ----------
+   660→
+   661→interface ParsedBackup {
+   662→  version: number
+   663→  exportedAt: string | null
+   664→  tables: Record<string, unknown[]>
+   665→}
+   666→
+   667→type BackupRow = Record<string, unknown>
+   668→
+   669→function fileWins(local: BackupRow | undefined, file: BackupRow): boolean {
+   670→  // Merge policy (docs/39 §4.2): keep the newer version per record; never auto-delete.
+   671→  if (!local) return true // absent locally → insert as-is
+   672→  const lv = readVersion(local)
+   673→  const fv = readVersion(file)
+   674→  if (lv === null || fv === null) return true // no version metadata → insert/refresh
+   675→  if (fv > lv) return true
+   676→  if (fv < lv) return false
+   677→  const lu = typeof local.updated_at === 'string' ? local.updated_at : ''
+   678→  const fu = typeof file.updated_at === 'string' ? file.updated_at : ''
+   679→  return fu > lu // equal versions → newer updated_at wins; tie keeps local
+   680→}
+   681→
+   682→async function mergeBackupIntoDb(backup: ParsedBackup): Promise<{ inserted: number; updated: number; skippedNewer: number }> {
+   683→  const db = getDb()
+   684→  const known = new Map<string, DexieTable<BackupRow, string>>()
+   685→  for (const t of db.tables) known.set(t.name, t as unknown as DexieTable<BackupRow, string>)
+   686→
+   687→  let inserted = 0
+   688→  let updated = 0
+   689→  let skippedNewer = 0
+   690→
+   691→  for (const [name, rows] of Object.entries(backup.tables)) {
+   692→    const table = known.get(name)
+   693→    if (!table) continue // unknown tables are skipped (forward compatibility)
+   694→    const kp = table.schema.primKey.keyPath ?? 'id'
+   695→    const keyPath = typeof kp === 'string' ? kp : kp[0]
+   696→    const isSequences = name === 'document_sequences'
+   697→
+   698→    for (const raw of rows) {
+   699→      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue
+   700→      const row = raw as BackupRow
+   701→      const key = row[keyPath]
+   702→      if (key === undefined || key === null || key === '') continue
+   703→      if (name === 'app_settings' && row.key === 'device_id') continue // current device identity always wins
+   704→
+   705→      const local: BackupRow | undefined = await table.get(String(key))
+   706→      if (isSequences && local) {
+   707→        // Sequences never decrement (CANON §6): next_seq becomes max(local, file).
+   708→        const next = Math.max(Number(local.next_seq) || 0, Number(row.next_seq) || 0)
+   709→        await table.put({ ...row, next_seq: next })
+   710→        updated += 1
+   711→        continue
+   712→      }
+   713→      if (local && !fileWins(local, row)) {
+   714→        skippedNewer += 1
+   715→        continue
+   716→      }
+   717→      await table.put(row)
+   718→      if (local) updated += 1
+   719→      else inserted += 1
+   720→    }
+   721→  }
+   722→
+   723→  return { inserted, updated, skippedNewer }
+   724→}
+   725→
+   726→function DataTab() {
+   727→  const [exporting, setExporting] = useState(false)
+   728→  const [importing, setImporting] = useState(false)
+   729→  const [pendingImport, setPendingImport] = useState<ParsedBackup | null>(null)
+   730→  const [clearOpen2, setClearOpen2] = useState(false)
+   731→  const [clearing, setClearing] = useState(false)
+   732→  const fileInputRef = useRef<HTMLInputElement>(null)
+   733→  const lastBackupAt = useAppSetting('last_backup_at')
+   734→
+   735→  async function handleExport() {
+   736→    setExporting(true)
+   737→    try {
+   738→      const db = getDb()
+   739→      const tables: Record<string, unknown[]> = {}
+   740→      for (const t of db.tables) {
+   741→        tables[t.name] = (await t.toArray()) as unknown[]
+   742→      }
+   743→      const payload = {
+   744→        meta: {
+   745→          app: 'invoiceflow',
+   746→          version: BACKUP_FORMAT_VERSION,
+   747→          exported_at: nowIso(),
+   748→          device_id: getDeviceId(),
+   749→        },
+   750→        tables,
+   751→      }
+   752→      const json = JSON.stringify(payload, null, 2)
+   753→      const stamp = toYMD(new Date()).replace(/-/g, '')
+   754→      const filename = `invoiceflow-backup-${stamp}.json`
+   755→      const blob = new Blob([json], { type: 'application/json' })
+   756→      const url = URL.createObjectURL(blob)
+   757→      const anchor = document.createElement('a')
+   758→      anchor.href = url
+   759→      anchor.download = filename
+   760→      document.body.appendChild(anchor)
+   761→      anchor.click()
+   762→      anchor.remove()
+   763→      URL.revokeObjectURL(url)
+   764→      await setSetting('last_backup_at', nowIso())
+   765→      toast.success(`Backup downloaded — ${filename}`)
+   766→    } catch (err) {
+   767→      toast.error(`Export failed: ${(err as Error).message}`)
+   768→    } finally {
+   769→      setExporting(false)
+   770→    }
+   771→  }
+   772→
+   773→  async function onFileChosen(file: File) {
+   774→    try {
+   775→      const text = await file.text()
+   776→      const parsed: unknown = JSON.parse(text)
+   777→      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+   778→        throw new Error('The file is not a valid JSON backup')
+   779→      }
+   780→      const obj = parsed as Record<string, unknown>
+   781→      const meta = (obj.meta ?? {}) as Record<string, unknown>
+   782→      if (meta.app !== 'invoiceflow') {
+   783→        throw new Error('This file is not an InvoiceFlow backup (meta.app mismatch)')
+   784→      }
+   785→      const version = typeof meta.version === 'number' ? meta.version : BACKUP_FORMAT_VERSION
+   786→      if (version > BACKUP_FORMAT_VERSION) {
+   787→        throw new Error('This backup was created by a newer InvoiceFlow version — update the app first')
+   788→      }
+   789→      const rawTables = (obj.tables ?? {}) as Record<string, unknown>
+   790→      const tables: Record<string, unknown[]> = {}
+   791→      for (const [name, rows] of Object.entries(rawTables)) {
+   792→        if (Array.isArray(rows)) tables[name] = rows
+   793→      }
+   794→      if (Object.keys(tables).length === 0) throw new Error('The backup contains no tables')
+   795→      setPendingImport({ version, exportedAt: typeof meta.exported_at === 'string' ? meta.exported_at : null, tables })
+   796→    } catch (err) {
+   797→      toast.error(`Import failed: ${(err as Error).message}`)
+   798→    }
+   799→  }
+   800→
+   801→  async function handleImport() {
+   802→    if (!pendingImport) return
+   803→    setImporting(true)
+   804→    try {
+   805→      const summary = await mergeBackupIntoDb(pendingImport)
+   806→      const totalRows = Object.values(pendingImport.tables).reduce((n, rows) => n + rows.length, 0)
+   807→      setPendingImport(null)
+   808→      toast.success(
+   809→        `Import complete — ${summary.inserted} inserted · ${summary.updated} updated · ${summary.skippedNewer} kept newer of ${totalRows} rows`,
+   810→      )
+   811→      toast('Reload the app to refresh every view', {
+   812→        duration: 12000,
+   813→        action: { label: 'Reload', onClick: () => window.location.reload() },
+   814→      })
+   815→    } catch (err) {
+   816→      toast.error(`Import failed: ${(err as Error).message}`)
+   817→    } finally {
+   818→      setImporting(false)
+   819→    }
+   820→  }
+   821→
+   822→  async function handleClearLocal() {
+   823→    setClearing(true)
+   824→    try {
+   825→      await getDb().delete()
+   826→      window.location.reload()
+   827→    } catch (err) {
+   828→      toast.error(`Could not clear local data: ${(err as Error).message}`)
+   829→      setClearing(false)
+   830→      setClearOpen2(false)
+   831→    }
+   832→  }
+   833→
+   834→  const pendingRowCount = pendingImport
+   835→    ? Object.values(pendingImport.tables).reduce((n, rows) => n + rows.length, 0)
+   836→    : 0
+   837→  const pendingTableCount = pendingImport ? Object.keys(pendingImport.tables).length : 0
+   838→
+   839→  return (
+   840→    <div className="space-y-4">
+   841→      <div className="grid gap-4 lg:grid-cols-2">
+   842→        <Card>
+   843→          <CardHeader>
+   844→            <CardTitle className="flex items-center gap-2 text-base">
+   845→              <Download className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+   846→              Export backup
+   847→            </CardTitle>
+   848→            <CardDescription className="text-xs">
+   849→              Download every local table as one portable JSON file. Works fully offline — store the file
+   850→              somewhere safe; it contains all your financial data.
+   851→            </CardDescription>
+   852→          </CardHeader>
+   853→          <CardContent className="space-y-3">
+   854→            <p className="text-xs text-muted-foreground">
+   855→              Last export: {lastBackupAt ? relative(lastBackupAt) : 'never on this device'}
+   856→            </p>
+   857→            <Button onClick={() => void handleExport()} disabled={exporting} className="gap-1.5">
+   858→              {exporting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
+   859→              Export JSON backup
+   860→            </Button>
+   861→          </CardContent>
+   862→        </Card>
+   863→
+   864→        <Card>
+   865→          <CardHeader>
+   866→            <CardTitle className="flex items-center gap-2 text-base">
+   867→              <Upload className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+   868→              Import backup
+   869→            </CardTitle>
+   870→            <CardDescription className="text-xs">
+   871→              Restore an <span className="font-mono">invoiceflow-backup-*.json</span> file. Merging keeps the
+   872→              newer version per record and never deletes local data; unknown tables are skipped.
+   873→            </CardDescription>
+   874→          </CardHeader>
+   875→          <CardContent>
+   876→            <input
+   877→              ref={fileInputRef}
+   878→              type="file"
+   879→              accept="application/json"
+   880→              className="hidden"
+   881→              onChange={(e) => {
+   882→                const file = e.target.files?.[0]
+   883→                if (file) void onFileChosen(file)
+   884→                e.target.value = ''
+   885→              }}
+   886→              aria-label="Choose an InvoiceFlow backup file to import"
+   887→            />
+   888→            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing} className="gap-1.5">
+   889→              {importing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Upload className="h-4 w-4" aria-hidden="true" />}
+   890→              Choose backup file…
+   891→            </Button>
+   892→          </CardContent>
+   893→        </Card>
+   894→      </div>
+   895→
+   896→      <Card className="border-red-300/70 dark:border-red-900">
+   897→        <CardHeader>
+   898→          <CardTitle className="flex items-center gap-2 text-base text-red-700 dark:text-red-400">
+   899→            <Trash2 className="h-4 w-4" aria-hidden="true" />
+   900→            Danger zone
+   901→          </CardTitle>
+   902→          <CardDescription className="text-xs">
+   903→            Irreversible local actions. Cloud data (if your workspace is linked) is not affected.
+   904→          </CardDescription>
+   905→        </CardHeader>
+   906→        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   907→          <p className="text-xs text-muted-foreground">
+   908→            Clear local data deletes every workspace, document, customer and payment stored in IndexedDB on
+   909→            this device, then reloads the app. Export a backup first if in doubt.
+   910→          </p>
+   911→          <AlertDialog>
+   912→            <AlertDialogTrigger asChild>
+   913→              <Button variant="destructive" className="shrink-0 gap-1.5">
+   914→                <Trash2 className="h-4 w-4" aria-hidden="true" />
+   915→                Clear local data
+   916→              </Button>
+   917→            </AlertDialogTrigger>
+   918→            <AlertDialogContent>
+   919→              <AlertDialogHeader>
+   920→                <AlertDialogTitle>Clear all local data?</AlertDialogTitle>
+   921→                <AlertDialogDescription>
+   922→                  This permanently deletes the entire local database on this device. If your workspace is
+   923→                  cloud-linked you can re-pull from the cloud after signing in; guest data cannot be
+   924→                  recovered.
+   925→                </AlertDialogDescription>
+   926→              </AlertDialogHeader>
+   927→              <AlertDialogFooter>
+   928→                <AlertDialogCancel>Cancel</AlertDialogCancel>
+   929→                <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => setClearOpen2(true)}>
+   930→                  Continue
+   931→                </AlertDialogAction>
+   932→              </AlertDialogFooter>
+   933→            </AlertDialogContent>
+   934→          </AlertDialog>
+   935→        </CardContent>
+   936→      </Card>
+   937→
+   938→      {/* Import confirmation — merge policy notice per docs/39 §4.2 */}
+   939→      <AlertDialog open={pendingImport !== null} onOpenChange={(open) => !open && setPendingImport(null)}>
+   940→        <AlertDialogContent>
+   941→          <AlertDialogHeader>
+   942→            <AlertDialogTitle>Import this backup?</AlertDialogTitle>
+   943→            <AlertDialogDescription>
+   944→              Rows are merged into your local database: the newer version per record wins and nothing is
+   945→              deleted. Document number sequences are advanced to the highest value to prevent reuse.
+   946→              {pendingImport?.exportedAt && ` Exported ${relative(pendingImport.exportedAt)}.`}
+   947→            </AlertDialogDescription>
+   948→          </AlertDialogHeader>
+   949→          <p className="text-xs text-muted-foreground tabular-nums">
+   950→            {pendingTableCount} tables · {pendingRowCount} rows · format version {pendingImport?.version}
+   951→          </p>
+   952→          <AlertDialogFooter>
+   953→            <AlertDialogCancel disabled={importing}>Cancel</AlertDialogCancel>
+   954→            <AlertDialogAction
+   955→              disabled={importing}
+   956→              onClick={(e) => {
+   957→                e.preventDefault() // keep the dialog open until the merge finishes
+   958→                void handleImport()
+   959→              }}
+   960→            >
+   961→              {importing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+   962→              Import
+   963→            </AlertDialogAction>
+   964→          </AlertDialogFooter>
+   965→        </AlertDialogContent>
+   966→      </AlertDialog>
+   967→
+   968→      {/* Second confirmation step for clearing local data */}
+   969→      <AlertDialog open={clearOpen2} onOpenChange={setClearOpen2}>
+   970→        <AlertDialogContent>
+   971→          <AlertDialogHeader>
+   972→            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+   973→            <AlertDialogDescription>
+   974→              This is the final confirmation. Everything in the local database will be erased immediately and
+   975→              the app will reload. This cannot be undone.
+   976→            </AlertDialogDescription>
+   977→          </AlertDialogHeader>
+   978→          <AlertDialogFooter>
+   979→            <AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel>
+   980→            <AlertDialogAction
+   981→              className="bg-destructive text-white hover:bg-destructive/90"
+   982→              disabled={clearing}
+   983→              onClick={(e) => {
+   984→                e.preventDefault()
+   985→                void handleClearLocal()
+   986→              }}
+   987→            >
+   988→              {clearing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+   989→              Erase everything
+   990→            </AlertDialogAction>
+   991→          </AlertDialogFooter>
+   992→        </AlertDialogContent>
+   993→      </AlertDialog>
+   994→    </div>
+   995→  )
+   996→}
+   997→
+   998→// ---------- Security tab ----------
+   999→
+  1000→function DeleteAccountDialog({ busy, onDelete }: { busy: boolean; onDelete: () => void }) {
+  1001→  const [step2Open, setStep2Open] = useState(false)
+  1002→  return (
+  1003→    <>
+  1004→      <AlertDialog>
+  1005→        <AlertDialogTrigger asChild>
+  1006→          <Button variant="destructive" className="gap-1.5" disabled={busy}>
+  1007→            <XCircle className="h-4 w-4" aria-hidden="true" />
+  1008→            Delete account
+  1009→          </Button>
+  1010→        </AlertDialogTrigger>
+  1011→        <AlertDialogContent>
+  1012→          <AlertDialogHeader>
+  1013→            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+  1014→            <AlertDialogDescription>
+  1015→              Your account and its cloud data will be permanently deleted. Data already stored on this device
+  1016→              stays until you clear it from the Data tab.
+  1017→            </AlertDialogDescription>
+  1018→          </AlertDialogHeader>
+  1019→          <AlertDialogFooter>
+  1020→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+  1021→            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => setStep2Open(true)}>
+  1022→              Continue
+  1023→            </AlertDialogAction>
+  1024→          </AlertDialogFooter>
+  1025→        </AlertDialogContent>
+  1026→      </AlertDialog>
+  1027→
+  1028→      <AlertDialog open={step2Open} onOpenChange={setStep2Open}>
+  1029→        <AlertDialogContent>
+  1030→          <AlertDialogHeader>
+  1031→            <AlertDialogTitle>Final confirmation</AlertDialogTitle>
+  1032→            <AlertDialogDescription>
+  1033→              This cannot be undone. Your account will be erased from the cloud immediately. You will be
+  1034→              signed out afterwards.
+  1035→            </AlertDialogDescription>
+  1036→          </AlertDialogHeader>
+  1037→          <AlertDialogFooter>
+  1038→            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+  1039→            <AlertDialogAction
+  1040→              className="bg-destructive text-white hover:bg-destructive/90"
+  1041→              disabled={busy}
+  1042→              onClick={(e) => {
+  1043→                e.preventDefault()
+  1044→                onDelete()
+  1045→              }}
+  1046→            >
+  1047→              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+  1048→              Delete account forever
+  1049→            </AlertDialogAction>
+  1050→          </AlertDialogFooter>
+  1051→        </AlertDialogContent>
+  1052→      </AlertDialog>
+  1053→    </>
+  1054→  )
+  1055→}
+  1056→
+  1057→function SecurityTab() {
+  1058→  const user = useUser()
+  1059→  const setUser = useAppStore((s) => s.setUser)
+  1060→  const [signingOut, setSigningOut] = useState(false)
+  1061→  const [deleting, setDeleting] = useState(false)
+  1062→
+  1063→  async function handleSignOut() {
+  1064→    setSigningOut(true)
+  1065→    try {
+  1066→      await apiLogout()
+  1067→      setUser(null)
+  1068→      toast.success('Signed out — your local data stays on this device')
+  1069→    } catch (err) {
+  1070→      toast.error(`Sign out failed: ${(err as Error).message}`)
+  1071→    } finally {
+  1072→      setSigningOut(false)
+  1073→    }
+  1074→  }
+  1075→
+  1076→  async function handleDeleteAccount() {
+  1077→    setDeleting(true)
+  1078→    try {
+  1079→      await apiDeleteAccount()
+  1080→      setUser(null)
+  1081→      toast.success('Account deleted — local data remains on this device')
+  1082→    } catch (err) {
+  1083→      toast.error(`Account deletion failed: ${(err as Error).message}`)
+  1084→      setDeleting(false)
+  1085→    }
+  1086→  }
+  1087→
+  1088→  const privacyPoints = [
+  1089→    {
+  1090→      icon: Database,
+  1091→      title: 'Stored locally first',
+  1092→      body: 'All business data lives in your browser’s IndexedDB and every feature works fully offline.',
+  1093→    },
+  1094→    {
+  1095→      icon: Cloud,
+  1096→      title: 'Cloud sync only when signed in',
+  1097→      body: 'Nothing leaves this device until you sign in and link your workspace; guest data never touches a server.',
+  1098→    },
+  1099→    {
+  1100→      icon: Download,
+  1101→      title: 'Export anytime',
+  1102→      body: 'Create a full JSON backup from the Data tab — backups are user-initiated downloads and no server stores them.',
+  1103→    },
+  1104→  ]
+  1105→
+  1106→  return (
+  1107→    <div className="grid gap-4 lg:grid-cols-2">
+  1108→      <Card>
+  1109→        <CardHeader>
+  1110→          <CardTitle className="flex items-center gap-2 text-base">
+  1111→            <UserRound className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+  1112→            Account
+  1113→          </CardTitle>
+  1114→          <CardDescription className="text-xs">Session and cloud identity for this device.</CardDescription>
+  1115→        </CardHeader>
+  1116→        {user ? (
+  1117→          <CardContent className="space-y-4">
+  1118→            <dl className="space-y-2.5">
+  1119→              <InfoRow label="Name">{user.name ?? '—'}</InfoRow>
+  1120→              <InfoRow label="Email">{user.email}</InfoRow>
+  1121→              <InfoRow label="User ID">
+  1122→                <span className="font-mono text-xs">{user.id.slice(0, 8)}</span>
+  1123→              </InfoRow>
+  1124→            </dl>
+  1125→            <Separator />
+  1126→            <div className="flex flex-wrap items-center gap-2">
+  1127→              <Button variant="outline" onClick={() => void handleSignOut()} disabled={signingOut} className="gap-1.5">
+  1128→                {signingOut ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
+  1129→                Sign out
+  1130→              </Button>
+  1131→              <DeleteAccountDialog busy={deleting} onDelete={() => void handleDeleteAccount()} />
+  1132→            </div>
+  1133→          </CardContent>
+  1134→        ) : (
+  1135→          <CardContent className="space-y-4">
+  1136→            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/40">
+  1137→              <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+  1138→              <p className="text-xs text-amber-900 dark:text-amber-200">
+  1139→                You&apos;re using a guest workspace. Data stays on this device — sign in to back it up to the
+  1140→                cloud and sync across devices.
+  1141→              </p>
+  1142→            </div>
+  1143→            <div className="flex flex-wrap items-center gap-2">
+  1144→              <Button onClick={() => navigate('login')} className="gap-1.5">
+  1145→                <LogIn className="h-4 w-4" aria-hidden="true" />
+  1146→                Sign in
+  1147→              </Button>
+  1148→              <Button variant="outline" onClick={() => navigate('login')} className="gap-1.5">
+  1149→                <UserPlus className="h-4 w-4" aria-hidden="true" />
+  1150→                Create account
+  1151→              </Button>
+  1152→            </div>
+  1153→          </CardContent>
+  1154→        )}
+  1155→      </Card>
+  1156→
+  1157→      <Card>
+  1158→        <CardHeader>
+  1159→          <CardTitle className="flex items-center gap-2 text-base">
+  1160→            <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+  1161→            Privacy
+  1162→          </CardTitle>
+  1163→          <CardDescription className="text-xs">How InvoiceFlow handles your data, in plain words.</CardDescription>
+  1164→        </CardHeader>
+  1165→        <CardContent>
+  1166→          <ul className="space-y-3">
+  1167→            {privacyPoints.map((point) => (
+  1168→              <li key={point.title} className="flex items-start gap-3">
+  1169→                <point.icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+  1170→                <div className="min-w-0">
+  1171→                  <p className="text-sm font-medium">{point.title}</p>
+  1172→                  <p className="text-xs text-muted-foreground">{point.body}</p>
+  1173→                </div>
+  1174→              </li>
+  1175→            ))}
+  1176→          </ul>
+  1177→        </CardContent>
+  1178→        <CardFooter className="border-t text-xs text-muted-foreground">
+  1179→          <p>
+  1180→            Local-first by design (CANON §1) — the cloud is an optional mirror, never the primary store.
+  1181→          </p>
+  1182→        </CardFooter>
+  1183→      </Card>
+  1184→    </div>
+  1185→  )
+  1186→}
+  1187→
+  1188→// ---------- Root view ----------
+  1189→
+  1190→export function SettingsView({ initialTab = 'preferences' }: SettingsViewProps) {
+  1191→  return (
+  1192→    <section aria-label="Settings" className="flex flex-col gap-4">
+  1193→      <div>
+  1194→        <SectionHeading>Settings</SectionHeading>
+  1195→        <p className="text-xs text-muted-foreground">
+  1196→          Preferences, sync health, backups and account — all in one place.
+  1197→        </p>
+  1198→      </div>
+  1199→
+  1200→      <Tabs defaultValue={initialTab} className="gap-4">
+  1201→        <TabsList className="grid w-full grid-cols-2 gap-1 sm:inline-flex sm:w-fit">
+  1202→          <TabsTrigger value="preferences" className="gap-1.5 px-3">
+  1203→            <Sun className="h-3.5 w-3.5" aria-hidden="true" />
+  1204→            Preferences
+  1205→          </TabsTrigger>
+  1206→          <TabsTrigger value="sync" className="gap-1.5 px-3">
+  1207→            <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
+  1208→            Sync
+  1209→          </TabsTrigger>
+  1210→          <TabsTrigger value="data" className="gap-1.5 px-3">
+  1211→            <Database className="h-3.5 w-3.5" aria-hidden="true" />
+  1212→            Data
+  1213→          </TabsTrigger>
+  1214→          <TabsTrigger value="security" className="gap-1.5 px-3">
+  1215→            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+  1216→            Security
+  1217→          </TabsTrigger>
+  1218→        </TabsList>
+  1219→
+  1220→        <TabsContent value="preferences" className="mt-2">
+  1221→          <PreferencesTab />
+  1222→        </TabsContent>
+  1223→        <TabsContent value="sync" className="mt-2">
+  1224→          <SyncTab />
+  1225→        </TabsContent>
+  1226→        <TabsContent value="data" className="mt-2">
+  1227→          <DataTab />
+  1228→        </TabsContent>
+  1229→        <TabsContent value="security" className="mt-2">
+  1230→          <SecurityTab />
+  1231→        </TabsContent>
+  1232→      </Tabs>
+  1233→    </section>
+  1234→  )
+  1235→}
+  1236→

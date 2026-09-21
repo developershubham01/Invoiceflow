@@ -22,7 +22,7 @@ import { setQuotationStatus, softDeleteQuotationDraft } from '@/lib/db/repositor
 import { toCsv, downloadCsv } from '@/lib/csv'
 import { toast } from 'sonner'
 import {
-  ChevronLeft, ChevronRight, ChevronRight as RowChevron, Clock3, Download, FileText, Loader2, Plus, Search,
+  ChevronLeft, ChevronRight, ChevronRight as RowChevron, Clock3, Download, FileDown, FileText, Loader2, Plus, Search,
   Send, Trash2, X,
 } from 'lucide-react'
 
@@ -149,6 +149,34 @@ export function QuotationsView() {
     )
     downloadCsv(`invoiceflow-quotations-selection-${today}.csv`, csv)
     toast.success(`Exported ${selectedRows.length} quotation${selectedRows.length === 1 ? '' : 's'}`, { description: 'CSV saved to your downloads folder.' })
+  }
+
+  /** Batch PDF export: one PDF per selected quotation, rendered locally (offline). */
+  const runExportPdfs = async () => {
+    if (selectedRows.length === 0) return
+    setBusy(true)
+    const { renderDocumentPdf, downloadPdf } = await import('@/lib/pdf/render')
+    const { buildQuotationModel, pdfFileName } = await import('@/lib/pdf/document-model')
+    let ok = 0
+    const failed: Array<{ number: string; reason: string }> = []
+    for (const q of selectedRows) {
+      try {
+        const [items, customer] = await Promise.all([
+          getDb().quotation_items.where('quotation_id').equals(q.id).toArray(),
+          getDb().customers.get(q.customer_id),
+        ])
+        const model = buildQuotationModel(q, items.sort((a, b) => a.position - b.position), company ?? null, customer)
+        downloadPdf(renderDocumentPdf(model), pdfFileName(model))
+        ok++
+        // stagger so the browser queues each download instead of dropping them
+        await new Promise((r) => setTimeout(r, 350))
+      } catch (err) {
+        failed.push({ number: q.number, reason: (err as Error).message })
+      }
+    }
+    setBusy(false)
+    if (ok > 0) toast.success(`${ok} PDF${ok === 1 ? '' : 's'} exported`, { description: ok > 1 ? 'Saved to your downloads folder — allow multiple downloads if your browser asks.' : 'Saved to your downloads folder.' })
+    for (const f of failed) toast.error(`Could not export ${f.number}`, { description: f.reason })
   }
 
   return (
@@ -293,6 +321,9 @@ export function QuotationsView() {
                 onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 className="h-3.5 w-3.5" /> Delete drafts
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={busy} onClick={() => void runExportPdfs()}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileDown className="h-3.5 w-3.5" aria-hidden="true" />} PDFs
               </Button>
               <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={busy} onClick={exportSelectedCsv}>
                 <Download className="h-3.5 w-3.5" /> CSV

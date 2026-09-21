@@ -4,6 +4,6 @@
  * onboarding, auth screen, and the PDF footer.
  * Keep in sync with package.json (checked in CI by convention).
  */
-export const APP_VERSION = '0.8.0'
+export const APP_VERSION = '0.9.0'
 
 export const APP_TAGLINE = 'Local-first · Offline-ready · GST-aware' as const

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany } from '@/lib/hooks/app-hooks'
@@ -22,10 +22,21 @@ import { Badge } from '@/components/ui/badge'
 import { saveProduct, softDeleteProduct } from '@/lib/db/repositories'
 import { STANDARD_GST_RATES_BPS, gstRateLabel } from '@/lib/domain/gst'
 import { productSchema } from '@/lib/domain/schemas'
-import { formatMoney, parseAmountToPaise } from '@/lib/domain/money'
+import { formatMoney, formatQty, parseAmountToPaise } from '@/lib/domain/money'
 import { toast } from 'sonner'
-import { Archive, Boxes, FileText, Pencil, Plus, Search, TrendingUp } from 'lucide-react'
+import { Archive, ArrowDownAZ, Boxes, FileText, Flame, IndianRupee, Pencil, Plus, Search, TrendingUp } from 'lucide-react'
 import type { Product } from '@/lib/domain/types'
+
+/** How the catalog grid is ordered. */
+type ProductSort = 'name' | 'used' | 'revenue'
+
+const PRODUCT_SORTS: Array<{ value: ProductSort; label: string; icon: typeof ArrowDownAZ; title: string }> = [
+  { value: 'name', label: 'A–Z', icon: ArrowDownAZ, title: 'Sort alphabetically' },
+  { value: 'used', label: 'Most used', icon: Flame, title: 'Sort by how often each item is invoiced' },
+  { value: 'revenue', label: 'Top revenue', icon: IndianRupee, title: 'Sort by revenue contribution' },
+]
+
+interface ProductUsage { count: number; revenue: number; unitsMilli: number }
 
 interface FormState {
   id?: string
@@ -47,6 +58,7 @@ export function ProductsView() {
   const ws = useActiveWorkspace()
   const company = useCompany()
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<ProductSort>('name')
   const [form, setForm] = useState<FormState | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -58,23 +70,43 @@ export function ProductsView() {
   const usage = useLiveQuery(async () => {
     if (!ws) return null
     const items = await getDb().invoice_items.where('workspace_id').equals(ws.id).toArray()
-    const map = new Map<string, { count: number; revenue: number }>()
+    const map = new Map<string, ProductUsage>()
     for (const it of items) {
-      // usage keyed by description match (items snapshot descriptions)
+      // usage keyed by the item's snapshot description
       const key = it.description
-      const cur = map.get(key) ?? { count: 0, revenue: 0 }
-      map.set(key, { count: cur.count + 1, revenue: cur.revenue + it.total_paise })
+      const cur = map.get(key) ?? { count: 0, revenue: 0, unitsMilli: 0 }
+      map.set(key, { count: cur.count + 1, revenue: cur.revenue + it.total_paise, unitsMilli: cur.unitsMilli + (it.qty_milli ?? 0) })
     }
     return map
   }, [ws?.id])
 
+  /**
+   * Resolve a product's usage. The editor (and sample seeder) fill line items with
+   * `prod.description || prod.name`, so try that first, then the bare name — items
+   * typed fully by hand can't be attributed (line items are snapshots without product ids).
+   */
+  const usageFor = useCallback((p: Product): ProductUsage => {
+    if (!usage) return { count: 0, revenue: 0, unitsMilli: 0 }
+    return usage.get(p.description || p.name) ?? usage.get(p.name) ?? { count: 0, revenue: 0, unitsMilli: 0 }
+  }, [usage])
+
+  /** Highest single-product revenue — baseline for the per-card share bars. */
+  const maxUsageRevenue = useMemo(() => {
+    if (!products) return 0
+    let max = 0
+    for (const p of products) max = Math.max(max, usageFor(p).revenue)
+    return max
+  }, [products, usageFor])
+
   const filtered = useMemo(() => {
     if (!products) return []
     const q = query.trim().toLowerCase()
-    return products
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q) || (p.hsn_sac ?? '').includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [products, query])
+    const arr = products.filter((p) => !q || p.name.toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q) || (p.hsn_sac ?? '').includes(q))
+    if (sort === 'used') arr.sort((a, b) => usageFor(b).count - usageFor(a).count || a.name.localeCompare(b.name))
+    else if (sort === 'revenue') arr.sort((a, b) => usageFor(b).revenue - usageFor(a).revenue || a.name.localeCompare(b.name))
+    else arr.sort((a, b) => a.name.localeCompare(b.name))
+    return arr
+  }, [products, query, sort, usageFor])
 
   const openEdit = (p?: Product) => {
     setForm(p ? {
@@ -137,6 +169,29 @@ export function ProductsView() {
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, SKU, HSN/SAC…" className="pl-8" aria-label="Search products" />
         </div>
+        <div
+          role="group"
+          aria-label="Sort products"
+          className="flex overflow-hidden rounded-lg border"
+        >
+          {PRODUCT_SORTS.map(({ value, label, icon: Icon, title }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSort(value)}
+              aria-pressed={sort === value}
+              title={title}
+              className={`flex h-11 items-center gap-1.5 border-l px-3 text-xs font-medium transition-colors first:border-l-0 sm:h-9 sm:px-2.5 ${
+                sort === value
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
+        </div>
         <Button onClick={() => openEdit()} className="gap-1.5">
           <Plus className="h-4 w-4" /> New product
         </Button>
@@ -154,7 +209,8 @@ export function ProductsView() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => {
-            const use = usage?.get(p.name)
+            const use = usageFor(p)
+            const showUsage = use.count > 0 && maxUsageRevenue > 0
             return (
               <Card key={p.id} className="product-card py-0">
                 <CardContent className="p-4">
@@ -196,11 +252,30 @@ export function ProductsView() {
                       </AlertDialog>
                     </div>
                   </div>
-                  {use && use.count > 0 && (
-                    <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <TrendingUp className="h-3 w-3 text-emerald-600" aria-hidden="true" />
-                      Used in {use.count} invoice line(s) · {formatMoney(use.revenue)} revenue
-                    </p>
+                  {showUsage && (
+                    <div className="mt-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-[11px]">
+                        <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                          <TrendingUp className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                          <span className="truncate">
+                            {use.count} line{use.count === 1 ? '' : 's'} · {formatQty(use.unitsMilli)} {p.unit} sold
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                          {formatMoney(use.revenue)}
+                        </span>
+                      </div>
+                      <div
+                        className="h-1 overflow-hidden rounded-full bg-muted"
+                        role="img"
+                        aria-label={`${p.name} revenue share: ${Math.round((use.revenue / maxUsageRevenue) * 100)}% of top product`}
+                      >
+                        <div
+                          className="usage-bar-in h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400"
+                          style={{ width: `${Math.max(6, Math.round((use.revenue / maxUsageRevenue) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>

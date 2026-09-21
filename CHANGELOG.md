@@ -4,6 +4,32 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-09-21
+
+### Fixed
+
+- **PWA installability defect**: the web manifest referenced `icon-192.png` / `icon-512.png` that did not exist in `public/` — Chrome can never offer installation without a 192px+ PNG icon. Both icons (plus `apple-touch-icon.png`, 180px) are now generated from the existing brand SVG via sharp, and the layout metadata declares all icon sizes + `appleWebApp` capability. Verified all four assets serve HTTP 200.
+
+### Added
+
+- **Install InvoiceFlow card** (Settings → Preferences): a new full-width card captures the browser's deferred `beforeinstallprompt` event (new module `src/lib/pwa-install.ts` — external store via `useSyncExternalStore`, no context provider) and adapts to four states: already running standalone → green "Running as an installed app" panel; installable → one-tap **Install InvoiceFlow** button that drives the native prompt and toasts on acceptance; iOS Safari → numbered Add-to-Home-Screen steps; other browsers → address-bar/⋮-menu hint. Standalone detection covers `display-mode: standalone`/`minimal-ui` and iOS `navigator.standalone`, and re-renders automatically on `appinstalled`.
+- **Quotation batch PDF export**: the quotation bulk bar gains the same **PDFs** action as invoices — one offline PDF per selected quotation (`buildQuotationModel` → renderer, 350 ms download stagger), per-item failure toasts plus the success summary. Bulk bar actions now match invoices exactly: Mark drafts sent · Delete drafts · PDFs · CSV · Clear.
+- **Products sales insights**: catalog cards show per-product usage — invoice lines, **units sold** (`qty_milli` aggregated, formatted via `formatQty`), and revenue with a gradient **revenue-share mini-bar** relative to the top product (`role="img"` aria label with the %). New sort segmented control: **A–Z / Most used / Top revenue** (`aria-pressed`, emerald active state).
+- **Usage attribution fixed along the way**: usage now resolves through `prod.description || prod.name` first (exactly what the editor's catalog pick and the seeder write into line items), falling back to the bare product name — previously the sample workspace showed zero usage everywhere because seeded descriptions are marketing copy, not product names.
+
+### Improved (styling)
+
+- Install card: emerald hairline gradient across the top edge, smartphone icon chip, and a settle-in fade for the action panel (`install-chip-in`, reduced-motion safe).
+- Revenue-share bars grow in from the left (`usage-bar-in` keyframe, reduced-motion safe) with a consistent emerald gradient.
+- Sort chips are 44px tall on touch devices (`h-11`, 36px from `sm:` up) and hide their text labels on narrow screens (icon-only, tooltip-preserving `title`).
+
+### Verified (QA round 8)
+
+- Simulated `beforeinstallprompt` (synthetic event with `prompt`/`userChoice` stubs): card flips to the install button; clicking calls `prompt()` and shows the "InvoiceFlow installed" toast; fallback desktop instructions verified headless; all icon/manifest assets return 200.
+- Products: 6 usage bars render; sort exercised — A–Z first = AMC, Most used = LED Panel Light 18W, Top revenue = Ceiling Fan 1200mm; bar widths cross-checked against revenue/max (86%, 48%, 27%, 14%, 6%); usage lines read e.g. "2 lines · 35 PCS sold ₹47,376.00".
+- Quotations: 2 rows selected → bulk bar shows all five actions → "2 PDFs exported" toast, console clean.
+- Desktop 1440 + mobile 390 px, light + dark; `bun run lint` exit 0; `tsc --noEmit` 0 errors in `src/`; version strings unified at v0.9.0 (sidebar, status bar, Settings).
+
 ## [0.8.0] - 2025-09-21
 
 ### Added

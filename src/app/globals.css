@@ -263,3 +263,22 @@ input[inputmode="decimal"] {
   box-shadow: 0 6px 16px -8px color-mix(in oklab, var(--foreground) 14%, transparent);
   border-color: color-mix(in oklab, var(--color-emerald-500, #10b981) 35%, var(--border));
 }
+
+/* ---------- products usage share bars: grow in from the left ---------- */
+@keyframes usage-bar-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: none; }
+}
+.usage-bar-in {
+  transform-origin: left center;
+  animation: usage-bar-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- settings install card: subtle chip settle ---------- */
+@keyframes install-chip-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.install-card-fade > div:last-child > div {
+  animation: install-chip-in 240ms ease-out both;
+}

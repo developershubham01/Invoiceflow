@@ -27,7 +27,9 @@ import {
   Monitor,
   Moon,
   RotateCcw,
+  Share2,
   ShieldCheck,
+  Smartphone,
   Sun,
   Trash2,
   Upload,
@@ -65,6 +67,12 @@ import { getDeviceId } from '@/lib/device'
 import { nowIso, toYMD } from '@/lib/date'
 import { navigate } from '@/lib/router'
 import { runSync } from '@/lib/sync/engine'
+import {
+  getPwaInstallState,
+  getServerPwaInstallState,
+  promptPwaInstall,
+  subscribePwaInstall,
+} from '@/lib/pwa-install'
 import {
   discardFailedOp,
   resolveConflict,
@@ -220,6 +228,8 @@ function PreferencesTab() {
         </CardContent>
       </Card>
 
+      <InstallAppCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -284,6 +294,94 @@ function PreferencesTab() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// ---------- Install app card (PWA) ----------
+
+const IOS_INSTALL_STEPS = [
+  'Open this app in Safari and tap the Share button (the box with an arrow).',
+  'Choose "Add to Home Screen" from the share sheet.',
+  'Tap Add — InvoiceFlow installs like a native app.',
+]
+
+/**
+ * PWA install affordance: uses the deferred `beforeinstallprompt` flow when the
+ * browser offers it (Chrome/Edge/Android), detects already-installed windows,
+ * and falls back to manual Add-to-Home-Screen instructions on iOS Safari.
+ */
+function InstallAppCard() {
+  const pwa = useSyncExternalStore(subscribePwaInstall, getPwaInstallState, getServerPwaInstallState)
+  const [prompting, setPrompting] = useState(false)
+
+  async function handleInstall() {
+    setPrompting(true)
+    const outcome = await promptPwaInstall()
+    setPrompting(false)
+    if (outcome === 'accepted') {
+      toast.success('InvoiceFlow installed', { description: 'Launch it from your home screen, dock or app drawer.' })
+    }
+    // dismissed → user intentionally stayed in the browser; no nagging
+  }
+
+  return (
+    <Card className="install-card-fade lg:col-span-2 overflow-hidden py-0">
+      <div className="h-0.5 w-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/60 to-emerald-500/0" aria-hidden="true" />
+      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 transition-transform group-hover:scale-105 dark:text-emerald-400">
+          <Smartphone className="h-6 w-6" aria-hidden="true" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <CardTitle className="text-base">Install InvoiceFlow as an app</CardTitle>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            Launch full-screen from your home screen or dock, keep invoicing available fully offline,
+            and stay signed in — no app store needed.
+          </p>
+        </div>
+
+        <div className="shrink-0 sm:w-72">
+          {pwa.isStandalone ? (
+            <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Running as an installed app</p>
+                <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">You are all set — updates apply automatically.</p>
+              </div>
+            </div>
+          ) : pwa.canInstall ? (
+            <div className="space-y-1.5">
+              <Button onClick={() => void handleInstall()} disabled={prompting} className="w-full gap-1.5">
+                {prompting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
+                Install InvoiceFlow
+              </Button>
+              <p className="text-center text-[11px] text-muted-foreground">One tap — installs instantly, free.</p>
+            </div>
+          ) : pwa.platform === 'ios' ? (
+            <ol className="space-y-1.5">
+              {IOS_INSTALL_STEPS.map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-[11px] leading-snug text-muted-foreground">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[9px] font-bold text-emerald-700 dark:text-emerald-400" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                  {step}
+                </li>
+              ))}
+              <li className="flex items-center gap-1.5 pt-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                <Share2 className="h-3 w-3" aria-hidden="true" />
+                Safari → Share → Add to Home Screen
+              </li>
+            </ol>
+          ) : (
+            <p className="rounded-lg border bg-muted/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              {pwa.platform === 'android'
+                ? 'Open the ⋮ menu in Chrome and choose "Add to Home screen" / "Install app".'
+                : 'In Chrome or Edge, use the install icon in the address bar (or the ⋮ menu → "Install InvoiceFlow"). It appears once the browser marks the app installable.'}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
