@@ -10,10 +10,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { saveCompany } from '@/lib/db/repositories'
+import { saveCompany, peekNextNumber } from '@/lib/db/repositories'
+import { getDb } from '@/lib/db/db'
 import { companyProfileSchema } from '@/lib/domain/schemas'
 import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
+import { todayStr } from '@/lib/date'
 import { toast } from 'sonner'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { Building2, Save, Upload } from 'lucide-react'
 
 interface FormState {
@@ -52,6 +55,16 @@ export function CompanyView() {
   const [saving, setSaving] = useState(false)
   const logoInput = useRef<HTMLInputElement>(null)
   const sigInput = useRef<HTMLInputElement>(null)
+
+  /** Live read-only preview of the next allocated numbers (respects the typed prefixes). */
+  const numberPreview = useLiveQuery(async () => {
+    if (!ws || !form) return null
+    const [invoice, quotation] = await Promise.all([
+      peekNextNumber(getDb(), ws.id, 'INVOICE', form.invoice_prefix || 'INV', todayStr()),
+      peekNextNumber(getDb(), ws.id, 'QUOTATION', form.quotation_prefix || 'QT', todayStr()),
+    ])
+    return { invoice, quotation }
+  }, [ws?.id, form?.invoice_prefix, form?.quotation_prefix])
 
   useEffect(() => {
     if (!company || form) return
@@ -251,10 +264,16 @@ export function CompanyView() {
             <div className="space-y-1.5">
               <Label htmlFor="co-invprefix">Invoice prefix</Label>
               <Input id="co-invprefix" value={form.invoice_prefix} onChange={(e) => set({ invoice_prefix: e.target.value.toUpperCase() })} placeholder="INV" />
+              <p className="text-[11px] text-muted-foreground" aria-live="polite">
+                Next: <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{numberPreview ? numberPreview.invoice : '…'}</span>
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="co-qtprefix">Quotation prefix</Label>
               <Input id="co-qtprefix" value={form.quotation_prefix} onChange={(e) => set({ quotation_prefix: e.target.value.toUpperCase() })} placeholder="QT" />
+              <p className="text-[11px] text-muted-foreground" aria-live="polite">
+                Next: <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{numberPreview ? numberPreview.quotation : '…'}</span>
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Default GST rate</Label>

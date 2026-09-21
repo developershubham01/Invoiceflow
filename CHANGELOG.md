@@ -4,6 +4,30 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-09-21
+
+### Added
+
+- **Bulk actions on the quotations list** (parity with invoices): checkbox column with select-all/indeterminate header, floating bulk bar with count + value, "Mark N drafts sent" (drives the real lifecycle transition so official `QT/FY/####` numbers are allocated per document — the same path as the detail view), "Delete drafts" with confirmation, selected-rows CSV export, and Clear. Same conditional-disable, per-item error toast, and auto-clear semantics as invoices.
+- **Bulk payment reminders from the invoices selection**: when the selection contains issued invoices with a balance, a "Remind (N)" button appears in the bulk bar. It opens a menu with "Copy N reminders" (one polished block per invoice, separated by dividers — each greeting uses the customer's contact person when known) and "Open in WhatsApp (most overdue)" — the single most overdue, then largest-balance invoice is pre-filled via its own `wa.me` deep link, never a tab-per-invoice flood. The menu footer reports "X overdue · Y due later".
+- **Shared reminder module** (`src/lib/reminder.ts`): `buildPaymentReminderText`, `isInvoiceOverdue`, `whatsappTarget` and `openWhatsAppReminder` extracted from the invoice detail view; the detail view now delegates to it so single and bulk reminders can never drift apart in wording.
+- **Next-number preview in My Company**: the invoice and quotation prefix fields now show a live, read-only "Next: INV/2026-27/0007" style hint beneath them (new read-only `peekNextNumber` repository helper — no sequence mutation). The preview updates as you type a custom prefix, and demonstrates sequence continuity (prefix changes don't reset numbers, per CANON §6).
+
+### Improved (styling)
+
+- Stat-card icon micro-interaction: tone-coloured icon chips scale to 110% with a −6° tilt on card hover and compress to 95% on press — tactile feedback on every dashboard KPI.
+- Quotations "expiring" hint: sent quotations within 7 days of their valid-until date get an amber clock chip beside the date (reuses the shared local-safe `addDaysStr` helper; no timezone drift).
+- Remind button styled as an emerald-outline chip inside the bulk bar, visually grouped with the WhatsApp concept it triggers.
+
+### Verified (QA round 5)
+
+- Fresh-profile boot test: empty IndexedDB correctly lands on onboarding; "Explore with sample data" seeds 8 invoices / 5 customers with unique codes CUS-0001..0005 (Task-4 race fix still holds); guest mode exercised end-to-end.
+- Dev server OOM (2.1 GB RSS) killed the server mid-round; restarted detached (`(bun run dev > /tmp/devlive.log 2>&1 &)`), app recovered with hash-route and IndexedDB intact — the offline-first resume path held.
+- Quotation bulk flow exercised by creating a draft through the editor UI (live totals ₹3,540.00 = 2 × ₹1,500 + 18% GST), then bulk "Mark 1 draft sent" → QT/2026-27/0004 SENT with official number; second draft (valid-until +5 days) → QT/2026-27/0005 shows the amber "expiring" chip.
+- Bulk reminders: selected INV/0005+0004 (overdue) + INV/0006 (due later) → menu correctly reported "2 overdue · 1 due later"; "Open in WhatsApp" captured via stubbed `window.open` → `wa.me/919830055555` pre-filled with the most-overdue invoice (INV/2026-27/0004), greeting the contact person by name, balance Rs. 12,600.00. Clipboard write is permission-blocked in the headless session (clean fallback toast verified; pattern proven in real browsers in Task 4).
+- My Company preview verified live: INV/2026-27/0007 / QT/2026-27/0006, and typing a custom prefix ("ACME") instantly re-renders "ACME/2026-27/0007" without mutating the stored sequence.
+- Mobile 390 px: quotation bulk bar wraps to two rows of ≥44 px targets with correct disabled dimming; `bun run lint` exit 0; `tsc --noEmit` 0 errors in `src/`.
+
 ## [0.5.0] - 2025-09-21
 
 ### Added

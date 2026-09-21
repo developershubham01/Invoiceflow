@@ -3,26 +3,41 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
-import { useActiveWorkspace } from '@/lib/hooks/app-hooks'
+import { useActiveWorkspace, useCompany } from '@/lib/hooks/app-hooks'
 import { StatusBadge } from '@/components/app/status-badge'
 import { EmptyState } from '@/components/app/empty-state'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { navigate } from '@/lib/router'
 import { formatMoney } from '@/lib/domain/money'
-import { formatDateDisplay, todayStr } from '@/lib/date'
-import { ChevronLeft, ChevronRight, FileText, Plus, Search } from 'lucide-react'
+import { addDaysStr, formatDateDisplay, todayStr } from '@/lib/date'
+import { setQuotationStatus, softDeleteQuotationDraft } from '@/lib/db/repositories'
+import { toCsv, downloadCsv } from '@/lib/csv'
+import { toast } from 'sonner'
+import {
+  ChevronLeft, ChevronRight, ChevronRight as RowChevron, Clock3, Download, FileText, Loader2, Plus, Search,
+  Send, Trash2, X,
+} from 'lucide-react'
 
 const PAGE_SIZE = 10
 const STATUS_ORDER = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED']
 
 export function QuotationsView() {
   const ws = useActiveWorkspace()
+  const company = useCompany()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('ALL')
   const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [busy, setBusy] = useState(false)
   const today = todayStr()
 
   const quotations = useLiveQuery(async () => {
@@ -53,6 +68,88 @@ export function QuotationsView() {
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  // ---- bulk selection ------------------------------------------------------
+  const selectedRows = useMemo(() => filtered.filter((q) => selected.has(q.id)), [filtered, selected])
+  const draftSelected = selectedRows.filter((q) => q.status === 'DRAFT')
+  const selectedValue = selectedRows.reduce((s, q) => s + q.grand_total_paise, 0)
+  const pageAllSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id))
+  const pageSomeSelected = pageRows.some((r) => selected.has(r.id)) && !pageAllSelected
+
+  const toggleRow = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const togglePage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (pageAllSelected) pageRows.forEach((r) => next.delete(r.id))
+      else pageRows.forEach((r) => next.add(r.id))
+      return next
+    })
+  }
+  const clearSelection = () => setSelected(new Set())
+
+  // ---- bulk operations -----------------------------------------------------
+  const runMarkSent = async () => {
+    if (!ws || draftSelected.length === 0) return
+    setBusy(true)
+    let ok = 0
+    const failed: Array<{ number: string; reason: string }> = []
+    for (const q of draftSelected) {
+      try {
+        // official QT number is allocated inside the transition (CANON §6)
+        await setQuotationStatus(ws.id, q.id, 'SENT', company?.quotation_prefix)
+        ok++
+      } catch (err) {
+        failed.push({ number: q.number, reason: (err as Error).message })
+      }
+    }
+    setBusy(false)
+    if (ok > 0) toast.success(`${ok} quotation${ok === 1 ? '' : 's'} marked sent`, { description: 'Official numbers allocated — awaiting customer decision.' })
+    for (const f of failed) toast.error(`Could not send ${f.number}`, { description: f.reason })
+    clearSelection()
+  }
+
+  const runDeleteDrafts = async () => {
+    if (!ws || draftSelected.length === 0) return
+    setBusy(true)
+    let ok = 0
+    const failed: Array<{ number: string; reason: string }> = []
+    for (const q of draftSelected) {
+      try {
+        await softDeleteQuotationDraft(ws.id, q.id)
+        ok++
+      } catch (err) {
+        failed.push({ number: q.number, reason: (err as Error).message })
+      }
+    }
+    setBusy(false)
+    setConfirmDelete(false)
+    if (ok > 0) toast.success(`${ok} draft${ok === 1 ? '' : 's'} deleted`, { description: 'Removed locally and queued for cloud deletion.' })
+    for (const f of failed) toast.error(`Could not delete ${f.number}`, { description: f.reason })
+    clearSelection()
+  }
+
+  const exportSelectedCsv = () => {
+    const csv = toCsv(
+      ['Number', 'Customer', 'Date', 'Valid until', 'Status', 'Total (Rs.)'],
+      selectedRows.map((q) => [
+        q.number,
+        q.customer_name_snapshot ?? '',
+        q.quotation_date,
+        q.valid_until ?? '',
+        q.status,
+        (q.grand_total_paise / 100).toFixed(2),
+      ]),
+    )
+    downloadCsv(`invoiceflow-quotations-selection-${today}.csv`, csv)
+    toast.success(`Exported ${selectedRows.length} quotation${selectedRows.length === 1 ? '' : 's'}`, { description: 'CSV saved to your downloads folder.' })
+  }
 
   return (
     <div className="space-y-4">
@@ -88,6 +185,14 @@ export function QuotationsView() {
             <table className="w-full text-sm" aria-label="Quotations list">
               <thead className="sticky top-0 z-10 bg-muted/95 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
                 <tr>
+                  <th className="w-10 px-3 py-2.5">
+                    <Checkbox
+                      checked={pageAllSelected ? true : pageSomeSelected ? 'indeterminate' : false}
+                      onCheckedChange={togglePage}
+                      aria-label={pageAllSelected ? 'Deselect all on this page' : 'Select all on this page'}
+                      className="align-middle"
+                    />
+                  </th>
                   <th className="px-4 py-2.5 font-medium">Quotation</th>
                   <th className="px-4 py-2.5 font-medium">Customer</th>
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">Date</th>
@@ -98,26 +203,46 @@ export function QuotationsView() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((q) => (
-                  <tr
-                    key={q.id}
-                    tabIndex={0}
-                    className="group cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
-                    onClick={() => navigate(`quotations/${q.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`quotations/${q.id}`) }}
-                    aria-label={`Open quotation ${q.number}`}
-                  >
-                    <td className="px-4 py-3 font-medium">{q.number}</td>
-                    <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{q.customer_name_snapshot}</td>
-                    <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">{formatDateDisplay(q.quotation_date)}</td>
-                    <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">{formatDateDisplay(q.valid_until)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(q.grand_total_paise)}</td>
-                    <td className="px-2 py-3 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" aria-hidden="true">
-                      <ChevronRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </td>
-                  </tr>
-                ))}
+                {pageRows.map((q) => {
+                  const isSelected = selected.has(q.id)
+                  // warn when a sent quotation is within 7 days of expiry (and not already accepted/converted)
+                  const expiringSoon = q.status === 'SENT' && Boolean(q.valid_until) && q.valid_until! <= addDaysStr(today, 7) && q.valid_until! >= today
+                  return (
+                    <tr
+                      key={q.id}
+                      tabIndex={0}
+                      className={`group cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 ${isSelected ? 'bg-emerald-500/[0.07] hover:bg-emerald-500/10 dark:bg-emerald-500/[0.12] dark:hover:bg-emerald-500/[0.15]' : ''}`}
+                      onClick={() => navigate(`quotations/${q.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`quotations/${q.id}`) }}
+                      aria-label={`Open quotation ${q.number}`}
+                      aria-selected={isSelected}
+                    >
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleRow(q.id)}
+                          aria-label={`Select quotation ${q.number}`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium">{q.number}</td>
+                      <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{q.customer_name_snapshot}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">{formatDateDisplay(q.quotation_date)}</td>
+                      <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">
+                        {formatDateDisplay(q.valid_until)}
+                        {expiringSoon && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                            <Clock3 className="h-2.5 w-2.5" aria-hidden="true" /> expiring
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(q.grand_total_paise)}</td>
+                      <td className="px-2 py-3 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" aria-hidden="true">
+                        <RowChevron className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -132,6 +257,75 @@ export function QuotationsView() {
           )}
         </div>
       )}
+
+      {selectedRows.length > 0 && (
+        <div
+          className="bulk-bar sticky bottom-3 z-20 rounded-xl border border-emerald-500/30 bg-popover/95 p-3 shadow-lg shadow-emerald-950/10 backdrop-blur"
+          role="toolbar"
+          aria-label={`Bulk actions for ${selectedRows.length} selected quotations`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+              {selectedRows.length} selected
+            </span>
+            <span className="text-xs tabular-nums text-muted-foreground">Value {formatMoney(selectedValue)}</span>
+            {draftSelected.length > 0 && (
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                · {draftSelected.length} draft{draftSelected.length === 1 ? '' : 's'} ready to send
+              </span>
+            )}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                className="h-8 gap-1.5"
+                disabled={busy || draftSelected.length === 0}
+                onClick={() => void runMarkSent()}
+                title={draftSelected.length === 0 ? 'Select at least one draft quotation' : `Allocate official ${company?.quotation_prefix ?? 'QT'} numbers`}
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Mark {draftSelected.length > 0 ? `${draftSelected.length} draft${draftSelected.length === 1 ? '' : 's'}` : 'drafts'} sent
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-red-600 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                disabled={busy || draftSelected.length === 0}
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete drafts
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" disabled={busy} onClick={exportSelectedCsv}>
+                <Download className="h-3.5 w-3.5" /> CSV
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2" onClick={clearSelection} aria-label="Clear selection">
+                <X className="h-3.5 w-3.5" /> Clear
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* delete drafts confirmation */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {draftSelected.length} draft quotation{draftSelected.length === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Draft quotations are removed locally and the deletion is queued to the cloud. Only drafts can be deleted — sent quotations stay for the record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep drafts</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600"
+              onClick={(e) => { e.preventDefault(); void runDeleteDrafts() }}
+            >
+              {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+              Delete {draftSelected.length}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

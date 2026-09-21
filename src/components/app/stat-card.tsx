@@ -32,7 +32,7 @@ export function StatCard({
   return (
     <Card
       className={cn(
-        'py-4 transition-all duration-200',
+        'group py-4 transition-all duration-200',
         onClick && 'cursor-pointer hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring'
       )}
       onClick={onClick}
@@ -51,8 +51,8 @@ export function StatCard({
           )}
           {sub && !loading ? <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p> : null}
         </div>
-        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', toneClasses[tone])}>
-          <Icon className="h-4.5 w-4.5" aria-hidden="true" />
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 group-active:scale-95', toneClasses[tone])}>
+          <Icon className="h-4.5 w-4.5 transition-transform duration-200 group-hover:-rotate-6" aria-hidden="true" />
         </div>
       </CardContent>
     </Card>

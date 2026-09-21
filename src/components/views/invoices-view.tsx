@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -19,11 +20,12 @@ import { navigate } from '@/lib/router'
 import { formatMoney } from '@/lib/domain/money'
 import { formatDateDisplay, todayStr } from '@/lib/date'
 import { finalizeInvoice, softDeleteInvoiceDraft } from '@/lib/db/repositories'
+import { buildPaymentReminderText, isInvoiceOverdue, openWhatsAppReminder } from '@/lib/reminder'
 import { toCsv, downloadCsv } from '@/lib/csv'
 import { toast } from 'sonner'
 import {
   AlertTriangle, BadgeCheck, ChevronLeft, ChevronRight, ChevronRight as RowChevron,
-  Download, Loader2, Plus, Receipt, Search, Trash2, X,
+  Copy, Download, Loader2, MessageCircle, MessageSquareText, Phone, Plus, Receipt, Search, Trash2, X,
 } from 'lucide-react'
 
 const PAGE_SIZE = 10
@@ -42,13 +44,18 @@ export function InvoicesView() {
 
   const invoices = useLiveQuery(async () => {
     if (!ws) return null
-    return getDb().invoices.where('workspace_id').equals(ws.id).filter((i) => !i.deleted_at).toArray()
+    const [rows, customers] = await Promise.all([
+      getDb().invoices.where('workspace_id').equals(ws.id).filter((i) => !i.deleted_at).toArray(),
+      getDb().customers.where('workspace_id').equals(ws.id).toArray(),
+    ])
+    const byId = new Map(customers.map((c) => [c.id, { phone: c.phone, contact_person: c.contact_person, business_name: c.business_name }]))
+    return { rows, byId }
   }, [ws?.id])
 
   const filtered = useMemo(() => {
-    if (!invoices) return []
+    const rows = invoices?.rows ?? []
     const q = query.trim().toLowerCase()
-    return invoices
+    return rows
       .filter((i) => (status === 'ALL' ? true : i.status === status))
       .filter((i) =>
         !q ||
@@ -62,9 +69,10 @@ export function InvoicesView() {
   const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const counts = useMemo(() => {
+    const rows = invoices?.rows ?? []
     if (!invoices) return null
-    const c: Record<string, number> = { ALL: invoices.length }
-    for (const s of STATUS_ORDER) c[s] = invoices.filter((i) => i.status === s).length
+    const c: Record<string, number> = { ALL: rows.length }
+    for (const s of STATUS_ORDER) c[s] = rows.filter((i) => i.status === s).length
     return c
   }, [invoices])
 
@@ -72,6 +80,11 @@ export function InvoicesView() {
   const selectedRows = useMemo(() => filtered.filter((i) => selected.has(i.id)), [filtered, selected])
   const draftSelected = selectedRows.filter((i) => i.status === 'DRAFT')
   const selectedValue = selectedRows.reduce((s, i) => s + i.grand_total_paise, 0)
+  /** Reminder-eligible: issued with an outstanding balance (overdue or upcoming-due). */
+  const remindable = useMemo(
+    () => selectedRows.filter((i) => (i.status === 'FINALIZED' || i.status === 'PARTIALLY_PAID') && i.grand_total_paise > i.paid_total_paise),
+    [selectedRows],
+  )
   const pageAllSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id))
   const pageSomeSelected = pageRows.some((r) => selected.has(r.id)) && !pageAllSelected
 
@@ -149,6 +162,44 @@ export function InvoicesView() {
     )
     downloadCsv(`invoiceflow-invoices-selection-${today}.csv`, csv)
     toast.success(`Exported ${selectedRows.length} invoice${selectedRows.length === 1 ? '' : 's'}`, { description: 'CSV saved to your downloads folder.' })
+  }
+
+  // ---- bulk reminders ------------------------------------------------------
+  const reminderFor = (inv: (typeof remindable)[number]) => {
+    const cust = invoices?.byId.get(inv.customer_id)
+    return buildPaymentReminderText(
+      inv,
+      { contact_person: cust?.contact_person ?? null, business_name: cust?.business_name ?? inv.customer_name_snapshot ?? null },
+      company,
+    )
+  }
+
+  /** Reminder plus the customer's own phone (for the wa.me target). */
+  const reminderWithPhone = (inv: (typeof remindable)[number]) => ({
+    text: reminderFor(inv),
+    phone: invoices?.byId.get(inv.customer_id)?.phone ?? null,
+  })
+
+  const copyBulkReminders = async () => {
+    const joined = remindable.map((i) => reminderWithPhone(i).text).join('\n\n\u2014\u2014\u2014\n\n')
+    try {
+      await navigator.clipboard.writeText(joined)
+      toast.success(`${remindable.length} reminder${remindable.length === 1 ? '' : 's'} copied`, { description: 'One block per invoice, separated by a divider — paste anywhere.' })
+    } catch {
+      toast.error('Could not access the clipboard in this browser')
+    }
+  }
+
+  const openBulkWhatsApp = () => {
+    // most overdue first, then largest balance — open one tab, not many
+    const target = [...remindable].sort((a, b) => {
+      const ao = a.due_date ?? '9999-12-31'
+      const bo = b.due_date ?? '9999-12-31'
+      return ao.localeCompare(bo) || (b.grand_total_paise - b.paid_total_paise) - (a.grand_total_paise - a.paid_total_paise)
+    })[0]
+    const { text, phone } = reminderWithPhone(target)
+    const resolved = openWhatsAppReminder(phone, text)
+    toast.success(`Opening WhatsApp for ${target.number}`, { description: resolved ? 'Reminder pre-filled — just press send.' : 'No number saved on this customer — choose the contact in WhatsApp.' })
   }
 
   return (
@@ -301,6 +352,32 @@ export function InvoicesView() {
               </span>
             )}
             <div className="ml-auto flex flex-wrap items-center gap-2">
+              {remindable.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-8 gap-1.5 border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300">
+                      <MessageCircle className="h-3.5 w-3.5" /> Remind ({remindable.length})
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel className="text-xs">Payment reminders</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => void copyBulkReminders()} className="gap-2">
+                      <Copy className="h-4 w-4" />
+                      <span>Copy {remindable.length} reminder{remindable.length === 1 ? '' : 's'}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openBulkWhatsApp} className="gap-2">
+                      <MessageSquareText className="h-4 w-4 text-emerald-600" />
+                      <span>Open in WhatsApp (most overdue)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled className="gap-2 text-xs text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5" />
+                      {remindable.filter((i) => isInvoiceOverdue(i)).length} overdue · {remindable.length - remindable.filter((i) => isInvoiceOverdue(i)).length} due later
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <Button
                 size="sm"
                 className="h-8 gap-1.5"

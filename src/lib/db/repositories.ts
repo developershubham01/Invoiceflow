@@ -366,6 +366,19 @@ export async function allocateLocalNumber(
   return number
 }
 
+/** Read-only preview of the next document number (no sequence mutation — used by My Company). */
+export async function peekNextNumber(
+  db: DB,
+  workspaceId: string,
+  docType: 'INVOICE' | 'QUOTATION',
+  prefix: string,
+  onDate: string,
+): Promise<string> {
+  const fy = fiscalYearOf(onDate)
+  const existing = await db.document_sequences.get(sequenceKey(workspaceId, docType, fy))
+  return formatDocNumber(prefix, fy, existing?.next_seq ?? 1)
+}
+
 // ---------- invoices ----------
 
 export interface InvoicePayloadInput {

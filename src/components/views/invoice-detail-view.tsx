@@ -25,6 +25,7 @@ import { chargesFromJson } from '@/lib/db/row-types'
 import { cancelInvoice, finalizeInvoice, recordPayment, softDeleteInvoiceDraft } from '@/lib/db/repositories'
 import { buildInvoiceModel } from '@/lib/pdf/document-model'
 import { formatMoney, formatMoneyPlain } from '@/lib/domain/money'
+import { buildPaymentReminderText, openWhatsAppReminder } from '@/lib/reminder'
 import { formatDateDisplay, todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { navigate } from '@/lib/router'
@@ -139,26 +140,9 @@ export function InvoiceDetailView({ id }: { id: string }) {
     }
   }
 
-  /** WhatsApp-ready payment reminder text (India use case): polite, factual, copy-to-clipboard. */
-  const buildReminderText = () => {
-    const cust = data.customer
-    const days = inv.due_date ? Math.max(0, Math.round((Date.parse(todayStr()) - Date.parse(inv.due_date)) / 86_400_000)) : 0
-    return [
-      `Hello ${cust?.contact_person || cust?.business_name || 'there'},`,
-      '',
-      overdue
-        ? `Gentle reminder that invoice ${inv.number}${inv.due_date ? ` (due ${formatDateDisplay(inv.due_date)})` : ''} is ${days} day${days === 1 ? '' : 's'} overdue.`
-        : `This is a gentle reminder about invoice ${inv.number}${inv.due_date ? ` (due ${formatDateDisplay(inv.due_date)})` : ''}.`,
-      '',
-      `Invoice amount: Rs. ${formatMoneyPlain(inv.grand_total_paise)}`,
-      inv.paid_total_paise > 0 ? `Already paid: Rs. ${formatMoneyPlain(inv.paid_total_paise)}` : '',
-      `Balance due: Rs. ${formatMoneyPlain(balance)}`,
-      company ? `Pay to: ${company.bank_name ?? ''}${company.bank_account ? ` A/C ${company.bank_account}` : ''}${company.bank_ifsc ? ` (${company.bank_ifsc})` : ''}`.trim() : '',
-      '',
-      'Kindly arrange the payment at your earliest convenience. Please ignore if already paid — thank you!',
-      company?.name ? `— ${company.name}` : '',
-    ].filter((l) => l !== '').join('\n')
-  }
+  /** WhatsApp-ready payment reminder text — shared builder keeps wording identical to bulk reminders. */
+  const buildReminderText = () =>
+    buildPaymentReminderText(inv, data.customer, company)
 
   const doCopyReminder = async () => {
     try {
@@ -171,11 +155,7 @@ export function InvoiceDetailView({ id }: { id: string }) {
 
   /** Open WhatsApp with the reminder pre-filled (wa.me deep link; works on mobile + WhatsApp Web). */
   const doWhatsAppReminder = () => {
-    const phone = data.customer?.phone?.replace(/[^0-9]/g, '')
-    // wa.me needs country code; assume Indian number when 10 digits (local convention).
-    const target = phone && phone.length === 10 ? `91${phone}` : phone ?? ''
-    const url = `https://wa.me/${target}?text=${encodeURIComponent(buildReminderText())}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+    const target = openWhatsAppReminder(data.customer?.phone, buildReminderText())
     toast.success('Opening WhatsApp', { description: target ? 'The reminder is pre-filled — just press send.' : 'No number saved on the customer — choose the contact in WhatsApp.' })
   }
 
