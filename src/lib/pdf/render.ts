@@ -216,7 +216,11 @@ export function renderDocumentPdf(model: UnifiedDocumentModel): jsPDF {
   doc.text(words, marginX, y)
   y += words.length * 3.6 + 4
 
-  // ---------- bank / notes ----------
+  // ---------- bank / notes (+ UPI scan-to-pay QR, right-aligned) ----------
+  const upiQr = model.kind === 'INVOICE' ? model.upiQr : null
+  const qrSize = upiQr ? 27 : 0
+  const textWidth = pageW - marginX * 2 - (qrSize > 0 ? qrSize - 6 : 0)
+
   if (model.kind === 'INVOICE' && model.company.bank) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
@@ -225,8 +229,29 @@ export function renderDocumentPdf(model: UnifiedDocumentModel): jsPDF {
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 116, 110)
     const b = model.company.bank
-    doc.text(`${b.name}${b.branch ? `, ${b.branch}` : ''}  ·  A/C: ${b.account}  ·  IFSC: ${b.ifsc}`, marginX, y + 3.8)
-    y += 10
+    const bankLine = doc.splitTextToSize(`${b.name}${b.branch ? `, ${b.branch}` : ''}  ·  A/C: ${b.account}  ·  IFSC: ${b.ifsc}`, textWidth)
+    doc.text(bankLine, marginX, y + 3.8)
+    y += 4 + bankLine.length * 3.6
+  }
+  if (upiQr) {
+    // keep the QR block whole — page-break first if it would clip
+    if (y + qrSize + 12 > doc.internal.pageSize.getHeight() - marginX) {
+      doc.addPage()
+      y = marginX + 4
+    }
+    const qrX = pageW - marginX - qrSize
+    doc.addImage(upiQr.dataUrl, 'PNG', qrX, y, qrSize, qrSize)
+    doc.setDrawColor(226, 232, 226)
+    doc.roundedRect(qrX - 1.2, y - 1.2, qrSize + 2.4, qrSize + 2.4, 1.4, 1.4)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.2)
+    doc.setTextColor(...SLATE)
+    doc.text('Scan to pay via UPI', qrX + qrSize / 2, y + qrSize + 4.6, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.6)
+    doc.setTextColor(100, 116, 110)
+    doc.text(upiQr.vpa, qrX + qrSize / 2, y + qrSize + 8.2, { align: 'center' })
+    y += qrSize + 11
   }
   if (model.notes) {
     doc.setFont('helvetica', 'bold')

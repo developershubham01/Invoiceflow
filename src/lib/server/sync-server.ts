@@ -294,6 +294,7 @@ async function applyOpInner(workspaceId: string, op: OpInput): Promise<OpOutcome
         bankAccount: str(payload.bank_account),
         bankIfsc: str(payload.bank_ifsc),
         bankBranch: str(payload.bank_branch),
+        upiVpa: str(payload.upi_vpa),
         authorizedSignatory: str(payload.authorized_signatory),
         signatureData: str(payload.signature_data),
         invoicePrefix: str(payload.invoice_prefix) ?? 'INV',

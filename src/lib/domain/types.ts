@@ -48,6 +48,7 @@ export interface CompanyProfile extends SyncMeta {
   bank_account: string | null
   bank_ifsc: string | null
   bank_branch: string | null
+  upi_vpa: string | null
   authorized_signatory: string | null
   signature_data: string | null
   invoice_prefix: string

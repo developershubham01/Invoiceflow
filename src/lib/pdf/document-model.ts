@@ -4,6 +4,27 @@
 import type { DocCharge, InvoiceItem, QuotationItem, TaxMode } from '@/lib/domain/types'
 import type { CompanyProfile } from '@/lib/domain/types'
 import { chargesFromJson, type InvoiceRow, type QuotationRow } from '@/lib/db/row-types'
+import { buildUpiUri, looksLikeVpa, upiQrDataUrl } from '@/lib/upi'
+
+/**
+ * Attaches the scan-to-pay QR to an invoice model (no-op for quotations,
+ * drafts without a VPA, or fully-paid invoices). Offline: the QR is rendered
+ * locally via the `qrcode` package.
+ */
+export async function withUpiQr(model: UnifiedDocumentModel): Promise<UnifiedDocumentModel> {
+  if (model.kind !== 'INVOICE' || !looksLikeVpa(model.company.upiVpa)) return model
+  const balance = Math.max(0, model.totals.grandTotalPaise - (model.totals.paidTotalPaise ?? 0))
+  if (balance <= 0) return model
+  const uri = buildUpiUri({
+    vpa: model.company.upiVpa,
+    payeeName: model.company.name,
+    amountPaise: balance,
+    note: `Invoice ${model.number}`,
+  })
+  const dataUrl = await upiQrDataUrl(uri)
+  if (!dataUrl) return model
+  return { ...model, upiQr: { uri, vpa: model.company.upiVpa, dataUrl } }
+}
 
 export interface UnifiedDocumentModel {
   kind: 'INVOICE' | 'QUOTATION'
@@ -23,7 +44,11 @@ export interface UnifiedDocumentModel {
     signatureData: string | null
     authorizedSignatory: string | null
     bank: { name: string; account: string; ifsc: string; branch: string } | null
+    /** merchant UPI ID (VPA) — rendered as a scan-to-pay QR on invoices when set */
+    upiVpa: string | null
   }
+  /** populated by withUpiQr() before rendering (async QR generation stays out of the pure model) */
+  upiQr?: { uri: string; vpa: string; dataUrl: string } | null
   customer: {
     name: string
     gstin: string | null
@@ -209,6 +234,7 @@ function toCompanyModel(company: CompanyProfile | null): UnifiedDocumentModel['c
     bank: company?.bank_name
       ? { name: company.bank_name, account: company.bank_account ?? '', ifsc: company.bank_ifsc ?? '', branch: company.bank_branch ?? '' }
       : null,
+    upiVpa: company?.upi_vpa ?? null,
   }
 }
 

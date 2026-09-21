@@ -17,7 +17,8 @@ import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateByCode, state
 import { todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, Save, Upload } from 'lucide-react'
+import { Building2, QrCode, Save, Upload } from 'lucide-react'
+import { buildUpiUri, looksLikeVpa, upiQrDataUrl } from '@/lib/upi'
 
 interface FormState {
   name: string
@@ -36,6 +37,7 @@ interface FormState {
   bank_account: string
   bank_ifsc: string
   bank_branch: string
+  upi_vpa: string
   authorized_signatory: string
   invoice_prefix: string
   quotation_prefix: string
@@ -75,6 +77,7 @@ export function CompanyView() {
       gstin: company.gstin ?? '', pan: company.pan ?? '', phone: company.phone ?? '', email: company.email ?? '',
       website: company.website ?? '', bank_name: company.bank_name ?? '', bank_account: company.bank_account ?? '',
       bank_ifsc: company.bank_ifsc ?? '', bank_branch: company.bank_branch ?? '',
+      upi_vpa: company.upi_vpa ?? '',
       authorized_signatory: company.authorized_signatory ?? '',
       invoice_prefix: company.invoice_prefix, quotation_prefix: company.quotation_prefix,
       default_gst_rate_bps: company.default_gst_rate_bps, price_includes_tax: company.price_includes_tax,
@@ -83,6 +86,27 @@ export function CompanyView() {
       logo_data: company.logo_data, signature_data: company.signature_data,
     })
   }, [company, form])
+
+  /** Live QR preview for the typed VPA (debounced, offline, no network). */
+  const [upiQrPreview, setUpiQrPreview] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    const vpa = form?.upi_vpa?.trim() ?? ''
+    if (!looksLikeVpa(vpa)) {
+      setUpiQrPreview(null)
+      return
+    }
+    const uri = buildUpiUri({ vpa, payeeName: form?.name?.trim() || 'Merchant', amountPaise: 0 })
+    const t = setTimeout(() => {
+      void upiQrDataUrl(uri).then((d) => {
+        if (alive) setUpiQrPreview(d)
+      })
+    }, 250)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [form?.upi_vpa, form?.name])
 
   const readImage = (file: File, cb: (dataUrl: string) => void) => {
     if (!/^image\/(png|jpe?g)$/.test(file.type)) {
@@ -315,6 +339,38 @@ export function CompanyView() {
             <div className="space-y-1.5">
               <Label htmlFor="co-branch">Branch</Label>
               <Input id="co-branch" value={form.bank_branch} onChange={(e) => set({ bank_branch: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="co-upi">UPI ID (VPA)</Label>
+              <Input
+                id="co-upi"
+                value={form.upi_vpa}
+                onChange={(e) => set({ upi_vpa: e.target.value.trim().toLowerCase() })}
+                placeholder="yourname@upi"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Shown as a scan-to-pay QR on invoices — customers pay straight into your account.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {upiQrPreview ? (
+                <div className="rounded-lg border bg-white p-1.5 shadow-sm" title="Live preview — the amount is filled per invoice">
+                  <img src={upiQrPreview} alt="UPI QR code preview" className="h-16 w-16" />
+                </div>
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed text-muted-foreground/50">
+                  <QrCode className="h-6 w-6" aria-hidden="true" />
+                </div>
+              )}
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {form.upi_vpa.trim()
+                  ? looksLikeVpa(form.upi_vpa)
+                    ? 'Live preview — every invoice PDF carries this QR with the balance pre-filled.'
+                    : 'Enter a valid UPI ID in the format name@bank.'
+                  : 'Add your UPI ID to let customers scan and pay.'}
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="co-notes">Default notes</Label>

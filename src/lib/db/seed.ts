@@ -33,6 +33,7 @@ export async function seedDemoData(workspaceId: string): Promise<void> {
     bank_account: '50200012345678',
     bank_ifsc: 'HDFC0000123',
     bank_branch: 'BKC, Mumbai',
+    upi_vpa: 'acmetraders@hdfcbank',
     authorized_signatory: 'Aditi Sharma',
     invoice_prefix: 'INV',
     quotation_prefix: 'QT',

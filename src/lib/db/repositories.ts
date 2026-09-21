@@ -181,6 +181,7 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         bank_account: null,
         bank_ifsc: null,
         bank_branch: null,
+        upi_vpa: null,
         authorized_signatory: null,
         signature_data: null,
         invoice_prefix: 'INV',

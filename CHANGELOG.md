@@ -4,6 +4,33 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2025-09-21
+
+### Added
+
+- **UPI scan-to-pay QR** — the flagship of this release, fully offline:
+  - New `upi_vpa` field on the company profile (validated `name@bank` format, lowercased). Synced end-to-end: local schema/type, push handler (`upiVpa`), and Prisma `CompanyProfile.upiVpa` (db pushed).
+  - **Invoice detail gains a "Scan to pay" card** (right column, when a VPA is set and balance > 0): locally-generated QR (`upi://pay?pa=…&pn=…&am=…&cu=INR&tn=Invoice <number>` — amount pre-filled), the balance, and a copy-UPI-ID chip. Drafts, cancelled and fully-paid invoices correctly show nothing.
+  - **Invoice PDFs embed the same QR** bottom-right beside the bank details (framed, captioned "Scan to pay via UPI" + VPA), via the new `withUpiQr()` model hydrator — wired into the detail PDF, the PDF preview dialog, and batch PDF export. Generation is pure client-side (`qrcode` package, canvas data URL) — no network, works fully offline; any UPI app (GPay/PhonePe/Paytm/BHIM) can scan it.
+  - **My Company**: UPI ID (VPA) input with live QR preview (debounced), format guidance, and contextual hints; the sample workspace ships with `acmetraders@hdfcbank`.
+
+### Fixed
+
+- **Mobile horizontal overflow (pre-existing, now eliminated)**: `body.scrollWidth` was 588px at 390px viewport on invoice detail. Two causes: (a) the line-items table's min-content width blew out the CSS grid (`min-width:auto` chain) — the table now scrolls inside its own `overflow-x-auto` container (`min-w-[560px]`) with `min-w-0` on the grid columns/cards; (b) the header's sync pill ("Guest workspace — local only", 216px) pushed the right cluster past the viewport — it now shows the short "Guest" label on phones (`sm:` breakpoint switch). Verified `scrollWidth 390 == viewport 390` on every view.
+
+### Improved (styling)
+
+- QR presentation: white rounded tile with soft shadow on the detail card; bordered frame + caption in the PDF; dashed placeholder with a QR icon while no VPA is configured.
+- Detail header/cards participate in the min-w-0 chain so long customer names wrap instead of stretching.
+
+### Verified (QA round 10)
+
+- VPA typed in My Company → live QR preview appears within the debounce; saved ("Company profile saved"); survives navigation.
+- INV/2026-27/0006 (finalized, ₹14,160.00 due) → Scan-to-pay card with QR + copy chip; Export PDF → preview shows the QR framed bottom-right with VPA caption; draft invoice shows no card.
+- Negative cases: invalid VPA ("not a vpa!") → guidance text + preview hidden; draft → no QR; batch export path uses the same hydrator.
+- Mobile 390: scrollWidth == viewport on detail + products + settings; header fits with the short Guest label; table scrolls horizontally inside its frame. Desktop 1440 light + dark screenshots clean. One dev-server OOM recurred mid-round (RSS 1.85GB) — restarted with the standard recipe, no data loss (offline-first resume held).
+- `bun run lint` exit 0; `tsc --noEmit` 0 errors in `src/`; version strings unified at v0.11.0.
+
 ## [0.10.0] - 2025-09-21
 
 ### Fixed

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { useActiveWorkspace, useCompany } from '@/lib/hooks/app-hooks'
@@ -23,14 +23,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { chargesFromJson } from '@/lib/db/row-types'
 import { cancelInvoice, finalizeInvoice, recordPayment, softDeleteInvoiceDraft } from '@/lib/db/repositories'
-import { buildInvoiceModel } from '@/lib/pdf/document-model'
+import { buildInvoiceModel, withUpiQr, pdfFileName } from '@/lib/pdf/document-model'
 import { formatMoney, formatMoneyPlain } from '@/lib/domain/money'
 import { buildPaymentReminderText, openWhatsAppReminder } from '@/lib/reminder'
+import { buildUpiUri, looksLikeVpa, upiQrDataUrl } from '@/lib/upi'
+import type { UnifiedDocumentModel } from '@/lib/pdf/document-model'
 import { formatDateDisplay, todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { navigate } from '@/lib/router'
 import {
-  ArrowLeft, BadgeCheck, Ban, ChevronDown, Copy, FileDown, History, MessageCircle, MessageSquareText, Pencil, Phone, Printer, Trash2, Wallet, XCircle,
+  ArrowLeft, BadgeCheck, Ban, ChevronDown, Copy, FileDown, History, MessageCircle, MessageSquareText, Pencil, Phone, Printer, QrCode, Trash2, Wallet, XCircle,
 } from 'lucide-react'
 import type { PaymentMethod } from '@/lib/domain/types'
 
@@ -62,6 +64,61 @@ export function InvoiceDetailView({ id }: { id: string }) {
     if (!data) return null
     return buildInvoiceModel(data.invoice, data.items, company ?? null, data.customer)
   }, [data, company])
+
+  /** Model with the scan-to-pay QR attached (async generation kept out of the pure builder). */
+  const [qrModel, setQrModel] = useState<UnifiedDocumentModel | null>(null)
+  useEffect(() => {
+    let alive = true
+    if (!model) {
+      setQrModel(null)
+      return
+    }
+    void withUpiQr(model).then((m) => {
+      if (alive) setQrModel(m)
+    })
+    return () => {
+      alive = false
+    }
+  }, [model])
+
+  /** Standalone QR for the detail card (same URI the PDF embeds). */
+  const balancePaise = data ? Math.max(0, data.invoice.grand_total_paise - data.invoice.paid_total_paise) : 0
+  const upiVpa = company?.upi_vpa ?? null
+  const upiEligible = Boolean(
+    upiVpa && looksLikeVpa(upiVpa) && data && data.invoice.status !== 'DRAFT' && data.invoice.status !== 'CANCELLED' && balancePaise > 0,
+  )
+  const [detailQr, setDetailQr] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    if (!upiEligible || !upiVpa || !data) {
+      setDetailQr(null)
+      return
+    }
+    const uri = buildUpiUri({
+      vpa: upiVpa,
+      payeeName: company?.name ?? 'Merchant',
+      amountPaise: balancePaise,
+      note: `Invoice ${data.invoice.number}`,
+    })
+    const t = setTimeout(() => {
+      void upiQrDataUrl(uri).then((d) => {
+        if (alive) setDetailQr(d)
+      })
+    }, 0)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [upiEligible, upiVpa, balancePaise, data, company?.name])
+
+  const doCopyVpa = async () => {
+    try {
+      await navigator.clipboard.writeText(upiVpa ?? '')
+      toast.success('UPI ID copied')
+    } catch {
+      toast.error('Could not copy — clipboard is unavailable')
+    }
+  }
 
   if (!ws) return null
   if (!data) {
@@ -262,10 +319,10 @@ export function InvoiceDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.8fr_1fr]">
-        <div className="space-y-5">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.8fr_1fr]">
+        <div className="min-w-0 space-y-5">
           {/* document summary */}
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -282,8 +339,8 @@ export function InvoiceDetailView({ id }: { id: string }) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-hidden rounded-lg border">
-                <table className="w-full text-sm" aria-label="Invoice line items">
+              <div className="overflow-x-auto rounded-lg border scrollbar-thin">
+                <table className="w-full min-w-[560px] text-sm" aria-label="Invoice line items">
                   <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">Description</th>
@@ -355,7 +412,42 @@ export function InvoiceDetailView({ id }: { id: string }) {
           </Card>
         </div>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
+          {/* scan to pay */}
+          {upiEligible && detailQr && (
+            <Card className="install-card-fade overflow-hidden">
+              <div className="h-0.5 w-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/60 to-emerald-500/0" aria-hidden="true" />
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <QrCode className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" /> Scan to pay
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="mx-auto w-fit rounded-xl border bg-white p-2 shadow-sm">
+                  <img
+                    src={detailQr}
+                    alt={`UPI QR code to pay ${formatMoney(balancePaise)} to ${company?.name ?? 'merchant'}`}
+                    className="h-40 w-40"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold">{formatMoney(balancePaise)} due</p>
+                  <p className="text-xs text-muted-foreground">Scan with any UPI app — the amount is pre-filled.</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">UPI ID</p>
+                    <p className="truncate font-mono text-xs">{upiVpa}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => void doCopyVpa()} aria-label="Copy UPI ID">
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
+                <p className="text-center text-[11px] text-muted-foreground">The same QR is embedded in the invoice PDF.</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* payments */}
           <Card>
             <CardHeader className="pb-2">
@@ -413,9 +505,9 @@ export function InvoiceDetailView({ id }: { id: string }) {
                   void (async () => {
                     try {
                       const { renderDocumentPdf, downloadPdf } = await import('@/lib/pdf/render')
-                        const { pdfFileName } = await import('@/lib/pdf/document-model')
-                      const doc = renderDocumentPdf(model)
-                      downloadPdf(doc, pdfFileName(model))
+                      const final = await withUpiQr(model)
+                      const doc = renderDocumentPdf(final)
+                      downloadPdf(doc, pdfFileName(final))
                       toast.success('PDF saved — attach it in any app to share')
                     } catch {
                       setPdfOpen(true)
@@ -432,7 +524,7 @@ export function InvoiceDetailView({ id }: { id: string }) {
         </div>
       </div>
 
-      <PdfPreviewDialog open={pdfOpen} onOpenChange={setPdfOpen} model={model} />
+      <PdfPreviewDialog open={pdfOpen} onOpenChange={setPdfOpen} model={qrModel ?? model} />
       <RecordPaymentDialog open={payOpen} onOpenChange={setPayOpen} invoiceId={id} balancePaise={balance} />
     </div>
   )

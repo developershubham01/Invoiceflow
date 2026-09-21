@@ -189,7 +189,7 @@ export function InvoicesView() {
     if (selectedRows.length === 0) return
     setBusy(true)
     const { renderDocumentPdf, downloadPdf } = await import('@/lib/pdf/render')
-    const { buildInvoiceModel, pdfFileName } = await import('@/lib/pdf/document-model')
+    const { buildInvoiceModel, pdfFileName, withUpiQr } = await import('@/lib/pdf/document-model')
     let ok = 0
     const failed: Array<{ number: string; reason: string }> = []
     for (const inv of selectedRows) {
@@ -198,7 +198,8 @@ export function InvoicesView() {
           getDb().invoice_items.where('invoice_id').equals(inv.id).toArray(),
           getDb().customers.get(inv.customer_id),
         ])
-        const model = buildInvoiceModel(inv, items.sort((a, b) => a.position - b.position), company ?? null, customer)
+        const base = buildInvoiceModel(inv, items.sort((a, b) => a.position - b.position), company ?? null, customer)
+        const model = await withUpiQr(base)
         downloadPdf(renderDocumentPdf(model), pdfFileName(model))
         ok++
         // stagger so the browser queues each download instead of dropping them

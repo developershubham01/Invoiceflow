@@ -80,6 +80,7 @@ model CompanyProfile {
   bankAccount         String?
   bankIfsc            String?
   bankBranch          String?
+  upiVpa              String?
   authorizedSignatory String?
   signatureData       String?
   invoicePrefix       String    @default("INV")

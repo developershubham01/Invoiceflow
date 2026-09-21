@@ -41,6 +41,7 @@ export const companyProfileSchema = z.object({
   bank_account: optionalText(50),
   bank_ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC').nullish().or(z.literal('')),
   bank_branch: optionalText(200),
+  upi_vpa: z.string().trim().toLowerCase().max(100).regex(/^[a-z0-9.\-_]{2,256}@[a-z][a-z0-9\-]{1,63}$/, 'Invalid UPI ID — expected format name@bank').nullish().or(z.literal('')),
   authorized_signatory: optionalText(200),
   signature_data: z.string().max(1_400_000).nullish().or(z.literal('')),
   invoice_prefix: z.string().trim().min(1).max(10).default('INV'),

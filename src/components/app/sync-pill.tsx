@@ -21,7 +21,9 @@ export function SyncPill({ compact }: { compact?: boolean }) {
     return (
       <Badge variant="outline" className="gap-1.5 bg-card font-normal text-muted-foreground">
         <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
-        {compact ? 'Guest' : 'Guest workspace — local only'}
+        {/* short label on phones keeps the header inside the viewport */}
+        <span className="sm:hidden">Guest</span>
+        <span className="hidden sm:inline">{compact ? 'Guest' : 'Guest workspace — local only'}</span>
       </Badge>
     )
   }

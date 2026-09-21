@@ -67,10 +67,27 @@ export class InvoiceFlowDB extends Dexie {
       sync_metadata: 'workspace_id',
       app_settings: 'key',
     })
-    this.version(2).stores({
-      quotation_items: 'id, quotation_id, workspace_id',
-      invoice_items: 'id, invoice_id, workspace_id',
-    })
+    this.version(2)
+      .stores({
+        quotation_items: 'id, quotation_id, workspace_id',
+        invoice_items: 'id, invoice_id, workspace_id',
+      })
+      .upgrade((tx) => {
+        // Best-effort cleanup of the corrupt phantom indexes some v1 installs carry
+        // (see Task 12 / worklog): delete them if Dexie's automatic diff missed them.
+        const idb = (tx as unknown as { idbtrans?: IDBTransaction }).idbtrans
+        if (!idb) return
+        for (const [store, idx] of [
+          ['quotation_items', '[quotation_id]'],
+          ['invoice_items', '[invoice_id]'],
+        ] as const) {
+          try {
+            idb.objectStore(store).deleteIndex(idx)
+          } catch {
+            /* already removed or unrecoverable — harmless either way */
+          }
+        }
+      })
   }
 }
 
