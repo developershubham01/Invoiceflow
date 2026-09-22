@@ -1,0 +1,776 @@
+     1→// InvoiceFlow — PDF renderer (CANON §13, docs/14-PDF-GENERATION.md)
+     2→// jsPDF + jspdf-autotable: deterministic vector output, offline, A4.
+     3→// Templates: the visual identity (header layout + color theme) comes from the
+     4→// company profile per document kind (lib/domain/doc-templates.ts).
+     5→// Limitation: core fonts lack the ₹ glyph → amounts render as "Rs." (documented).
+     6→
+     7→import { jsPDF } from 'jspdf'
+     8→import autoTable from 'jspdf-autotable'
+     9→import type { UnifiedDocumentModel } from './document-model'
+    10→import { amountInWords, formatMoneyPlain, formatQty } from '@/lib/domain/money'
+    11→import { stateNameByCode } from '@/lib/domain/gst'
+    12→import { formatDateDisplay } from '@/lib/date'
+    13→import { getDocTemplate, type DocTemplate, type DocTheme } from '@/lib/domain/doc-templates'
+    14→
+    15→interface Ctx {
+    16→  doc: jsPDF
+    17→  model: UnifiedDocumentModel
+    18→  tpl: DocTemplate
+    19→  th: DocTheme
+    20→  pageW: number
+    21→  pageH: number
+    22→  ml: number // left content margin (widened for the sidebar layout)
+    23→  mr: number
+    24→}
+    25→
+    26→const WHITE: [number, number, number] = [255, 255, 255]
+    27→const DARK: [number, number, number] = [51, 65, 85]
+    28→
+    29→export function resolveTemplate(model: UnifiedDocumentModel): DocTemplate {
+    30→  const id = model.kind === 'INVOICE' ? model.company.invoiceTemplate : model.company.quotationTemplate
+    31→  return getDocTemplate(id)
+    32→}
+    33→
+    34→export function renderDocumentPdf(model: UnifiedDocumentModel): jsPDF {
+    35→  const tpl = resolveTemplate(model)
+    36→  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+    37→  const pageW = doc.internal.pageSize.getWidth()
+    38→  const pageH = doc.internal.pageSize.getHeight()
+    39→  const ctx: Ctx = {
+    40→    doc,
+    41→    model,
+    42→    tpl,
+    43→    th: tpl.theme,
+    44→    pageW,
+    45→    pageH,
+    46→    ml: tpl.layout === 'sidebar' ? 22 : 14,
+    47→    mr: 14,
+    48→  }
+    49→
+    50→  let y = drawHeader(ctx)
+    51→
+    52→  y = drawBillTo(ctx, y)
+    53→  y = drawItems(ctx, y)
+    54→  y = drawTotals(ctx, y)
+    55→  y = drawWordsBankNotes(ctx, y)
+    56→  drawTermsSignature(ctx, y)
+    57→  drawDecorations(ctx)
+    58→
+    59→  return doc
+    60→}
+    61→
+    62→// ---------------------------------------------------------------- shared data
+    63→
+    64→function companyLines(ctx: Ctx): string[] {
+    65→  const c = ctx.model.company
+    66→  return [
+    67→    ...c.addressLines.slice(0, 2),
+    68→    c.gstin ? `GSTIN: ${c.gstin}` : null,
+    69→    c.pan ? `PAN: ${c.pan}` : null,
+    70→    c.phone ? `Phone: ${c.phone}` : null,
+    71→    c.email ? `Email: ${c.email}` : null,
+    72→  ].filter((x): x is string => Boolean(x))
+    73→}
+    74→
+    75→function dateLines(ctx: Ctx): string[] {
+    76→  const m = ctx.model
+    77→  const fmt = (d: string) => formatDateDisplay(d, m.company.dateFormat)
+    78→  const out = [`Date: ${fmt(m.date)}`]
+    79→  if (m.dueDate) out.push(`Due: ${fmt(m.dueDate)}`)
+    80→  if (m.validUntil) out.push(`Valid until: ${fmt(m.validUntil)}`)
+    81→  return out
+    82→}
+    83→
+    84→function docTitle(ctx: Ctx): string {
+    85→  return ctx.model.kind === 'INVOICE' ? 'TAX INVOICE' : 'QUOTATION'
+    86→}
+    87→
+    88→function drawLogo(ctx: Ctx, x: number, y: number, size = 14): boolean {
+    89→  if (!ctx.model.company.logoData) return false
+    90→  try {
+    91→    const fmt = ctx.model.company.logoData.includes('image/png') ? 'PNG' : 'JPEG'
+    92→    ctx.doc.addImage(ctx.model.company.logoData, fmt, x, y, size, size)
+    93→    return true
+    94→  } catch {
+    95→    return false // invalid image data — skip gracefully
+    96→  }
+    97→}
+    98→
+    99→function initials(ctx: Ctx): string {
+   100→  return ctx.model.company.name
+   101→    .split(/\s+/)
+   102→    .filter(Boolean)
+   103→    .slice(0, 2)
+   104→    .map((w) => w[0]?.toUpperCase() ?? '')
+   105→    .join('') || 'IF'
+   106→}
+   107→
+   108→// ------------------------------------------------------------------- headers
+   109→
+   110→function drawHeader(ctx: Ctx): number {
+   111→  switch (ctx.tpl.layout) {
+   112→    case 'band': return drawBandHeader(ctx)
+   113→    case 'block': return drawBlockHeader(ctx)
+   114→    case 'sidebar': return drawSidebarHeader(ctx)
+   115→    case 'centered': return drawCenteredHeader(ctx)
+   116→    case 'corner': return drawCornerHeader(ctx)
+   117→    case 'split': return drawSplitHeader(ctx)
+   118→    case 'minimal': return drawMinimalHeader(ctx)
+   119→    case 'stack': return drawStackHeader(ctx)
+   120→  }
+   121→}
+   122→
+   123→/** Classic: slim top accent strip, company left, title right. */
+   124→function drawBandHeader(ctx: Ctx): number {
+   125→  const { doc, th, ml, pageW } = ctx
+   126→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   127→  const y = 16
+   128→  doc.setFillColor(...th.accent)
+   129→  doc.rect(0, 0, pageW, 4, 'F')
+   130→
+   131→  const hasLogo = drawLogo(ctx, ml, y)
+   132→  const textX = ml + (hasLogo ? 18 : 0)
+   133→  doc.setFont(base, 'bold')
+   134→  doc.setFontSize(16)
+   135→  doc.setTextColor(...th.accentDark)
+   136→  doc.text(doc.splitTextToSize(ctx.model.company.name, 90)[0], textX, y + 5)
+   137→  doc.setFont('helvetica', 'normal')
+   138→  doc.setFontSize(8)
+   139→  doc.setTextColor(...th.muted)
+   140→  companyLines(ctx).slice(0, 4).forEach((line, i) => doc.text(line, textX, y + 9 + i * 3.6))
+   141→
+   142→  doc.setFont(base, 'bold')
+   143→  doc.setFontSize(15)
+   144→  doc.setTextColor(...th.accent)
+   145→  doc.text(docTitle(ctx), pageW - ctx.mr, y + 5, { align: 'right' })
+   146→  doc.setFontSize(8.5)
+   147→  doc.setTextColor(...DARK)
+   148→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, y + 10.5, { align: 'right' })
+   149→  doc.setFont('helvetica', 'normal')
+   150→  doc.setTextColor(...th.muted)
+   151→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 14.5 + i * 3.5, { align: 'right' }))
+   152→
+   153→  return y + (hasLogo ? 22 : 24)
+   154→}
+   155→
+   156→/** Full-width dark header block, white type, accent title. */
+   157→function drawBlockHeader(ctx: Ctx): number {
+   158→  const { doc, th, ml, pageW } = ctx
+   159→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   160→  const blockH = 30
+   161→  doc.setFillColor(...th.accentDark)
+   162→  doc.rect(0, 0, pageW, blockH, 'F')
+   163→
+   164→  const hasLogo = drawLogo(ctx, ml, 8)
+   165→  const textX = ml + (hasLogo ? 18 : 0)
+   166→  doc.setFont(base, 'bold')
+   167→  doc.setFontSize(15)
+   168→  doc.setTextColor(...WHITE)
+   169→  doc.text(doc.splitTextToSize(ctx.model.company.name, 88)[0], textX, 13)
+   170→  doc.setFont('helvetica', 'normal')
+   171→  doc.setFontSize(7.8)
+   172→  doc.setTextColor(203, 213, 225)
+   173→  companyLines(ctx).slice(0, 3).forEach((line, i) => doc.text(line, textX, 17.5 + i * 3.6))
+   174→
+   175→  doc.setFont(base, 'bold')
+   176→  doc.setFontSize(15)
+   177→  doc.setTextColor(...th.accent)
+   178→  doc.text(docTitle(ctx), pageW - ctx.mr, 13, { align: 'right' })
+   179→  doc.setFontSize(8.5)
+   180→  doc.setTextColor(...WHITE)
+   181→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, 18, { align: 'right' })
+   182→  doc.setFont('helvetica', 'normal')
+   183→  doc.setTextColor(203, 213, 225)
+   184→  dateLines(ctx).slice(0, 2).forEach((line, i) => doc.text(line, pageW - ctx.mr, 22.4 + i * 3.5, { align: 'right' }))
+   185→
+   186→  return blockH + 8
+   187→}
+   188→
+   189→/** Vertical accent strip down the left edge (redrawn on every page). */
+   190→function drawSidebarHeader(ctx: Ctx): number {
+   191→  const { doc, th, ml, pageW } = ctx
+   192→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   193→  const y = 16
+   194→  const hasLogo = drawLogo(ctx, ml, y, 13)
+   195→  const textX = ml + (hasLogo ? 17 : 0)
+   196→  doc.setFont(base, 'bold')
+   197→  doc.setFontSize(15)
+   198→  doc.setTextColor(...th.accentDark)
+   199→  doc.text(doc.splitTextToSize(ctx.model.company.name, 85)[0], textX, y + 5)
+   200→  doc.setFont('helvetica', 'normal')
+   201→  doc.setFontSize(8)
+   202→  doc.setTextColor(...th.muted)
+   203→  companyLines(ctx).slice(0, 4).forEach((line, i) => doc.text(line, textX, y + 9 + i * 3.6))
+   204→
+   205→  doc.setFont(base, 'bold')
+   206→  doc.setFontSize(14)
+   207→  doc.setTextColor(...th.accent)
+   208→  doc.text(docTitle(ctx), pageW - ctx.mr, y + 5, { align: 'right' })
+   209→  doc.setFontSize(8.5)
+   210→  doc.setTextColor(...DARK)
+   211→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, y + 10.5, { align: 'right' })
+   212→  doc.setFont('helvetica', 'normal')
+   213→  doc.setTextColor(...th.muted)
+   214→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 14.5 + i * 3.5, { align: 'right' }))
+   215→
+   216→  const ruleY = y + 26
+   217→  doc.setDrawColor(...th.line)
+   218→  doc.setLineWidth(0.3)
+   219→  doc.line(ml, ruleY, pageW - ctx.mr, ruleY)
+   220→  doc.setLineWidth(0.2)
+   221→  return ruleY + 6
+   222→}
+   223→
+   224→/** Centered letterhead: name, contact line, centered title between rules. */
+   225→function drawCenteredHeader(ctx: Ctx): number {
+   226→  const { doc, th, ml, pageW } = ctx
+   227→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   228→  const cx = pageW / 2
+   229→  const cw = pageW - ml - ctx.mr
+   230→  let y = 16
+   231→
+   232→  doc.setFont(base, 'bold')
+   233→  doc.setFontSize(17)
+   234→  doc.setTextColor(...th.accentDark)
+   235→  doc.text(doc.splitTextToSize(ctx.model.company.name, cw)[0], cx, y + 5, { align: 'center' })
+   236→  doc.setFont('helvetica', 'normal')
+   237→  doc.setFontSize(7.8)
+   238→  doc.setTextColor(...th.muted)
+   239→  const contact = companyLines(ctx).join('  ·  ')
+   240→  const contactLines = doc.splitTextToSize(contact, cw)
+   241→  doc.text(contactLines, cx, y + 9.5, { align: 'center' })
+   242→  y += 9.5 + contactLines.length * 3.4 + 3
+   243→
+   244→  doc.setFont(base, 'bold')
+   245→  doc.setFontSize(13.5)
+   246→  doc.setTextColor(...th.accent)
+   247→  doc.text(docTitle(ctx), cx, y + 3, { align: 'center' })
+   248→  doc.setFont('helvetica', 'normal')
+   249→  doc.setFontSize(8.5)
+   250→  doc.setTextColor(...DARK)
+   251→  doc.text(`No. ${ctx.model.number}`, cx, y + 7.5, { align: 'center' })
+   252→  doc.setTextColor(...th.muted)
+   253→  doc.setFontSize(8)
+   254→  const dateLine = dateLines(ctx).join('   ·   ')
+   255→  doc.text(dateLine, cx, y + 11.2, { align: 'center' })
+   256→  y += 14.5
+   257→
+   258→  doc.setDrawColor(...th.accent)
+   259→  doc.setLineWidth(0.7)
+   260→  doc.line(ml, y, pageW - ctx.mr, y)
+   261→  doc.setDrawColor(...th.line)
+   262→  doc.setLineWidth(0.3)
+   263→  doc.line(ml, y + 1.4, pageW - ctx.mr, y + 1.4)
+   264→  doc.setLineWidth(0.2)
+   265→  return y + 7
+   266→}
+   267→
+   268→/** Corner brand block with initials/logo and an accent rule. */
+   269→function drawCornerHeader(ctx: Ctx): number {
+   270→  const { doc, th, ml, pageW } = ctx
+   271→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   272→  const y = 15
+   273→
+   274→  doc.setFillColor(...th.accent)
+   275→  doc.roundedRect(ml, y, 16, 16, 2.4, 2.4, 'F')
+   276→  if (!drawLogo(ctx, ml + 2.2, y + 2.2, 11.6)) {
+   277→    doc.setFont(base, 'bold')
+   278→    doc.setFontSize(11)
+   279→    doc.setTextColor(...WHITE)
+   280→    doc.text(initials(ctx), ml + 8, y + 10.2, { align: 'center' })
+   281→  }
+   282→  const textX = ml + 20
+   283→  doc.setFont(base, 'bold')
+   284→  doc.setFontSize(14.5)
+   285→  doc.setTextColor(...th.accentDark)
+   286→  doc.text(doc.splitTextToSize(ctx.model.company.name, 78)[0], textX, y + 5.5)
+   287→  doc.setFont('helvetica', 'normal')
+   288→  doc.setFontSize(7.8)
+   289→  doc.setTextColor(...th.muted)
+   290→  companyLines(ctx).slice(0, 3).forEach((line, i) => doc.text(line, textX, y + 10 + i * 3.6))
+   291→
+   292→  doc.setFont(base, 'bold')
+   293→  doc.setFontSize(15)
+   294→  doc.setTextColor(...th.accent)
+   295→  doc.text(docTitle(ctx), pageW - ctx.mr, y + 5, { align: 'right' })
+   296→  doc.setFontSize(8.5)
+   297→  doc.setTextColor(...DARK)
+   298→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, y + 10.5, { align: 'right' })
+   299→  doc.setFont('helvetica', 'normal')
+   300→  doc.setTextColor(...th.muted)
+   301→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 14.5 + i * 3.5, { align: 'right' }))
+   302→
+   303→  doc.setDrawColor(...th.accent)
+   304→  doc.setLineWidth(0.8)
+   305→  doc.line(ml, y + 20.5, pageW - ctx.mr, y + 20.5)
+   306→  doc.setLineWidth(0.2)
+   307→  return y + 26.5
+   308→}
+   309→
+   310→/** Two-tone letterhead: brand block flush left, contact details right. */
+   311→function drawSplitHeader(ctx: Ctx): number {
+   312→  const { doc, th, ml, pageW } = ctx
+   313→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   314→  const blockW = 64
+   315→  const blockH = 30
+   316→
+   317→  doc.setFillColor(...th.accent)
+   318→  doc.rect(0, 0, blockW, blockH, 'F')
+   319→  const hasLogo = drawLogo(ctx, ml, 6, 11)
+   320→  if (hasLogo) {
+   321→    doc.setFont(base, 'bold')
+   322→    doc.setFontSize(11)
+   323→    doc.setTextColor(...WHITE)
+   324→    const nameLines = doc.splitTextToSize(ctx.model.company.name, blockW - ml - 8)
+   325→    doc.text(nameLines[0] ?? '', ml + 14, 12)
+   326→    if (nameLines[1]) {
+   327→      doc.setFontSize(8.5)
+   328→      doc.text(nameLines[1], ml + 14, 16)
+   329→    }
+   330→  } else {
+   331→    doc.setFont(base, 'bold')
+   332→    doc.setFontSize(13)
+   333→    doc.setTextColor(...WHITE)
+   334→    const nameLines = doc.splitTextToSize(ctx.model.company.name, blockW - ml - 6)
+   335→    doc.text(nameLines.slice(0, 2), ml, 10, { baseline: 'top' })
+   336→  }
+   337→  doc.setFont('helvetica', 'normal')
+   338→  doc.setFontSize(7.4)
+   339→  doc.setTextColor(255, 228, 235)
+   340→  const biz = ctx.model.company.gstin ? `GSTIN: ${ctx.model.company.gstin}` : ''
+   341→  if (biz) doc.text(biz, ml, blockH - 4)
+   342→
+   343→  const rightX = blockW + 8
+   344→  doc.setFont('helvetica', 'normal')
+   345→  doc.setFontSize(7.8)
+   346→  doc.setTextColor(...th.muted)
+   347→  companyLines(ctx)
+   348→    .filter((l) => !l.startsWith('GSTIN'))
+   349→    .slice(0, 4)
+   350→    .forEach((line, i) => doc.text(line, rightX, 9 + i * 3.6))
+   351→
+   352→  let y = blockH + 7
+   353→  doc.setFont(base, 'bold')
+   354→  doc.setFontSize(14)
+   355→  doc.setTextColor(...th.accentDark)
+   356→  doc.text(docTitle(ctx), ml, y)
+   357→  doc.setFontSize(8.5)
+   358→  doc.setTextColor(...DARK)
+   359→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, y, { align: 'right' })
+   360→  doc.setFont('helvetica', 'normal')
+   361→  doc.setTextColor(...th.muted)
+   362→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 4.5 + i * 3.5, { align: 'right' }))
+   363→  y += 4.5 + dateLines(ctx).length * 3.5 + 2
+   364→
+   365→  doc.setDrawColor(...th.line)
+   366→  doc.setLineWidth(0.3)
+   367→  doc.line(ml, y, pageW - ctx.mr, y)
+   368→  doc.setLineWidth(0.2)
+   369→  return y + 6
+   370→}
+   371→
+   372→/** Minimal ink-saver: heavy top rule, no fills, generous whitespace. */
+   373→function drawMinimalHeader(ctx: Ctx): number {
+   374→  const { doc, th, ml, pageW } = ctx
+   375→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   376→  const y = 18
+   377→
+   378→  doc.setDrawColor(...th.accent)
+   379→  doc.setLineWidth(1.1)
+   380→  doc.line(ml, 12, pageW - ctx.mr, 12)
+   381→  doc.setLineWidth(0.2)
+   382→
+   383→  const hasLogo = drawLogo(ctx, ml, y, 13)
+   384→  const textX = ml + (hasLogo ? 17 : 0)
+   385→  doc.setFont(base, 'bold')
+   386→  doc.setFontSize(14)
+   387→  doc.setTextColor(...th.accentDark)
+   388→  doc.text(doc.splitTextToSize(ctx.model.company.name, 90)[0], textX, y + 5)
+   389→  doc.setFont('helvetica', 'normal')
+   390→  doc.setFontSize(7.8)
+   391→  doc.setTextColor(...th.muted)
+   392→  companyLines(ctx).slice(0, 3).forEach((line, i) => doc.text(line, textX, y + 9 + i * 3.5))
+   393→
+   394→  doc.setFont(base, 'bold')
+   395→  doc.setFontSize(12.5)
+   396→  doc.setTextColor(...th.accentDark)
+   397→  doc.text(docTitle(ctx), pageW - ctx.mr, y + 5, { align: 'right' })
+   398→  doc.setFont('helvetica', 'normal')
+   399→  doc.setFontSize(8.5)
+   400→  doc.setTextColor(...DARK)
+   401→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr, y + 9.5, { align: 'right' })
+   402→  doc.setTextColor(...th.muted)
+   403→  doc.setFontSize(8)
+   404→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 13 + i * 3.4, { align: 'right' }))
+   405→
+   406→  const ruleY = y + 20
+   407→  doc.setDrawColor(...th.line)
+   408→  doc.setLineWidth(0.3)
+   409→  doc.line(ml, ruleY, pageW - ctx.mr, ruleY)
+   410→  doc.setLineWidth(0.2)
+   411→  return ruleY + 7
+   412→}
+   413→
+   414→/** Full-width accent banner under a slim info row. */
+   415→function drawStackHeader(ctx: Ctx): number {
+   416→  const { doc, th, ml, pageW } = ctx
+   417→  const base = ctx.tpl.serif ? 'times' : 'helvetica'
+   418→  const y = 14
+   419→  const cw = pageW - ml - ctx.mr
+   420→
+   421→  const hasLogo = drawLogo(ctx, ml, y, 12)
+   422→  const textX = ml + (hasLogo ? 16 : 0)
+   423→  doc.setFont(base, 'bold')
+   424→  doc.setFontSize(13.5)
+   425→  doc.setTextColor(...th.accentDark)
+   426→  doc.text(doc.splitTextToSize(ctx.model.company.name, 95)[0], textX, y + 4.5)
+   427→  doc.setFont('helvetica', 'normal')
+   428→  doc.setFontSize(7.6)
+   429→  doc.setTextColor(...th.muted)
+   430→  companyLines(ctx).slice(0, 2).forEach((line, i) => doc.text(line, textX, y + 8 + i * 3.4))
+   431→
+   432→  doc.setFont('helvetica', 'normal')
+   433→  doc.setFontSize(8)
+   434→  doc.setTextColor(...th.muted)
+   435→  dateLines(ctx).forEach((line, i) => doc.text(line, pageW - ctx.mr, y + 4.5 + i * 3.4, { align: 'right' }))
+   436→
+   437→  const bannerY = y + 16
+   438→  doc.setFillColor(...th.accent)
+   439→  doc.rect(ml, bannerY, cw, 9, 'F')
+   440→  doc.setFont(base, 'bold')
+   441→  doc.setFontSize(12.5)
+   442→  doc.setTextColor(...WHITE)
+   443→  doc.text(docTitle(ctx), ml + 3, bannerY + 6)
+   444→  doc.setFontSize(8.5)
+   445→  doc.text(`No. ${ctx.model.number}`, pageW - ctx.mr - 3, bannerY + 6, { align: 'right' })
+   446→  doc.setFillColor(...th.accentDark)
+   447→  doc.rect(ml, bannerY + 9, cw, 0.9, 'F')
+   448→
+   449→  return bannerY + 15.5
+   450→}
+   451→
+   452→// ---------------------------------------------------------------- body blocks
+   453→
+   454→function drawBillTo(ctx: Ctx, y: number): number {
+   455→  const { doc, th, ml, pageW, model } = ctx
+   456→  doc.setDrawColor(...th.line)
+   457→  doc.setFillColor(...th.headFill)
+   458→  doc.roundedRect(ml, y, pageW - ml - ctx.mr, 26, 2, 2, 'FD')
+   459→  doc.setFont('helvetica', 'bold')
+   460→  doc.setFontSize(8)
+   461→  doc.setTextColor(...th.muted)
+   462→  doc.text('BILL TO', ml + 4, y + 5.5)
+   463→  doc.setFontSize(10.5)
+   464→  doc.setTextColor(...th.accentDark)
+   465→  doc.text(doc.splitTextToSize(model.customer.name, 95)[0], ml + 4, y + 11)
+   466→  doc.setFont('helvetica', 'normal')
+   467→  doc.setFontSize(8)
+   468→  doc.setTextColor(...th.muted)
+   469→  let by = y + 15.5
+   470→  for (const line of model.customer.addressLines.slice(0, 2)) {
+   471→    doc.text(line, ml + 4, by)
+   472→    by += 3.6
+   473→  }
+   474→  if (model.customer.gstin) doc.text(`GSTIN: ${model.customer.gstin}`, ml + 4, by)
+   475→
+   476→  doc.text('Place of supply', pageW - ctx.mr - 4, y + 5.5, { align: 'right' })
+   477→  doc.setTextColor(...DARK)
+   478→  doc.text(stateNameByCode(model.placeOfSupply) || model.placeOfSupply, pageW - ctx.mr - 4, y + 10, { align: 'right' })
+   479→  doc.setTextColor(...th.muted)
+   480→  doc.text(model.taxMode === 'INTER' ? 'Inter-state (IGST)' : 'Intra-state (CGST + SGST)', pageW - ctx.mr - 4, y + 14.5, { align: 'right' })
+   481→  if (model.status !== 'DRAFT') {
+   482→    doc.text(`Status: ${model.status.replace(/_/g, ' ')}`, pageW - ctx.mr - 4, y + 19, { align: 'right' })
+   483→  }
+   484→  return y + 32
+   485→}
+   486→
+   487→function drawItems(ctx: Ctx, y: number): number {
+   488→  const { doc, th, ml, mr, pageW, model, tpl } = ctx
+   489→  const intra = model.taxMode === 'INTRA'
+   490→  const head = [[
+   491→    '#', 'Item & description', 'HSN/SAC', 'Qty', 'Rate', 'Disc',
+   492→    'Taxable', intra ? 'CGST' : 'IGST', intra ? 'SGST' : '', 'Amount',
+   493→  ].filter((h) => h !== '')]
+   494→  const body = model.items.map((it) => {
+   495→    const row: string[] = [
+   496→      String(it.position),
+   497→      it.description,
+   498→      it.hsnSac ?? '—',
+   499→      `${formatQty(it.qtyMilli)}${it.unit ? ` ${it.unit}` : ''}`,
+   500→      formatMoneyPlain(it.unitPricePaise),
+   501→      it.discountBps > 0 ? `${(it.discountBps / 100).toFixed(1)}%` : '—',
+   502→      formatMoneyPlain(it.taxablePaise),
+   503→      formatMoneyPlain(intra ? it.cgstPaise : it.igstPaise),
+   504→    ]
+   505→    if (intra) row.push(formatMoneyPlain(it.sgstPaise))
+   506→    row.push(formatMoneyPlain(it.totalPaise))
+   507→    return row
+   508→  })
+   509→
+   510→  const headStyles: Record<string, unknown> = { fontStyle: 'bold', fontSize: 7.4 }
+   511→  let headBottom = 0
+   512→  if (tpl.tableHead === 'accent') {
+   513→    headStyles.fillColor = th.accentDark
+   514→    headStyles.textColor = WHITE
+   515→  } else if (tpl.tableHead === 'rule') {
+   516→    headStyles.fillColor = WHITE
+   517→    headStyles.textColor = th.accentDark
+   518→  } else {
+   519→    headStyles.fillColor = th.headFill
+   520→    headStyles.textColor = th.accentDark
+   521→  }
+   522→
+   523→  autoTable(doc, {
+   524→    head,
+   525→    body,
+   526→    startY: y,
+   527→    margin: { left: ml, right: mr, top: 16, bottom: 14 },
+   528→    styles: { font: 'helvetica', fontSize: 7.6, cellPadding: 1.8, textColor: DARK, lineColor: th.line, lineWidth: 0.1 },
+   529→    headStyles: headStyles as never,
+   530→    alternateRowStyles: { fillColor: th.zebra },
+   531→    columnStyles: {
+   532→      0: { cellWidth: 7, halign: 'center' },
+   533→      2: { cellWidth: 16, halign: 'center' },
+   534→      3: { cellWidth: 17, halign: 'right' },
+   535→      4: { cellWidth: 20, halign: 'right' },
+   536→      5: { cellWidth: 13, halign: 'right' },
+   537→      6: { cellWidth: 21, halign: 'right' },
+   538→      7: { cellWidth: 19, halign: 'right' },
+   539→      ...(intra ? { 8: { cellWidth: 19, halign: 'right' } } : {}),
+   540→      [intra ? 9 : 8]: { halign: 'right', fontStyle: 'bold' },
+   541→    },
+   542→    didDrawCell: (data) => {
+   543→      if (data.section === 'head') headBottom = Math.max(headBottom, data.cell.y + data.cell.height)
+   544→    },
+   545→  })
+   546→
+   547→  if (tpl.tableHead === 'rule' && headBottom > 0) {
+   548→    doc.setDrawColor(...th.accent)
+   549→    doc.setLineWidth(0.7)
+   550→    doc.line(ml, headBottom, pageW - mr, headBottom)
+   551→    doc.setLineWidth(0.2)
+   552→  }
+   553→
+   554→  // @ts-expect-error lastAutoTable is attached by autoTable
+   555→  return (doc.lastAutoTable?.finalY ?? y) + 6
+   556→}
+   557→
+   558→function drawTotals(ctx: Ctx, y: number): number {
+   559→  const { doc, th, ml, mr, pageW, pageH, model } = ctx
+   560→  const t = model.totals
+   561→  const intra = model.taxMode === 'INTRA'
+   562→  const rows: Array<[string, string]> = []
+   563→  if (model.priceIncludesTax) {
+   564→    rows.push(['Subtotal (tax inclusive)', formatMoneyPlain(t.subtotalGrossPaise)])
+   565→  } else {
+   566→    rows.push(['Subtotal', formatMoneyPlain(t.subtotalGrossPaise)])
+   567→  }
+   568→  if (t.discountTotalPaise > 0) rows.push(['Discount', `- ${formatMoneyPlain(t.discountTotalPaise)}`])
+   569→  rows.push(['Taxable value', formatMoneyPlain(t.taxableTotalPaise)])
+   570→  if (intra) {
+   571→    rows.push(['CGST', formatMoneyPlain(t.cgstPaise)])
+   572→    rows.push(['SGST/UTGST', formatMoneyPlain(t.sgstPaise)])
+   573→  } else {
+   574→    rows.push(['IGST', formatMoneyPlain(t.igstPaise)])
+   575→  }
+   576→  if (t.chargesTotalPaise > 0) rows.push(['Additional charges', formatMoneyPlain(t.chargesTotalPaise)])
+   577→  if (t.chargesTaxPaise > 0) rows.push(['Tax on charges', formatMoneyPlain(t.chargesTaxPaise)])
+   578→  if (t.roundOffPaise !== 0) rows.push(['Round off', `${t.roundOffPaise > 0 ? '+' : '-'} ${formatMoneyPlain(Math.abs(t.roundOffPaise))}`])
+   579→
+   580→  const boxW = 78
+   581→  const rowH = 5
+   582→  const boxH = rows.length * rowH + 14
+   583→  let boxY = Math.min(y, pageH - ml - boxH)
+   584→  const boxX = pageW - mr - boxW
+   585→
+   586→  if (boxY < y) {
+   587→    doc.addPage()
+   588→    y = ml + 4
+   589→    boxY = y
+   590→  }
+   591→
+   592→  rows.forEach(([label, value], i) => {
+   593→    const ry = boxY + i * rowH
+   594→    doc.setFont('helvetica', 'normal')
+   595→    doc.setFontSize(8.4)
+   596→    doc.setTextColor(...th.muted)
+   597→    doc.text(label, boxX + 2, ry)
+   598→    doc.setTextColor(...DARK)
+   599→    doc.text(value, pageW - mr - 2, ry, { align: 'right' })
+   600→  })
+   601→  let ny = boxY + rows.length * rowH + 2
+   602→
+   603→  doc.setFont('helvetica', 'bold')
+   604→  doc.setFontSize(10)
+   605→  if (ctx.tpl.totals === 'outline') {
+   606→    doc.setDrawColor(...th.accent)
+   607→    doc.setFillColor(...WHITE)
+   608→    doc.setLineWidth(0.55)
+   609→    doc.roundedRect(boxX, ny, boxW, 10, 1.5, 1.5, 'FD')
+   610→    doc.setLineWidth(0.2)
+   611→    doc.setTextColor(...th.accent)
+   612→    doc.text('GRAND TOTAL', boxX + 2, ny + 6.6)
+   613→    doc.setTextColor(...th.accentDark)
+   614→    doc.text(`Rs. ${formatMoneyPlain(t.grandTotalPaise)}`, pageW - mr - 2, ny + 6.6, { align: 'right' })
+   615→  } else if (ctx.tpl.totals === 'dark') {
+   616→    doc.setFillColor(...th.accentDark)
+   617→    doc.roundedRect(boxX, ny, boxW, 10, 1.5, 1.5, 'F')
+   618→    doc.setFillColor(...th.accent)
+   619→    doc.rect(boxX, ny + 9.2, boxW, 0.8, 'F')
+   620→    doc.setTextColor(...th.totalText)
+   621→    doc.text('GRAND TOTAL', boxX + 2, ny + 6.6)
+   622→    doc.text(`Rs. ${formatMoneyPlain(t.grandTotalPaise)}`, pageW - mr - 2, ny + 6.6, { align: 'right' })
+   623→  } else {
+   624→    doc.setFillColor(...th.totalFill)
+   625→    doc.roundedRect(boxX, ny, boxW, 10, 1.5, 1.5, 'F')
+   626→    doc.setTextColor(...th.totalText)
+   627→    doc.text('GRAND TOTAL', boxX + 2, ny + 6.6)
+   628→    doc.text(`Rs. ${formatMoneyPlain(t.grandTotalPaise)}`, pageW - mr - 2, ny + 6.6, { align: 'right' })
+   629→  }
+   630→  ny += 14
+   631→
+   632→  if (model.kind === 'INVOICE' && typeof t.paidTotalPaise === 'number') {
+   633→    const balance = Math.max(0, t.grandTotalPaise - t.paidTotalPaise)
+   634→    doc.setFont('helvetica', 'normal')
+   635→    doc.setFontSize(8.4)
+   636→    doc.setTextColor(...th.muted)
+   637→    doc.text(`Amount paid: Rs. ${formatMoneyPlain(t.paidTotalPaise)}   ·   Balance due: Rs. ${formatMoneyPlain(balance)}`, ml, ny)
+   638→    ny += 5
+   639→  }
+   640→  return ny
+   641→}
+   642→
+   643→function drawWordsBankNotes(ctx: Ctx, y: number): number {
+   644→  const { doc, th, ml, mr, pageW, pageH, model } = ctx
+   645→  let ny = y
+   646→
+   647→  // amount in words (left of the totals column)
+   648→  doc.setFont('helvetica', 'italic')
+   649→  doc.setFontSize(8)
+   650→  doc.setTextColor(...th.muted)
+   651→  const words = doc.splitTextToSize(`Amount in words: ${amountInWords(model.totals.grandTotalPaise)}`, pageW - ml - mr - 84)
+   652→  doc.text(words, ml, ny)
+   653→  ny += words.length * 3.6 + 4
+   654→
+   655→  // bank + UPI QR
+   656→  const upiQr = model.kind === 'INVOICE' ? model.upiQr : null
+   657→  const qrSize = upiQr ? 27 : 0
+   658→  const textWidth = pageW - ml - mr - (qrSize > 0 ? qrSize - 6 : 0)
+   659→
+   660→  if (model.kind === 'INVOICE' && model.company.bank) {
+   661→    doc.setFont('helvetica', 'bold')
+   662→    doc.setFontSize(8)
+   663→    doc.setTextColor(...th.accentDark)
+   664→    doc.text('Bank details', ml, ny)
+   665→    doc.setFont('helvetica', 'normal')
+   666→    doc.setTextColor(...th.muted)
+   667→    const b = model.company.bank
+   668→    const bankLine = doc.splitTextToSize(`${b.name}${b.branch ? `, ${b.branch}` : ''}  ·  A/C: ${b.account}  ·  IFSC: ${b.ifsc}`, textWidth)
+   669→    doc.text(bankLine, ml, ny + 3.8)
+   670→    ny += 4 + bankLine.length * 3.6
+   671→  }
+   672→  if (upiQr) {
+   673→    if (ny + qrSize + 12 > pageH - ml) {
+   674→      doc.addPage()
+   675→      ny = ml + 4
+   676→    }
+   677→    const qrX = pageW - mr - qrSize
+   678→    doc.addImage(upiQr.dataUrl, 'PNG', qrX, ny, qrSize, qrSize)
+   679→    doc.setDrawColor(...th.line)
+   680→    doc.roundedRect(qrX - 1.2, ny - 1.2, qrSize + 2.4, qrSize + 2.4, 1.4, 1.4)
+   681→    doc.setFont('helvetica', 'bold')
+   682→    doc.setFontSize(7.2)
+   683→    doc.setTextColor(...th.accentDark)
+   684→    doc.text('Scan to pay via UPI', qrX + qrSize / 2, ny + qrSize + 4.6, { align: 'center' })
+   685→    doc.setFont('helvetica', 'normal')
+   686→    doc.setFontSize(6.6)
+   687→    doc.setTextColor(...th.muted)
+   688→    doc.text(upiQr.vpa, qrX + qrSize / 2, ny + qrSize + 8.2, { align: 'center' })
+   689→    ny += qrSize + 11
+   690→  }
+   691→  if (model.notes) {
+   692→    doc.setFont('helvetica', 'bold')
+   693→    doc.setFontSize(8)
+   694→    doc.setTextColor(...th.accentDark)
+   695→    doc.text('Notes', ml, ny)
+   696→    doc.setFont('helvetica', 'normal')
+   697→    doc.setTextColor(...th.muted)
+   698→    const lines = doc.splitTextToSize(model.notes, pageW - ml - mr)
+   699→    doc.text(lines, ml, ny + 3.8)
+   700→    ny += 4 + lines.length * 3.6
+   701→  }
+   702→  return ny
+   703→}
+   704→
+   705→function drawTermsSignature(ctx: Ctx, y: number): void {
+   706→  const { doc, th, ml, mr, pageW, pageH, model } = ctx
+   707→  const termsLines = model.terms ? doc.splitTextToSize(model.terms, pageW / 2 - ml) : []
+   708→  const needH = termsLines.length * 3.4 + 26
+   709→  let ny = y
+   710→  if (ny + needH > pageH - ml) {
+   711→    doc.addPage()
+   712→    ny = ml + 4
+   713→  }
+   714→  if (model.terms) {
+   715→    doc.setFont('helvetica', 'bold')
+   716→    doc.setFontSize(8)
+   717→    doc.setTextColor(...th.accentDark)
+   718→    doc.text('Terms & conditions', ml, ny)
+   719→    doc.setFont('helvetica', 'normal')
+   720→    doc.setFontSize(7.4)
+   721→    doc.setTextColor(...th.muted)
+   722→    doc.text(termsLines, ml, ny + 3.8)
+   723→  }
+   724→
+   725→  const sigX = pageW - mr - 46
+   726→  let sigY = ny + 4
+   727→  if (model.company.signatureData) {
+   728→    try {
+   729→      const fmt = model.company.signatureData.includes('image/png') ? 'PNG' : 'JPEG'
+   730→      doc.addImage(model.company.signatureData, fmt, sigX + 4, sigY, 34, 12)
+   731→      sigY += 14
+   732→    } catch {
+   733→      /* skip invalid signature image */
+   734→    }
+   735→  } else {
+   736→    sigY += 12
+   737→  }
+   738→  doc.setDrawColor(...th.line)
+   739→  doc.setLineWidth(0.3)
+   740→  doc.line(sigX, sigY, sigX + 44, sigY)
+   741→  doc.setLineWidth(0.2)
+   742→  doc.setFont('helvetica', 'bold')
+   743→  doc.setFontSize(8)
+   744→  doc.setTextColor(...th.accentDark)
+   745→  doc.text('For ' + doc.splitTextToSize(model.company.name, 46)[0], sigX, sigY + 4)
+   746→  doc.setFont('helvetica', 'normal')
+   747→  doc.setTextColor(...th.muted)
+   748→  doc.text(model.company.authorizedSignatory ?? 'Authorized signatory', sigX, sigY + 8)
+   749→}
+   750→
+   751→/** Page-level chrome: page numbers, brand footer, sidebar strip on every page. */
+   752→function drawDecorations(ctx: Ctx): void {
+   753→  const { doc, th, ml, pageW, pageH, tpl } = ctx
+   754→  const pages = doc.getNumberOfPages()
+   755→  for (let i = 1; i <= pages; i++) {
+   756→    doc.setPage(i)
+   757→    if (tpl.layout === 'sidebar') {
+   758→      doc.setFillColor(...th.accent)
+   759→      doc.rect(0, 0, 5, pageH, 'F')
+   760→    }
+   761→    doc.setFont('helvetica', 'normal')
+   762→    doc.setFontSize(7.4)
+   763→    doc.setTextColor(...th.muted)
+   764→    doc.text(`Page ${i} of ${pages}`, pageW / 2, pageH - 6, { align: 'center' })
+   765→    doc.text('Generated by InvoiceFlow — local-first invoicing', ml, pageH - 6)
+   766→  }
+   767→}
+   768→
+   769→export function pdfToBlobUrl(doc: jsPDF): string {
+   770→  return doc.output('bloburl').toString()
+   771→}
+   772→
+   773→export function downloadPdf(doc: jsPDF, fileName: string): void {
+   774→  doc.save(fileName)
+   775→}
+   776→

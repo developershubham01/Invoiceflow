@@ -4,6 +4,22 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2025-09-22
+
+### Added
+
+- **Blue family joins the document template catalog** — 10 templates per document kind now (invoices and quotations alike):
+  - **Corporate Blue** (`corporate-blue`): deep navy full-width header block, light-blue title type on the block, navy table head with white text, blue-700 grand-total bar — the classic corporate look the catalog was missing.
+  - **Sky Breeze** (`sky-breeze`): airy sky-blue accent sidebar drawn down the full height of every page, sky-tinted table head, outlined grand total in sky-600.
+  - Both themes are built from real Tailwind palette values with verified contrast (title ≥ 3.2:1, totals ≥ 2.8:1, headings ≥ 5.2:1) and hex swatches that exactly mirror the RGB theme values.
+
+### Verified (QA round 14)
+
+- Automated theme-format audit over the whole catalog: unique kebab-case ids, every theme channel a 3-component integer RGB in 0–255, hex swatches byte-identical to their mirrored theme values, WCAG contrast ratios computed and asserted for all 10 templates, fallback resolution intact (`getDocTemplate(null/unknown)` → Classic Emerald).
+- Gallery renders 10 distinct thumbnails per tab (Invoice + Quotation); Corporate Blue selected state persisted to IndexedDB (`invoice_template: "corporate-blue"`, `quotation_template: "sky-breeze"`) and survives a full dev-server restart.
+- Invoice PDF renders Corporate Blue (navy block, blue total bar, UPI QR intact); preview-dialog override → Sky Breeze re-renders with the full-height sky sidebar and "saved default unchanged" hint; quotation renders its saved Sky Breeze default automatically.
+- End-to-end regression: new invoice created and finalized (INV/2026-27/0008, GST math 2,500 + 18% = 2,950 correct) and auto-rendered in Corporate Blue; customer account-statement PDF export works; Dashboard / Reports / Payments / Products / Settings all render; dark mode adapts; mobile 390px gallery is 2-col with no horizontal overflow (scrollWidth 377); console error count flat across navigation (historical Turbopack HMR noise only — cleared by a clean `.next` rebuild); lint exit 0; tsc 0 errors in `src/`.
+
 ## [0.13.0] - 2025-09-22
 
 ### Added

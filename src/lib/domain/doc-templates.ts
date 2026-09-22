@@ -90,6 +90,44 @@ export const DOC_TEMPLATES: DocTemplate[] = [
     swatch: { accent: '#ffbf24', accentDark: '#1e293b', totalFill: '#f59e0b', paper: '#f1f5f9' },
   },
   {
+    id: 'corporate-blue',
+    name: 'Corporate Blue',
+    description: 'Deep navy header block with light-blue type, navy table head and a blue total bar.',
+    layout: 'block',
+    tableHead: 'accent',
+    totals: 'fill',
+    theme: {
+      accent: [96, 165, 250], // blue-400 title on the navy block
+      accentDark: [30, 58, 138], // blue-900 block / headings
+      headFill: [219, 234, 254], // blue-100
+      totalFill: [29, 78, 216], // blue-700
+      totalText: [255, 255, 255],
+      muted: [100, 116, 139], // slate-500
+      line: [219, 234, 254],
+      zebra: [248, 250, 252], // slate-50
+    },
+    swatch: { accent: '#60a5fa', accentDark: '#1e3a8a', totalFill: '#1d4ed8', paper: '#dbeafe' },
+  },
+  {
+    id: 'sky-breeze',
+    name: 'Sky Breeze',
+    description: 'Airy sky-blue sidebar down the page with a tinted table head and outlined totals.',
+    layout: 'sidebar',
+    tableHead: 'light',
+    totals: 'outline',
+    theme: {
+      accent: [2, 132, 199], // sky-600 strip & rules
+      accentDark: [3, 105, 161], // sky-700 headings
+      headFill: [224, 242, 254], // sky-100
+      totalFill: [14, 165, 233], // sky-500
+      totalText: [255, 255, 255],
+      muted: [96, 125, 139], // blue-grey
+      line: [214, 236, 248],
+      zebra: [250, 253, 255],
+    },
+    swatch: { accent: '#0284c7', accentDark: '#0369a1', totalFill: '#0ea5e9', paper: '#e0f2fe' },
+  },
+  {
     id: 'royal-violet',
     name: 'Royal Violet',
     description: 'Corner brand block with a violet rule and bold violet totals.',

@@ -189,7 +189,7 @@ export function TemplateThumb({
   )
 }
 
-/** Grid of all templates (8) — shared by the Invoice and Quotation tabs. */
+/** Grid of all templates — shared by the Invoice and Quotation tabs. */
 export function TemplateGrid({
   selected,
   onSelect,
