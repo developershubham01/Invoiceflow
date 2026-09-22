@@ -4,6 +4,28 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2025-09-22
+
+### Fixed
+
+- **Header can no longer disappear on interaction (structural fix).** The app had zero error boundaries: any uncaught exception during a view's render/effect unmounted the *entire* React root — header, sidebar and footer included — leaving a blank page (the reported "header sometimes disappears" symptom). Now:
+  - New `ViewErrorBoundary` wraps the view slot inside `AppShell`: a crashing view is replaced by an in-place recovery card ("Try again" / "Go to dashboard") while the header, sidebar and footer stay mounted and stable. The boundary auto-resets on route change (keyed by the first route segment).
+  - New `src/app/error.tsx` (route-level) and `src/app/global-error.tsx` (last-resort) boundaries cover the full-screen views (onboarding, sign-in) and catastrophic failures, each with an explicit recovery action.
+  - Verified with an injected render crash: header remained at `top:0`, sidebar intact, fallback card shown, "Try again" recovered the view, subsequent navigation normal.
+
+- **Creating a customer was broken** (`Failed to execute 'put' on 'IDBObjectStore': Evaluating the object store's key path yielded a value that is not a valid key`). Root cause: the views pass `id: form.id`, which is explicitly `undefined` for creates; the create branch spread `...input` *after* `id: crypto.randomUUID()`, so the explicit `undefined` clobbered the generated UUID and the IndexedDB put failed with `DataError`. Fixed with a `withoutBlankId()` guard in the repository layer (`saveCustomer`, `saveProduct`, `saveCompany` — the same latent bug existed in all three, including first-time company save from My Company). Verified: new customer auto-numbered `CUS-0006`, new product saved, dialog closes, toast + row correct.
+
+- **Mobile nav sheet logged Radix a11y warnings** ("Missing `Description` or `aria-describedby={undefined}` for {DialogContent}") on every open — added an sr-only `SheetDescription`. Also fixed the stale hardcoded `v0.1.0` footer inside the mobile sheet (now uses `APP_VERSION`).
+
+### Improved (styling)
+
+- At 320px viewports the header's right control cluster overflowed the viewport by 3px (`body.scrollWidth 323 > 320`) — the cluster gap now tightens below `sm:` (`gap-1.5 sm:gap-2`); verified no horizontal scroll at any width from 320–1920.
+
+### Verified (QA round 11 — full audit)
+
+- Header present, visible, sticky at `top:0` after: all 9 nav routes, invoice/quotation/customer details, editor form typing + comboboxes, validation errors, successful submits, payment dialog, finalize confirm dialog, PDF preview, search dialog (click + Ctrl+K), theme toggle, user menu, workspace switcher, mobile hamburger menu, scrolling (desktop + 390px mobile), browser back/forward, malformed ids (`#/invoices/does-not-exist`) and unknown segments.
+- Console clean apart from pre-existing historical entries; no hydration errors; lint exit 0; tsc 0 errors in `src/`.
+
 ## [0.11.0] - 2025-09-21
 
 ### Added

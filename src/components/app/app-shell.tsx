@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/app/theme-toggle'
@@ -11,6 +11,7 @@ import { SearchDialog } from '@/components/app/search-dialog'
 import { useAppStore } from '@/lib/stores/app-store'
 import { useUser } from '@/lib/hooks/app-hooks'
 import { useGlobalShortcuts } from '@/lib/hooks/use-shortcuts'
+import { ViewErrorBoundary } from '@/components/app/view-error-boundary'
 import { navigate, useHashRoute } from '@/lib/router'
 import { apiLogout } from '@/lib/sync/client'
 import { APP_VERSION } from '@/lib/version'
@@ -200,10 +201,11 @@ function MobileSidebar() {
       </SheetTrigger>
       <SheetContent side="left" className="w-72 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground [&>button]:text-slate-400">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetDescription className="sr-only">Open the main navigation menu</SheetDescription>
         <Brand />
         <WorkspaceSwitcher />
         <SidebarNav onNavigate={() => setOpen(false)} />
-        <div className="px-4 pb-4 text-[10px] text-slate-500">InvoiceFlow v0.1.0</div>
+        <div className="px-4 pb-4 text-[10px] text-slate-500">InvoiceFlow v{APP_VERSION}</div>
       </SheetContent>
     </Sheet>
   )
@@ -257,7 +259,8 @@ export function AppShell({ title, children }: { title: string; children: React.R
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6" role="banner">
           <MobileSidebar />
           <h1 className="truncate text-sm font-semibold md:text-base">{title}</h1>
-          <div className="ml-auto flex items-center gap-2">
+          {/* gap-1.5 below sm keeps the cluster inside 320px viewports (3px overflow at gap-2) */}
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <SearchDialog />
             <SyncPill />
             <ThemeToggle />
@@ -266,7 +269,12 @@ export function AppShell({ title, children }: { title: string; children: React.R
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8" role="main">
-          <div key={viewKey} className="view-enter mx-auto w-full max-w-6xl">{children}</div>
+          {/* The boundary keeps the header/sidebar/footer mounted even if a view throws —
+              only the crashed view is replaced. Re-keying on the first route segment
+              both resets the boundary and replays the enter animation per view. */}
+          <ViewErrorBoundary resetKey={viewKey}>
+            <div key={viewKey} className="view-enter mx-auto w-full max-w-6xl">{children}</div>
+          </ViewErrorBoundary>
         </main>
 
         {/* Sticky footer: mt-auto pushes to bottom, min-h-screen root guarantees no gap */}

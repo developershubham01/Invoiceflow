@@ -155,12 +155,25 @@ export async function getCompany(workspaceId: string): Promise<CompanyProfile | 
   return rows[0] ?? null
 }
 
+/**
+ * Strip a blank (`undefined`/null/empty) `id` from a form payload before spreading it into a
+ * new record. Callers commonly pass `id: form.id`, which is `undefined` for creates; if spread
+ * verbatim it OVERWRITES the generated UUID (explicit undefined still overwrites in object
+ * spread), and the IndexedDB put then fails with DataError. Keeping this guard in the
+ * repository layer protects every current and future caller.
+ */
+function withoutBlankId<T extends { id?: string | null }>(input: T): Omit<T, 'id'> {
+  if (input.id) return input
+  const { id: _blank, ...rest } = input
+  return rest
+}
+
 export async function saveCompany(workspaceId: string, input: Partial<CompanyProfile> & { name: string }): Promise<CompanyProfile> {
   const db = getDb()
   const deviceId = getDeviceId()
   const existing = await getCompany(workspaceId)
   const record: CompanyProfile = existing
-    ? { ...existing, ...input, ...metaFields(existing) }
+    ? { ...existing, ...withoutBlankId(input), ...metaFields(existing) }
     : {
         id: crypto.randomUUID(),
         workspace_id: workspaceId,
@@ -191,7 +204,7 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         enable_round_off: true,
         default_terms: null,
         default_notes: null,
-        ...input,
+        ...withoutBlankId(input),
         ...baseMeta(deviceId),
         ...metaFields(),
       }
@@ -238,7 +251,7 @@ export async function saveCustomer(workspaceId: string, input: Partial<Customer>
   const explicitCode = input.code?.trim() || undefined
   let record: Customer
   if (existing) {
-    record = { ...existing, ...input, code: explicitCode ?? existing.code, ...metaFields(existing) }
+    record = { ...existing, ...withoutBlankId(input), code: explicitCode ?? existing.code, ...metaFields(existing) }
   } else {
     record = {
       id: crypto.randomUUID(),
@@ -253,7 +266,7 @@ export async function saveCustomer(workspaceId: string, input: Partial<Customer>
       state_name: null,
       state_code: null,
       notes: null,
-      ...input,
+      ...withoutBlankId(input),
       code: explicitCode ?? '',
       ...baseMeta(deviceId),
       ...metaFields(),
@@ -304,7 +317,7 @@ export async function saveProduct(workspaceId: string, input: Partial<Product> &
   const deviceId = getDeviceId()
   const existing = input.id ? await db.products.get(input.id) : undefined
   const record: Product = existing
-    ? { ...existing, ...input, ...metaFields(existing) }
+    ? { ...existing, ...withoutBlankId(input), ...metaFields(existing) }
     : {
         id: crypto.randomUUID(),
         workspace_id: workspaceId,
@@ -317,7 +330,7 @@ export async function saveProduct(workspaceId: string, input: Partial<Product> &
         gst_rate_bps: 1800,
         price_includes_tax: null,
         active: true,
-        ...input,
+        ...withoutBlankId(input),
         ...baseMeta(deviceId),
         ...metaFields(),
       }
