@@ -22,7 +22,7 @@ export interface StatementPdfEntry {
 }
 
 export interface StatementPdfInput {
-  company: { name: string; gstin: string | null; addressLine1: string | null; city: string | null; stateName: string | null; phone: string | null; email: string | null }
+  company: { name: string; gstin: string | null; addressLine1: string | null; city: string | null; stateName: string | null; phone: string | null; email: string | null; dateFormat?: string | null }
   customer: { name: string; code: string | null; gstin: string | null }
   period: { from: string; to: string }
   entries: StatementPdfEntry[]
@@ -61,7 +61,7 @@ export function renderStatementPdf(input: StatementPdfInput): jsPDF {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...MUTED)
-  doc.text(`${formatDateDisplay(input.period.from)} to ${formatDateDisplay(input.period.to)}`, pageW - marginX, y + 10, { align: 'right' })
+  doc.text(`${formatDateDisplay(input.period.from, input.company.dateFormat)} to ${formatDateDisplay(input.period.to, input.company.dateFormat)}`, pageW - marginX, y + 10, { align: 'right' })
 
   // Customer block
   y += 9 + companyLines.length * 4 + 6
@@ -109,7 +109,7 @@ export function renderStatementPdf(input: StatementPdfInput): jsPDF {
     margin: { left: marginX, right: marginX },
     head: [['Date', 'Document', 'Detail', 'Debit', 'Credit', 'Balance']],
     body: input.entries.map((e) => [
-      formatDateDisplay(e.date),
+      formatDateDisplay(e.date, input.company.dateFormat),
       e.number,
       e.detail || (e.kind === 'Invoice' ? 'Tax invoice' : 'Payment'),
       e.debitPaise ? `Rs. ${formatMoneyPlain(e.debitPaise)}` : '—',

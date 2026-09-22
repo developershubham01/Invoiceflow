@@ -14,11 +14,68 @@ import { saveCompany, peekNextNumber } from '@/lib/db/repositories'
 import { getDb } from '@/lib/db/db'
 import { companyProfileSchema } from '@/lib/domain/schemas'
 import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
-import { todayStr } from '@/lib/date'
+import { docPatternError } from '@/lib/domain/numbering'
+import { DOC_DATE_FORMATS, formatDateDisplay, todayStr } from '@/lib/date'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, QrCode, Save, Upload } from 'lucide-react'
+import { Building2, CalendarDays, Hash, Info, QrCode, RotateCcw, Save, Upload } from 'lucide-react'
 import { buildUpiUri, looksLikeVpa, upiQrDataUrl } from '@/lib/upi'
+
+const PATTERN_TOKENS = ['{PREFIX}', '{FY}', '{Y}', '{M}', '{SEQ}'] as const
+
+/** Number-layout field: token-chip inserter + live validation + next-number preview. */
+function PatternField(props: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  preview: string | null
+}) {
+  const error = docPatternError(props.value)
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={props.id}>{props.label}</Label>
+      <Input
+        id={props.id}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        placeholder="{PREFIX}/{FY}/{SEQ:4}"
+        spellCheck={false}
+        className="font-mono text-xs"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={`${props.id}-hint`}
+      />
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label={`${props.label} tokens`}>
+        {PATTERN_TOKENS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => props.onChange(props.value + t)}
+            className="rounded border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            title={`Insert ${t} token`}
+          >
+            {t}
+          </button>
+        ))}
+        {props.value.trim() && (
+          <button
+            type="button"
+            onClick={() => props.onChange('')}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            title="Reset to the default layout"
+          >
+            <RotateCcw className="h-3 w-3" aria-hidden="true" /> default
+          </button>
+        )}
+      </div>
+      <p id={`${props.id}-hint`} className={`text-[11px] leading-snug ${error ? 'text-destructive' : 'text-muted-foreground'}`} aria-live="polite">
+        {error
+          ? error
+          : <>Next: <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">{props.preview ?? '…'}</span></>}
+      </p>
+    </div>
+  )
+}
 
 interface FormState {
   name: string
@@ -41,6 +98,9 @@ interface FormState {
   authorized_signatory: string
   invoice_prefix: string
   quotation_prefix: string
+  invoice_number_pattern: string
+  quotation_number_pattern: string
+  doc_date_format: string
   default_gst_rate_bps: number
   price_includes_tax: boolean
   enable_round_off: boolean
@@ -58,15 +118,15 @@ export function CompanyView() {
   const logoInput = useRef<HTMLInputElement>(null)
   const sigInput = useRef<HTMLInputElement>(null)
 
-  /** Live read-only preview of the next allocated numbers (respects the typed prefixes). */
+  /** Live read-only preview of the next allocated numbers (respects typed prefixes + patterns). */
   const numberPreview = useLiveQuery(async () => {
     if (!ws || !form) return null
     const [invoice, quotation] = await Promise.all([
-      peekNextNumber(getDb(), ws.id, 'INVOICE', form.invoice_prefix || 'INV', todayStr()),
-      peekNextNumber(getDb(), ws.id, 'QUOTATION', form.quotation_prefix || 'QT', todayStr()),
+      peekNextNumber(getDb(), ws.id, 'INVOICE', form.invoice_prefix || 'INV', todayStr(), form.invoice_number_pattern.trim() || null),
+      peekNextNumber(getDb(), ws.id, 'QUOTATION', form.quotation_prefix || 'QT', todayStr(), form.quotation_number_pattern.trim() || null),
     ])
     return { invoice, quotation }
-  }, [ws?.id, form?.invoice_prefix, form?.quotation_prefix])
+  }, [ws?.id, form?.invoice_prefix, form?.quotation_prefix, form?.invoice_number_pattern, form?.quotation_number_pattern])
 
   useEffect(() => {
     if (!company || form) return
@@ -80,6 +140,8 @@ export function CompanyView() {
       upi_vpa: company.upi_vpa ?? '',
       authorized_signatory: company.authorized_signatory ?? '',
       invoice_prefix: company.invoice_prefix, quotation_prefix: company.quotation_prefix,
+      invoice_number_pattern: company.invoice_number_pattern ?? '', quotation_number_pattern: company.quotation_number_pattern ?? '',
+      doc_date_format: company.doc_date_format ?? '',
       default_gst_rate_bps: company.default_gst_rate_bps, price_includes_tax: company.price_includes_tax,
       enable_round_off: company.enable_round_off,
       default_notes: company.default_notes ?? '', default_terms: company.default_terms ?? '',
@@ -160,6 +222,9 @@ export function CompanyView() {
   }
 
   const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch })
+
+  // Block saving while a typed pattern is invalid (inline error is also shown under the field).
+  const patternInvalid = !!docPatternError(form.invoice_number_pattern) || !!docPatternError(form.quotation_number_pattern)
 
   return (
     <div className="space-y-5">
@@ -319,6 +384,66 @@ export function CompanyView() {
           </CardContent>
         </Card>
 
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Hash className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" /> Document formats
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <PatternField
+              id="co-invpattern"
+              label="Invoice number format"
+              value={form.invoice_number_pattern}
+              onChange={(v) => set({ invoice_number_pattern: v })}
+              preview={numberPreview?.invoice ?? null}
+            />
+            <PatternField
+              id="co-qtpattern"
+              label="Quotation number format"
+              value={form.quotation_number_pattern}
+              onChange={(v) => set({ quotation_number_pattern: v })}
+              preview={numberPreview?.quotation ?? null}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="co-datefmt">Document date format</Label>
+              <Select value={form.doc_date_format || 'default'} onValueChange={(v) => set({ doc_date_format: v === 'default' ? '' : v })}>
+                <SelectTrigger id="co-datefmt" className="w-full sm:w-56">
+                  <SelectValue placeholder="Default" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default — 12 Apr 2025</SelectItem>
+                  {DOC_DATE_FORMATS.map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {f} <span className="text-muted-foreground">— {formatDateDisplay(todayStr(), f)}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Applies to invoice &amp; quotation PDFs, statements and detail pages.{' '}
+                <span className="inline-flex items-center gap-1 align-baseline">
+                  <CalendarDays className="h-3 w-3" aria-hidden="true" /> Sample:
+                  <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {formatDateDisplay(todayStr(), form.doc_date_format || null)}
+                  </span>
+                </span>
+              </p>
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-[11px] leading-snug text-muted-foreground sm:col-span-2">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <p>
+                <span className="font-medium text-foreground">Tokens:</span> <code className="font-mono">{'{PREFIX}'}</code> prefix ·{' '}
+                <code className="font-mono">{'{FY}'}</code> fiscal year (Apr–Mar) · <code className="font-mono">{'{Y}'}</code> year ·{' '}
+                <code className="font-mono">{'{M}'}</code> month · <code className="font-mono">{'{SEQ}'}</code> running number, or{' '}
+                <code className="font-mono">{'{SEQ:2}'}</code> for 2 digits. Leave a field empty to use the default{' '}
+                <code className="font-mono">{'{PREFIX}/{FY}/{SEQ:4}'}</code>. The running number is kept per fiscal year, so changing
+                the layout mid-year is safe. Cloud-synced workspaces may have final numbers allocated by the server.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Bank & document defaults</CardTitle>
@@ -385,7 +510,7 @@ export function CompanyView() {
       </div>
 
       <div className="flex justify-end pb-2">
-        <Button onClick={() => void submit()} disabled={saving || !form.name.trim()} className="gap-1.5">
+        <Button onClick={() => void submit()} disabled={saving || !form.name.trim() || patternInvalid} className="gap-1.5">
           <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save company profile'}
         </Button>
       </div>

@@ -435,6 +435,7 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
       company: {
         name: company.name, gstin: company.gstin, addressLine1: company.address_line1,
         city: company.city, stateName: company.state_name, phone: company.phone, email: company.email,
+        dateFormat: company.doc_date_format,
       },
       customer: { name: customerName, code: customerCode, gstin: customerGstin },
       period: { from, to },

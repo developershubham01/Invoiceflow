@@ -46,6 +46,8 @@ export interface UnifiedDocumentModel {
     bank: { name: string; account: string; ifsc: string; branch: string } | null
     /** merchant UPI ID (VPA) — rendered as a scan-to-pay QR on invoices when set */
     upiVpa: string | null
+    /** preferred date display format for the document (null → DD MMM YYYY) */
+    dateFormat: string | null
   }
   /** populated by withUpiQr() before rendering (async QR generation stays out of the pure model) */
   upiQr?: { uri: string; vpa: string; dataUrl: string } | null
@@ -235,6 +237,7 @@ function toCompanyModel(company: CompanyProfile | null): UnifiedDocumentModel['c
       ? { name: company.bank_name, account: company.bank_account ?? '', ifsc: company.bank_ifsc ?? '', branch: company.bank_branch ?? '' }
       : null,
     upiVpa: company?.upi_vpa ?? null,
+    dateFormat: company?.doc_date_format ?? null,
   }
 }
 

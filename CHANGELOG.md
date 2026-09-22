@@ -4,6 +4,23 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2025-09-22
+
+### Added
+
+- **Document formats section (My Company)** — full control over how invoice & quotation numbers and dates are laid out:
+  - **Number format builder** per document type: a token pattern (`{PREFIX}` `/{FY}` `{Y}` `{M}` `{SEQ}` / `{SEQ:N}` for N-digit padding) with clickable token chips, inline validation (must contain a `{SEQ}` token, safe characters only, ≤ 60 chars), a **live "Next number" preview** that updates as you type, and a one-click reset to the classic `INV/2026-27/0001` layout.
+  - The offline allocator renders the configured pattern while keeping the per-fiscal-year running sequence untouched — verified that switching layouts mid-year is safe (sequence continued `0007 → 0008` across a layout change).
+  - **Document date format**: `DD MMM YYYY` (default), `DD/MM/YYYY`, `DD-MM-YYYY`, `MM/DD/YYYY` — with a live sample, an explicit "Default" option to unset, and application across invoice/quotation **PDFs** (`Date`/`Due`/`Valid until`), **customer statement PDFs** (period + ledger dates) and the **detail pages** (Issued/Due/Dated/Valid until, payment history).
+  - Patterns and the date format sync through the cloud pipeline (`invoice_number_pattern`, `quotation_number_pattern`, `doc_date_format` — type, Zod schema, Dexie defaults, Prisma columns, push handler).
+- Invalid patterns block saving (Save is disabled and the specific error is shown inline under the field).
+
+### Verified (QA round 12)
+
+- `{PREFIX}-{Y}-{SEQ:2}` → invoice finalized as **INV-2026-07**; `QT-{FY}-{SEQ:3}` → quotation sent as **QT-2026-27-004**; token chips insert, reset chips restore defaults, invalid pattern (`{PREFIX}/{FY}`) → inline error + disabled Save.
+- Date format DD/MM/YYYY → detail header "Issued 22/09/2026" and the PDF preview renders the same under the document number (with the UPI QR unaffected).
+- Header stable through the whole flow; mobile 390px shows the card without horizontal scroll; light + dark screenshots captured; lint exit 0; tsc 0 errors in `src/`.
+
 ## [0.11.1] - 2025-09-22
 
 ### Fixed

@@ -198,8 +198,8 @@ export function QuotationDetailView({ id }: { id: string }) {
                 </p>
               </div>
               <div className="text-right text-xs text-muted-foreground">
-                <p>Dated {formatDateDisplay(q.quotation_date)}</p>
-                {q.valid_until && <p>Valid until {formatDateDisplay(q.valid_until)}</p>}
+                <p>Dated {formatDateDisplay(q.quotation_date, company?.doc_date_format)}</p>
+                {q.valid_until && <p>Valid until {formatDateDisplay(q.valid_until, company?.doc_date_format)}</p>}
               </div>
             </div>
           </CardHeader>

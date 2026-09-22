@@ -23,13 +23,24 @@ export function nowIso(): string {
   return new Date().toISOString()
 }
 
-/** Display format: 12 Apr 2025 */
-export function formatDateDisplay(dateStr: string | null | undefined): string {
+/** Document date display formats offered in My Company → Document formats. */
+export const DOC_DATE_FORMATS = ['DD MMM YYYY', 'DD/MM/YYYY', 'DD-MM-YYYY', 'MM/DD/YYYY'] as const
+export type DocDateFormat = (typeof DOC_DATE_FORMATS)[number]
+
+/** Display format for a 'YYYY-MM-DD' string. Default (and PDF classic): `12 Apr 2025`. */
+export function formatDateDisplay(dateStr: string | null | undefined, format?: string | null): string {
   if (!dateStr) return '—'
   const [y, m, d] = dateStr.split('-').map(Number)
   if (!y || !m || !d) return dateStr
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${d} ${months[m - 1]} ${y}`
+  switch (format) {
+    case 'DD/MM/YYYY': return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`
+    case 'DD-MM-YYYY': return `${String(d).padStart(2, '0')}-${String(m).padStart(2, '0')}-${y}`
+    case 'MM/DD/YYYY': return `${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}/${y}`
+    default: {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      return `${d} ${months[m - 1]} ${y}`
+    }
+  }
 }
 
 /** Financial year start (April 1) for a YYYY-MM-DD string. */

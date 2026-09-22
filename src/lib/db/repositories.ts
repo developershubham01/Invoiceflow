@@ -6,7 +6,7 @@ import { getDb } from './db'
 import { chargesFromJson, chargesToJson, type CompanyProfileRow, type InvoiceRow, type QuotationRow } from './row-types'
 import { getDeviceId } from '@/lib/device'
 import { nowIso, todayStr } from '@/lib/date'
-import { fiscalYearOf, formatCustomerCode, formatDocNumber, isProvisionalNumber, provisionalNumber, sequenceKey } from '@/lib/domain/numbering'
+import { fiscalYearOf, formatCustomerCode, isProvisionalNumber, provisionalNumber, renderDocNumber, docPatternError, sequenceKey } from '@/lib/domain/numbering'
 import { computeDocumentTotals, computeLine, resolveTaxMode, type DocItemInput } from '@/lib/domain/documents'
 import type {
   AuditLog, CompanyProfile, Customer, DocCharge, Invoice, InvoiceItem, Payment,
@@ -204,6 +204,9 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         enable_round_off: true,
         default_terms: null,
         default_notes: null,
+        invoice_number_pattern: null,
+        quotation_number_pattern: null,
+        doc_date_format: null,
         ...withoutBlankId(input),
         ...baseMeta(deviceId),
         ...metaFields(),
@@ -358,6 +361,14 @@ export async function softDeleteProduct(workspaceId: string, id: string): Promis
 
 // ---------- sequences ----------
 
+/** Resolve the stored number pattern for a document type from the workspace's company profile (null → default layout). */
+async function docPatternFor(db: DB, workspaceId: string, docType: 'INVOICE' | 'QUOTATION'): Promise<string | null> {
+  const company = await db.company_profiles.where('workspace_id').equals(workspaceId).filter((c) => !c.deleted_at).first()
+  const raw = docType === 'INVOICE' ? company?.invoice_number_pattern : company?.quotation_number_pattern
+  const p = (raw ?? '').trim()
+  return p && docPatternError(p) === null ? p : null
+}
+
 export async function allocateLocalNumber(
   db: DB,
   workspaceId: string,
@@ -369,7 +380,10 @@ export async function allocateLocalNumber(
   const key = sequenceKey(workspaceId, docType, fy)
   const existing = await db.document_sequences.get(key)
   const nextSeq = (existing?.next_seq ?? 1)
-  const number = formatDocNumber(prefix, fy, nextSeq)
+  // The company's custom pattern (if configured) shapes the visible number; the
+  // per-fiscal-year sequence itself is unchanged, so switching layouts is safe mid-year.
+  const pattern = await docPatternFor(db, workspaceId, docType)
+  const number = renderDocNumber(pattern, { prefix, fiscalYear: fy, seq: nextSeq, onDate })
   await db.document_sequences.put({
     id: key,
     workspace_id: workspaceId,
@@ -380,17 +394,20 @@ export async function allocateLocalNumber(
   return number
 }
 
-/** Read-only preview of the next document number (no sequence mutation — used by My Company). */
+/** Read-only preview of the next document number (no sequence mutation — used by My Company).
+ *  `patternOverride` lets the form preview a typed pattern before it is saved. */
 export async function peekNextNumber(
   db: DB,
   workspaceId: string,
   docType: 'INVOICE' | 'QUOTATION',
   prefix: string,
   onDate: string,
+  patternOverride?: string | null,
 ): Promise<string> {
   const fy = fiscalYearOf(onDate)
   const existing = await db.document_sequences.get(sequenceKey(workspaceId, docType, fy))
-  return formatDocNumber(prefix, fy, existing?.next_seq ?? 1)
+  const pattern = patternOverride !== undefined ? patternOverride : await docPatternFor(db, workspaceId, docType)
+  return renderDocNumber(pattern, { prefix, fiscalYear: fy, seq: existing?.next_seq ?? 1, onDate })
 }
 
 // ---------- invoices ----------
@@ -535,7 +552,7 @@ export async function saveInvoiceDraft(
 export async function finalizeInvoice(workspaceId: string, invoicePrefix: string, id: string): Promise<Invoice> {
   const db = getDb()
   let finalized: InvoiceRow | null = null
-  await db.transaction('rw', db.invoices, db.invoice_items, db.document_sequences, db.sync_operations, db.audit_logs, async () => {
+  await db.transaction('rw', [db.invoices, db.invoice_items, db.company_profiles, db.document_sequences, db.sync_operations, db.audit_logs], async () => {
     const inv = await db.invoices.get(id)
     if (!inv) throw new Error('Invoice not found')
     if (inv.status !== 'DRAFT') throw new Error('Only draft invoices can be finalized')

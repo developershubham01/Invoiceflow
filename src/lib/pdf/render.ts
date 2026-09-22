@@ -61,9 +61,9 @@ export function renderDocumentPdf(model: UnifiedDocumentModel): jsPDF {
   doc.text(`No. ${model.number}`, pageW - marginX, y + 10.5, { align: 'right' })
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 110)
-  doc.text(`Date: ${formatDateDisplay(model.date)}`, pageW - marginX, y + 14.5, { align: 'right' })
-  if (model.dueDate) doc.text(`Due: ${formatDateDisplay(model.dueDate)}`, pageW - marginX, y + 18, { align: 'right' })
-  if (model.validUntil) doc.text(`Valid until: ${formatDateDisplay(model.validUntil)}`, pageW - marginX, y + 18, { align: 'right' })
+  doc.text(`Date: ${formatDateDisplay(model.date, model.company.dateFormat)}`, pageW - marginX, y + 14.5, { align: 'right' })
+  if (model.dueDate) doc.text(`Due: ${formatDateDisplay(model.dueDate, model.company.dateFormat)}`, pageW - marginX, y + 18, { align: 'right' })
+  if (model.validUntil) doc.text(`Valid until: ${formatDateDisplay(model.validUntil, model.company.dateFormat)}`, pageW - marginX, y + 18, { align: 'right' })
 
   y += model.company.logoData ? 22 : 24
 

@@ -85,6 +85,9 @@ model CompanyProfile {
   signatureData       String?
   invoicePrefix       String    @default("INV")
   quotationPrefix     String    @default("QT")
+  invoiceNumberPattern String?
+  quotationNumberPattern String?
+  docDateFormat       String?
   defaultGstRateBps   Int       @default(1800)
   priceIncludesTax    Boolean   @default(false)
   enableRoundOff      Boolean   @default(true)

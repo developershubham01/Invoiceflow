@@ -333,8 +333,8 @@ export function InvoiceDetailView({ id }: { id: string }) {
                   </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
-                  <p>Issued {formatDateDisplay(inv.invoice_date)}</p>
-                  {inv.due_date && <p>Due {formatDateDisplay(inv.due_date)}</p>}
+                  <p>Issued {formatDateDisplay(inv.invoice_date, company?.doc_date_format)}</p>
+                  {inv.due_date && <p>Due {formatDateDisplay(inv.due_date, company?.doc_date_format)}</p>}
                 </div>
               </div>
             </CardHeader>
@@ -461,7 +461,7 @@ export function InvoiceDetailView({ id }: { id: string }) {
                   <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/40">
                     <div className="min-w-0">
                       <p className="font-medium">{formatMoney(p.amount_paise)}</p>
-                      <p className="truncate text-xs text-muted-foreground">{formatDateDisplay(p.paid_at)}{p.reference ? ` · ${p.reference}` : ''}</p>
+                      <p className="truncate text-xs text-muted-foreground">{formatDateDisplay(p.paid_at, company?.doc_date_format)}{p.reference ? ` · ${p.reference}` : ''}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <MethodBadge method={p.method} />

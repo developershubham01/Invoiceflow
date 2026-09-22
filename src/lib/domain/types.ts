@@ -53,6 +53,11 @@ export interface CompanyProfile extends SyncMeta {
   signature_data: string | null
   invoice_prefix: string
   quotation_prefix: string
+  /** Custom number layout tokens ({PREFIX}/{FY}/{SEQ:4}…), null → classic INV/2026-27/0001 layout. */
+  invoice_number_pattern: string | null
+  quotation_number_pattern: string | null
+  /** Date display format on documents ('DD MMM YYYY' | 'DD/MM/YYYY' | 'DD-MM-YYYY' | 'MM/DD/YYYY'), null → default. */
+  doc_date_format: string | null
   default_gst_rate_bps: number
   price_includes_tax: boolean
   enable_round_off: boolean
