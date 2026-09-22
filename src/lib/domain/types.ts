@@ -58,6 +58,9 @@ export interface CompanyProfile extends SyncMeta {
   quotation_number_pattern: string | null
   /** Date display format on documents ('DD MMM YYYY' | 'DD/MM/YYYY' | 'DD-MM-YYYY' | 'MM/DD/YYYY'), null → default. */
   doc_date_format: string | null
+  /** PDF template per document kind (see lib/domain/doc-templates.ts), null → Classic Emerald. */
+  invoice_template: string | null
+  quotation_template: string | null
   default_gst_rate_bps: number
   price_includes_tax: boolean
   enable_round_off: boolean

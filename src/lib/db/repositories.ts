@@ -207,6 +207,8 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         invoice_number_pattern: null,
         quotation_number_pattern: null,
         doc_date_format: null,
+        invoice_template: null,
+        quotation_template: null,
         ...withoutBlankId(input),
         ...baseMeta(deviceId),
         ...metaFields(),

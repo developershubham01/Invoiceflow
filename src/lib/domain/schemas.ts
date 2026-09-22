@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { GSTIN_REGEX, STANDARD_GST_RATES_BPS } from './gst'
 import { DOC_DATE_FORMATS } from '../date'
 import { docPatternError } from './numbering'
+import { DOC_TEMPLATE_IDS } from './doc-templates'
 
 export const GST_RATE_BPS_VALUES = STANDARD_GST_RATES_BPS as unknown as number[]
 
@@ -55,6 +56,8 @@ export const companyProfileSchema = z.object({
     .refine((v) => docPatternError(v) === null, 'Invalid number format — must include a {SEQ} token')
     .nullish().or(z.literal('')),
   doc_date_format: z.enum(DOC_DATE_FORMATS).nullish().or(z.literal('')),
+  invoice_template: z.enum(DOC_TEMPLATE_IDS).nullish().or(z.literal('')),
+  quotation_template: z.enum(DOC_TEMPLATE_IDS).nullish().or(z.literal('')),
   default_gst_rate_bps: gstBps.default(1800),
   price_includes_tax: z.boolean().default(false),
   enable_round_off: z.boolean().default(true),

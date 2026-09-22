@@ -4,6 +4,23 @@ All notable changes to InvoiceFlow are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2025-09-22
+
+### Added
+
+- **Document templates — 8 themed designs for invoices and 8 for quotations** (Settings → My Company → Document templates):
+  - Every template pairs a distinct **page layout** with a distinct **color theme**, so switching changes the whole identity of the PDF, not just a color: Classic Emerald (accent band), Midnight Slate (full-width dark header block, amber total), Royal Violet (corner brand block, violet table head), Sunset Orange (vertical accent sidebar on every page, outlined total), Ocean Teal (centered letterhead, teal table head), Crimson Formal (serif two-tone split letterhead, ruled table, deep-crimson total panel), Mono Minimal (ink-saver: heavy top rule, no fills, outlined total), Saffron Gold (festive banner, gold total bar).
+  - **Template gallery** with live miniature mockups (header geometry, table-head treatment and grand-total style mirror the real PDF), Invoice/Quotation tabs, per-kind selection stored on the company profile (`invoice_template` / `quotation_template`), cloud-synced end-to-end (Prisma, Zod, Dexie, push handler).
+  - **Template switcher inside the PDF preview dialog** — preview/export any document in any of the 8 templates ("This preview only" — the saved default is untouched); the company default is resolved and labeled in the dropdown.
+  - Template resolution happens inside the shared renderer, so detail-page export, batch export and preview all honor the selection automatically; UPI scan-to-pay QR, amount-in-words, bank details and signatures render correctly in every template.
+
+### Verified (QA round 13)
+
+- Gallery renders 8 distinct thumbnails per tab (desktop 4-col, mobile 390px 2-col, no horizontal overflow); selection ring + check badge; saved values persisted (`midnight-slate` invoice / `crimson-formal` quotation confirmed in IndexedDB).
+- Invoice PDF preview renders Midnight Slate (dark header block, amber grand total); override → Ocean Teal re-renders (centered teal letterhead, teal table head); UPI QR intact in both.
+- Quotation PDF preview renders Crimson Formal (serif split letterhead, ruled table with crimson underline, deep-crimson total panel); override → Sunset Orange (full-height sidebar strip, outlined total).
+- Statement PDF export path (`downloadPdf` consumers) functional; console clean after a Turbopack cache rebuild (transient mid-edit export warnings were stale history — occurrence count flat across navigation); lint exit 0; tsc 0 errors in `src/`.
+
 ## [0.12.0] - 2025-09-22
 
 ### Added

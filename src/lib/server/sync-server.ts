@@ -302,6 +302,8 @@ async function applyOpInner(workspaceId: string, op: OpInput): Promise<OpOutcome
         invoiceNumberPattern: str(payload.invoice_number_pattern),
         quotationNumberPattern: str(payload.quotation_number_pattern),
         docDateFormat: str(payload.doc_date_format),
+        invoiceTemplate: str(payload.invoice_template),
+        quotationTemplate: str(payload.quotation_template),
         defaultGstRateBps: num(payload.default_gst_rate_bps, 1800),
         priceIncludesTax: bool(payload.price_includes_tax),
         enableRoundOff: bool(payload.enable_round_off, true),

@@ -10,15 +10,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TemplateGrid } from '@/components/app/template-thumb'
 import { saveCompany, peekNextNumber } from '@/lib/db/repositories'
 import { getDb } from '@/lib/db/db'
 import { companyProfileSchema } from '@/lib/domain/schemas'
 import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
 import { docPatternError } from '@/lib/domain/numbering'
 import { DOC_DATE_FORMATS, formatDateDisplay, todayStr } from '@/lib/date'
+import { DEFAULT_TEMPLATE_ID } from '@/lib/domain/doc-templates'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Building2, CalendarDays, Hash, Info, QrCode, RotateCcw, Save, Upload } from 'lucide-react'
+import { Building2, CalendarDays, Hash, Info, Palette, QrCode, RotateCcw, Save, Upload } from 'lucide-react'
 import { buildUpiUri, looksLikeVpa, upiQrDataUrl } from '@/lib/upi'
 
 const PATTERN_TOKENS = ['{PREFIX}', '{FY}', '{Y}', '{M}', '{SEQ}'] as const
@@ -101,6 +104,8 @@ interface FormState {
   invoice_number_pattern: string
   quotation_number_pattern: string
   doc_date_format: string
+  invoice_template: string
+  quotation_template: string
   default_gst_rate_bps: number
   price_includes_tax: boolean
   enable_round_off: boolean
@@ -142,6 +147,7 @@ export function CompanyView() {
       invoice_prefix: company.invoice_prefix, quotation_prefix: company.quotation_prefix,
       invoice_number_pattern: company.invoice_number_pattern ?? '', quotation_number_pattern: company.quotation_number_pattern ?? '',
       doc_date_format: company.doc_date_format ?? '',
+      invoice_template: company.invoice_template ?? '', quotation_template: company.quotation_template ?? '',
       default_gst_rate_bps: company.default_gst_rate_bps, price_includes_tax: company.price_includes_tax,
       enable_round_off: company.enable_round_off,
       default_notes: company.default_notes ?? '', default_terms: company.default_terms ?? '',
@@ -444,9 +450,41 @@ export function CompanyView() {
           </CardContent>
         </Card>
 
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Palette className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" /> Document templates
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+              Choose the look of your PDFs — every template changes the page layout <span className="font-medium text-foreground">and</span> the
+              color theme. Applies to previews, downloads and batch exports.
+            </p>
+            <Tabs defaultValue="invoice">
+              <TabsList>
+                <TabsTrigger value="invoice">Invoice templates</TabsTrigger>
+                <TabsTrigger value="quotation">Quotation templates</TabsTrigger>
+              </TabsList>
+              <TabsContent value="invoice" className="mt-3">
+                <TemplateGrid
+                  selected={form.invoice_template || DEFAULT_TEMPLATE_ID}
+                  onSelect={(id) => set({ invoice_template: id })}
+                />
+              </TabsContent>
+              <TabsContent value="quotation" className="mt-3">
+                <TemplateGrid
+                  selected={form.quotation_template || DEFAULT_TEMPLATE_ID}
+                  onSelect={(id) => set({ quotation_template: id })}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Bank & document defaults</CardTitle>
+            <CardTitle className="text-sm">Bank &amp; document defaults</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

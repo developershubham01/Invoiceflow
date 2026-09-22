@@ -88,6 +88,8 @@ model CompanyProfile {
   invoiceNumberPattern String?
   quotationNumberPattern String?
   docDateFormat       String?
+  invoiceTemplate     String?
+  quotationTemplate   String?
   defaultGstRateBps   Int       @default(1800)
   priceIncludesTax    Boolean   @default(false)
   enableRoundOff      Boolean   @default(true)

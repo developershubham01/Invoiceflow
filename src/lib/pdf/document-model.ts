@@ -48,6 +48,9 @@ export interface UnifiedDocumentModel {
     upiVpa: string | null
     /** preferred date display format for the document (null → DD MMM YYYY) */
     dateFormat: string | null
+    /** PDF template id per document kind (null → Classic Emerald) */
+    invoiceTemplate: string | null
+    quotationTemplate: string | null
   }
   /** populated by withUpiQr() before rendering (async QR generation stays out of the pure model) */
   upiQr?: { uri: string; vpa: string; dataUrl: string } | null
@@ -238,6 +241,8 @@ function toCompanyModel(company: CompanyProfile | null): UnifiedDocumentModel['c
       : null,
     upiVpa: company?.upi_vpa ?? null,
     dateFormat: company?.doc_date_format ?? null,
+    invoiceTemplate: company?.invoice_template ?? null,
+    quotationTemplate: company?.quotation_template ?? null,
   }
 }
 
