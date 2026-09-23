@@ -5,7 +5,8 @@ import { APP_VERSION } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { navigate } from '@/lib/router'
-import { ArrowLeft, Cloud, Landmark, Loader2, ShieldCheck, WifiOff } from 'lucide-react'
+import { useAppStore } from '@/lib/stores/app-store'
+import { ArrowLeft, Cloud, Landmark, Loader2, ShieldCheck, Sparkles, WifiOff } from 'lucide-react'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -30,19 +31,44 @@ function GoogleIcon({ className }: { className?: string }) {
   )
 }
 
-export function AuthView() {
+interface AuthViewProps {
+  initialMode?: 'login' | 'register'
+}
+
+export function AuthView({ initialMode = 'login' }: AuthViewProps) {
+  const store = useAppStore()
   const [googleBusy, setGoogleBusy] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleGoogleClick = () => {
     setGoogleBusy(true)
     if (typeof window !== 'undefined') {
       window.location.href = '/api/auth/google/login'
+    }
+  }
+
+  const checkCompanyProfileAndRedirect = async (userId: string) => {
+    const { getCompanyByUserId, getActiveWorkspace, getCompany } = await import('@/lib/db/repositories')
+    
+    // Check by user_id first in local DB
+    let company = await getCompanyByUserId(userId)
+    if (!company) {
+      const activeWs = await getActiveWorkspace()
+      if (activeWs) {
+        company = await getCompany(activeWs.id)
+      }
+    }
+
+    if (company && company.name) {
+      navigate('dashboard')
+    } else {
+      navigate('company-profile')
     }
   }
 
@@ -54,7 +80,7 @@ export function AuthView() {
       return
     }
     if (authMode === 'register' && !name.trim()) {
-      setErrorMsg('Please enter your name.')
+      setErrorMsg('Please enter your full name.')
       return
     }
 
@@ -72,21 +98,37 @@ export function AuthView() {
         throw new Error(data.error || 'Authentication failed')
       }
       
-      // Successfully authenticated
-      const { getActiveWorkspace, getCompany } = await import('@/lib/db/repositories')
-      const ws = await getActiveWorkspace()
-      if (ws) {
-        const comp = await getCompany(ws.id)
-        if (comp && comp.name) {
-          navigate('dashboard')
-          return
-        }
-      }
-      navigate('dashboard')
+      // Update global user state
+      store.setUser(data.user)
+
+      // Redirect based on company profile existence
+      await checkCompanyProfileAndRedirect(data.user.id)
     } catch (err) {
       setErrorMsg((err as Error).message)
     } finally {
       setEmailBusy(false)
+    }
+  }
+
+  const handleDemoAuth = async () => {
+    setDemoBusy(true)
+    setErrorMsg(null)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'demo@company.com', password: 'Demo@12345' }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Demo login failed')
+      }
+      store.setUser(data.user)
+      navigate('dashboard')
+    } catch (err) {
+      setErrorMsg((err as Error).message)
+    } finally {
+      setDemoBusy(false)
     }
   }
 
@@ -95,7 +137,7 @@ export function AuthView() {
       <div className="mx-auto grid w-full max-w-4xl flex-1 items-center gap-10 px-4 py-10 lg:grid-cols-2">
         {/* pitch panel */}
         <div className="hidden lg:block">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('landing')}>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow">
               <Landmark className="h-5 w-5" aria-hidden="true" />
             </div>
@@ -112,22 +154,44 @@ export function AuthView() {
         {/* form card */}
         <Card className="py-0 shadow-lg border-emerald-500/10">
           <CardContent className="p-6">
-            <Button variant="ghost" size="sm" className="-ml-2 mb-3 gap-1.5 text-muted-foreground" onClick={() => navigate('dashboard')}>
-              <ArrowLeft className="h-4 w-4" /> Continue as guest
+            <Button variant="ghost" size="sm" className="-ml-2 mb-3 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => navigate('landing')}>
+              <ArrowLeft className="h-4 w-4" /> Back to Home
             </Button>
-            <h1 className="text-2xl font-bold tracking-tight">Welcome to InvoiceFlow</h1>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {authMode === 'login' ? 'Sign In to InvoiceFlow' : 'Create your Account'}
+            </h1>
             <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-              Sign in or create an account to get started with your workspace.
+              {authMode === 'login'
+                ? 'Enter your email and password or sign in with Google to continue.'
+                : 'Register a new account to setup your company profile and workspace.'}
             </p>
 
+            {/* Quick Demo Option */}
+            <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Want to test without signing up?</p>
+                <p className="text-[11px] text-muted-foreground">Pre-loaded company & sample invoices</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleDemoAuth}
+                disabled={demoBusy || emailBusy || googleBusy}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1 text-xs shadow-sm"
+              >
+                {demoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Demo Login
+              </Button>
+            </div>
+
             {/* Google OAuth Option */}
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 space-y-3">
               <Button
                 type="button"
                 variant="outline"
                 className="w-full gap-3 border-slate-300 dark:border-slate-800 bg-background hover:bg-slate-50 dark:hover:bg-slate-900 font-semibold py-5 text-sm shadow-sm transition-all"
                 onClick={handleGoogleClick}
-                disabled={googleBusy || emailBusy}
+                disabled={googleBusy || emailBusy || demoBusy}
               >
                 {googleBusy ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
@@ -163,18 +227,18 @@ export function AuthView() {
               {/* Email + Password Form */}
               <form onSubmit={handleEmailAuth} className="space-y-3.5 pt-1">
                 {errorMsg && (
-                  <div className="rounded-md bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive">
+                  <div className="rounded-md bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive font-medium">
                     {errorMsg}
                   </div>
                 )}
 
                 {authMode === 'register' && (
                   <div className="space-y-1">
-                    <label className="text-xs font-medium" htmlFor="auth-name">Full Name</label>
+                    <label className="text-xs font-medium" htmlFor="auth-name">Full Name *</label>
                     <input
                       id="auth-name"
                       type="text"
-                      placeholder="John Doe"
+                      placeholder="e.g. Rahul Sharma"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
@@ -184,7 +248,7 @@ export function AuthView() {
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-xs font-medium" htmlFor="auth-email">Email Address</label>
+                  <label className="text-xs font-medium" htmlFor="auth-email">Email Address *</label>
                   <input
                     id="auth-email"
                     type="email"
@@ -197,7 +261,7 @@ export function AuthView() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-medium" htmlFor="auth-password">Password</label>
+                  <label className="text-xs font-medium" htmlFor="auth-password">Password *</label>
                   <input
                     id="auth-password"
                     type="password"
@@ -209,13 +273,13 @@ export function AuthView() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full font-semibold" disabled={emailBusy || googleBusy}>
+                <Button type="submit" className="w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90" disabled={emailBusy || googleBusy || demoBusy}>
                   {emailBusy ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : authMode === 'login' ? (
-                    'Sign In with Email'
+                    'Sign In'
                   ) : (
-                    'Create Account'
+                    'Create Account & Setup Company'
                   )}
                 </Button>
               </form>

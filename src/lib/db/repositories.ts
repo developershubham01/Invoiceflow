@@ -155,6 +155,11 @@ export async function getCompany(workspaceId: string): Promise<CompanyProfile | 
   return rows[0] ?? null
 }
 
+export async function getCompanyByUserId(userId: string): Promise<CompanyProfile | null> {
+  const rows = await getDb().company_profiles.filter((c) => c.user_id === userId && !c.deleted_at).toArray()
+  return rows[0] ?? null
+}
+
 /**
  * Strip a blank (`undefined`/null/empty) `id` from a form payload before spreading it into a
  * new record. Callers commonly pass `id: form.id`, which is `undefined` for creates; if spread
@@ -177,6 +182,7 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
     : {
         id: crypto.randomUUID(),
         workspace_id: workspaceId,
+        user_id: input.user_id ?? null,
         business_type: null,
         industry: null,
         description: null,

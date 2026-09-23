@@ -31,6 +31,7 @@ export interface WorkspaceMember extends SyncMeta {
 
 export interface CompanyProfile extends SyncMeta {
   name: string
+  user_id: string | null
   business_type: string | null
   industry: string | null
   description: string | null

@@ -62,6 +62,7 @@ model WorkspaceMember {
 model CompanyProfile {
   id                  String    @id
   workspaceId         String
+  userId              String?
   name                String
   businessType        String?
   logoData            String?

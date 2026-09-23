@@ -8,7 +8,7 @@ export interface Route {
 }
 
 function parsePath(): Route {
-  if (typeof window === 'undefined') return { segments: ['dashboard'], raw: 'dashboard' }
+  if (typeof window === 'undefined') return { segments: ['landing'], raw: 'landing' }
 
   // Support legacy hash links if navigated to directly, converting them smoothly
   if (window.location.hash) {
@@ -19,7 +19,7 @@ function parsePath(): Route {
   }
 
   const path = window.location.pathname.replace(/^\/+/, '')
-  const raw = path || 'dashboard'
+  const raw = path || 'landing'
   return { segments: raw.split('/').filter(Boolean), raw }
 }
 
@@ -32,7 +32,7 @@ function notifyLocationChange(): void {
 export function navigate(path: string): void {
   if (typeof window === 'undefined') return
   const clean = path.replace(/^#/, '').replace(/^\/+/, '')
-  const target = `/${clean || 'dashboard'}`
+  const target = clean ? `/${clean}` : '/'
   if (window.location.pathname !== target) {
     window.history.pushState({}, '', target)
     notifyLocationChange()
@@ -41,7 +41,7 @@ export function navigate(path: string): void {
 
 export function hrefFor(path: string): string {
   const clean = path.replace(/^#/, '').replace(/^\/+/, '')
-  return `/${clean || 'dashboard'}`
+  return clean ? `/${clean}` : '/'
 }
 
 export function useHashRoute(): Route {
@@ -55,12 +55,6 @@ export function useHashRoute(): Route {
 
     window.addEventListener('popstate', handlePopState)
     window.addEventListener('locationchange', handleCustomChange)
-
-    // Automatically convert '/' to '/dashboard' cleanly
-    if (window.location.pathname === '/' || window.location.pathname === '') {
-      window.history.replaceState({}, '', '/dashboard')
-      sync()
-    }
 
     return () => {
       window.removeEventListener('popstate', handlePopState)

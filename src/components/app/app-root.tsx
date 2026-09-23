@@ -1,9 +1,8 @@
-// InvoiceFlow — App root: boots local DB, installs sync engine, routes hash → views (CANON §2/§15)
-
 'use client'
 
 import { useEffect, useMemo } from 'react'
 import { AppShell } from '@/components/app/app-shell'
+import { LandingView } from '@/components/views/landing-view'
 import { DashboardView } from '@/components/views/dashboard-view'
 import { InvoicesView } from '@/components/views/invoices-view'
 import { InvoiceDetailView } from '@/components/views/invoice-detail-view'
@@ -65,32 +64,63 @@ function titleFor(segments: string[]): string {
     case 'reports': return 'Reports'
     case 'settings': return 'Settings'
     case 'login': return 'Sign in'
+    case 'signup': return 'Create Account'
     default: return 'InvoiceFlow'
   }
 }
 
 export function AppRoot() {
-  const { booted, storageAvailable, activeWorkspace } = useAppStore()
+  const { booted, storageAvailable, activeWorkspace, user } = useAppStore()
   const route = useHashRoute()
   useBoot()
 
-  // Sync engine triggers: interval + online + focus (guest mode = engine stays idle)
+  // Sync engine triggers: interval + online + focus
   useEffect(() => {
     const stop = startSyncEngine()
     void runSync()
     return stop
   }, [])
 
-  const needsOnboarding = booted && storageAvailable && !activeWorkspace
+  const currentSegment = route.segments[0] || 'landing'
+
+  const isPublicRoute = currentSegment === 'landing' || currentSegment === 'login' || currentSegment === 'signup'
+  const isCompanyProfileRoute = currentSegment === 'company-profile' || currentSegment === 'onboarding'
+
+  // Route protection redirect side effects
+  useEffect(() => {
+    if (!booted || !storageAvailable) return
+
+    if (!isPublicRoute) {
+      if (!user) {
+        // Protected route accessed without session -> redirect to login
+        navigate('login')
+      } else if (!activeWorkspace && !isCompanyProfileRoute) {
+        // Authenticated user without company profile trying to access dashboard -> redirect to setup
+        navigate('company-profile')
+      }
+    }
+  }, [booted, storageAvailable, user, activeWorkspace, isPublicRoute, isCompanyProfileRoute, currentSegment])
 
   const content = useMemo(() => {
     if (!booted) return <Loader />
     if (!storageAvailable) return <ErrorFallback />
-    if (needsOnboarding) return <OnboardingView />
-    if (route.segments[0] === 'login') return <AuthView />
+
+    if (currentSegment === 'landing') return <LandingView />
+    if (currentSegment === 'login') return <AuthView initialMode="login" />
+    if (currentSegment === 'signup') return <AuthView initialMode="register" />
+
+    // Company profile setup route
+    if (isCompanyProfileRoute) {
+      if (!user) return <AuthView initialMode="login" />
+      return <OnboardingView />
+    }
+
+    // Protected app routes
+    if (!user) return <AuthView initialMode="login" />
+    if (!activeWorkspace) return <OnboardingView />
 
     const [, second, third] = route.segments
-    switch (route.segments[0]) {
+    switch (currentSegment) {
       case 'invoices':
         if (second === 'new') return <DocumentEditorWrapper kind="invoice" />
         if (second === 'edit' && third) return <DocumentEditorWrapper kind="invoice" editId={third} />
@@ -117,9 +147,9 @@ export function AppRoot() {
       default:
         return <DashboardView />
     }
-  }, [booted, storageAvailable, needsOnboarding, route])
+  }, [booted, storageAvailable, currentSegment, isCompanyProfileRoute, user, activeWorkspace, route])
 
-  if (!booted || !storageAvailable || needsOnboarding || route.segments[0] === 'login') {
+  if (!booted || !storageAvailable || isPublicRoute || isCompanyProfileRoute || !user || !activeWorkspace) {
     return <>{content}</>
   }
 

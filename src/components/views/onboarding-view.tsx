@@ -11,11 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { INDIAN_STATES, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
 import { companyProfileSchema } from '@/lib/domain/schemas'
 import { createWorkspace, getCompany, saveCompany } from '@/lib/db/repositories'
-import { seedDemoData as seedDemoWorkspace } from '@/lib/db/seed'
 import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
 import { toast } from 'sonner'
-import { Building2, CheckCircle2, Globe, Landmark, Loader2, Sparkles, Upload, Wallet } from 'lucide-react'
+import { Building2, CheckCircle2, Globe, Landmark, Loader2, Upload } from 'lucide-react'
 
 const BUSINESS_TYPES = [
   'Private Limited Company',
@@ -43,8 +42,10 @@ const INDUSTRIES = [
 ]
 
 export function OnboardingView() {
-  const [mode, setMode] = useState<'menu' | 'create' | 'completed'>('menu')
+  const [mode, setMode] = useState<'create' | 'completed'>('create')
   const [busy, setBusy] = useState(false)
+  const store = useAppStore()
+  const user = store.user
 
   // Form State - Company Profile Setup
   const [name, setName] = useState('')
@@ -52,7 +53,7 @@ export function OnboardingView() {
   const [businessType, setBusinessType] = useState('')
   const [industry, setIndustry] = useState('')
   const [website, setWebsite] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(user?.email || '')
   const [phone, setPhone] = useState('')
   const [addressLine1, setAddressLine1] = useState('')
   const [addressLine2, setAddressLine2] = useState('')
@@ -70,7 +71,6 @@ export function OnboardingView() {
   const [upiVpa, setUpiVpa] = useState('')
 
   const logoInputRef = useRef<HTMLInputElement>(null)
-  const store = useAppStore()
 
   const readLogoImage = (file: File) => {
     if (!/^image\/(png|jpe?g)$/.test(file.type)) {
@@ -97,10 +97,16 @@ export function OnboardingView() {
     setMode('completed')
     setTimeout(() => {
       navigate('dashboard')
-    }, 1800)
+    }, 1600)
   }
 
   const createCompany = async () => {
+    if (!user) {
+      toast.error('Authentication required', { description: 'Please log in or sign up before creating a company profile.' })
+      navigate('login')
+      return
+    }
+
     const parsed = companyProfileSchema.safeParse({
       name,
       business_type: businessType,
@@ -139,26 +145,15 @@ export function OnboardingView() {
       const ws = await createWorkspace(name.trim() || 'My workspace')
       await saveCompany(ws.id, {
         ...parsed.data,
+        user_id: user.id,
         state_code: stateCode || stateCodeFromGstin(gstin) || null,
         state_name: stateByCode(stateCode)?.name ?? null,
       } as never)
-      toast.success('Company profile set up successfully!')
+
+      toast.success('Company profile created successfully!')
       await finish(ws.id)
     } catch (err) {
       toast.error('Could not create company profile', { description: (err as Error).message })
-      setBusy(false)
-    }
-  }
-
-  const loadDemo = async () => {
-    setBusy(true)
-    try {
-      const ws = await createWorkspace('Acme Traders (sample)')
-      await seedDemoWorkspace(ws.id)
-      toast.success('Sample demo workspace loaded!')
-      await finish(ws.id)
-    } catch (err) {
-      toast.error('Could not load sample data', { description: (err as Error).message })
       setBusy(false)
     }
   }
@@ -171,57 +166,14 @@ export function OnboardingView() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
               <Landmark className="h-7 w-7" aria-hidden="true" />
             </div>
-            <h1 className="mt-4 text-2xl font-bold tracking-tight">Welcome to InvoiceFlow</h1>
+            <h1 className="mt-4 text-2xl font-bold tracking-tight">Setup Your Company Profile</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Setup your company profile to start creating invoices, quotations & GST documents.
+              {user ? `Logged in as ${user.email}. Complete setup to unlock your dashboard.` : 'Authentication required to setup company.'}
             </p>
           </div>
         )}
 
-        {mode === 'menu' ? (
-          <div className="space-y-3">
-            <Card
-              className="cursor-pointer py-0 transition-all hover:border-primary/40 hover:shadow-md"
-              onClick={() => setMode('create')}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') setMode('create') }}
-            >
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                  <Wallet className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold">Company Profile Setup</p>
-                  <p className="text-xs text-muted-foreground">Fill in your company name, logo, type, address, GSTIN & business details.</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="cursor-pointer py-0 transition-all hover:border-primary/40 hover:shadow-md"
-              onClick={() => void loadDemo()}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') void loadDemo() }}
-            >
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                  <Sparkles className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold">Explore with sample demo data</p>
-                  <p className="text-xs text-muted-foreground">Pre-loaded company profile, products, invoices & reports for testing.</p>
-                </div>
-                {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />}
-              </CardContent>
-            </Card>
-
-            <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => navigate('login')}>
-              Sign in with Email or Google account
-            </Button>
-          </div>
-        ) : mode === 'completed' ? (
+        {mode === 'completed' ? (
           <Card className="border-emerald-500/30 bg-emerald-500/5 py-8 text-center shadow-lg">
             <CardContent className="space-y-4 p-6">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 shadow">
@@ -229,7 +181,7 @@ export function OnboardingView() {
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground">Profile Completed!</h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Your company profile and workspace setup are ready. Redirecting you straight to the Dashboard...
+                Your company profile is linked to your account. Redirecting you straight to your Dashboard...
               </p>
               <div className="flex justify-center pt-2">
                 <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
@@ -239,9 +191,14 @@ export function OnboardingView() {
         ) : (
           <Card className="shadow-lg">
             <CardContent className="space-y-6 p-6">
-              <div className="border-b pb-3">
-                <h2 className="text-lg font-bold">Company Profile Setup</h2>
-                <p className="text-xs text-muted-foreground">Provide details to generate branded invoices and compliant GST reports.</p>
+              <div className="border-b pb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Company Profile Setup</h2>
+                  <p className="text-xs text-muted-foreground">Provide details to generate branded invoices and compliant GST reports.</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => navigate('login')} className="text-xs text-muted-foreground">
+                  Switch Account
+                </Button>
               </div>
 
               {/* 1. Basic Identity */}
@@ -250,7 +207,7 @@ export function OnboardingView() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="ob-name">Company Name *</Label>
-                    <Input id="ob-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Innovations Pvt Ltd" autoFocus />
+                    <Input id="ob-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Innovations Pvt Ltd" autoFocus required />
                   </div>
 
                   <div className="space-y-1.5 sm:col-span-2">
@@ -404,8 +361,8 @@ export function OnboardingView() {
 
               {/* Actions */}
               <div className="flex items-center justify-between border-t pt-4">
-                <Button variant="ghost" onClick={() => setMode('menu')}>Back</Button>
-                <Button onClick={() => void createCompany()} disabled={busy || !name.trim()} className="gap-2">
+                <Button variant="ghost" onClick={() => navigate('landing')}>Back to Home</Button>
+                <Button onClick={() => void createCompany()} disabled={busy || !name.trim()} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {busy ? 'Saving Profile…' : 'Complete Setup & Go to Dashboard'}
                 </Button>
