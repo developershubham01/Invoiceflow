@@ -28,6 +28,8 @@ const gstBps = z.number().int().refine((v) => GST_RATE_BPS_VALUES.includes(v), '
 export const companyProfileSchema = z.object({
   name: nonEmpty('Company name', 200),
   business_type: optionalText(100),
+  industry: optionalText(100),
+  description: optionalText(1000),
   logo_data: z.string().max(1_400_000).nullish().or(z.literal('')),
   address_line1: optionalText(200),
   address_line2: optionalText(200),

@@ -33,13 +33,29 @@ export async function apiLogin(email: string, password: string): Promise<{ user:
   return parse(res)
 }
 
+export async function apiGoogleLogin(payload?: { email?: string; name?: string; idToken?: string }): Promise<{ user: SessionUser }> {
+  const res = await fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  })
+  return parse(res)
+}
+
 export async function apiLogout(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST' })
 }
 
 export async function apiSession(): Promise<{ user: SessionUser | null }> {
-  const res = await fetch('/api/auth/session')
-  return parse(res)
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 2500)
+    const res = await fetch('/api/auth/session', { signal: controller.signal })
+    clearTimeout(timeout)
+    return await parse(res)
+  } catch {
+    return { user: null }
+  }
 }
 
 export async function apiDeleteAccount(): Promise<void> {

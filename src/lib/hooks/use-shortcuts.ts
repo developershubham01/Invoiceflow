@@ -3,8 +3,10 @@
 
 import { useEffect } from 'react'
 import { navigate } from '@/lib/router'
+import { useAppStore } from '@/lib/stores/app-store'
 
 export const SHORTCUTS: Array<{ keys: string; label: string }> = [
+  { keys: 'Ctrl+B', label: 'Toggle sidebar' },
   { keys: 'N', label: 'New invoice' },
   { keys: '⇧N', label: 'New quotation' },
   { keys: 'D', label: 'Dashboard' },
@@ -19,6 +21,14 @@ export const SHORTCUTS: Array<{ keys: string; label: string }> = [
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Allow Ctrl+B or Cmd+B for sidebar toggle even when typing/in inputs
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        const { toggleSidebarCollapsed } = useAppStore.getState()
+        toggleSidebarCollapsed()
+        return
+      }
+
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const target = e.target as HTMLElement | null
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return

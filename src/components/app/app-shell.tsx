@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 import { SyncPill } from '@/components/app/sync-pill'
@@ -12,13 +13,14 @@ import { useAppStore } from '@/lib/stores/app-store'
 import { useUser } from '@/lib/hooks/app-hooks'
 import { useGlobalShortcuts } from '@/lib/hooks/use-shortcuts'
 import { ViewErrorBoundary } from '@/components/app/view-error-boundary'
-import { navigate, useHashRoute } from '@/lib/router'
+import { hrefFor, navigate, useHashRoute } from '@/lib/router'
 import { apiLogout } from '@/lib/sync/client'
 import { APP_VERSION } from '@/lib/version'
 import { cn } from '@/lib/utils'
 import {
-  BarChart3, Building2, ChevronDown, CircleUser, FileText, Landmark, LayoutDashboard,
-  LogOut, Menu, Receipt, Settings, UserRound, Users, Package, Wallet, X,
+  BarChart3, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleUser, FileText,
+  Landmark, LayoutDashboard, LogOut, Menu, Package, PanelLeft, Receipt, Settings, UserRound,
+  Users, Wallet, X,
 } from 'lucide-react'
 
 const NAV = [
@@ -51,9 +53,56 @@ const NAV = [
   },
 ]
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const route = useHashRoute()
   const section = route.segments[0] ?? 'dashboard'
+
+  if (collapsed) {
+    return (
+      <nav aria-label="Main navigation" className="flex-1 space-y-3 overflow-y-auto px-2 py-4 scrollbar-thin">
+        {NAV.map((group, groupIdx) => (
+          <div key={group.heading} className="space-y-1">
+            {groupIdx > 0 && <div className="mx-2 my-2 border-t border-sidebar-border/60" />}
+            <ul className="space-y-1.5">
+              {group.items.map((item) => {
+                const active = section === item.path
+                return (
+                  <li key={item.path}>
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <a
+                          href={hrefFor(item.path)}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            navigate(item.path)
+                            onNavigate?.()
+                          }}
+                          aria-current={active ? 'page' : undefined}
+                          aria-label={item.label}
+                          className={cn(
+                            'flex h-10 w-10 items-center justify-center rounded-lg transition-colors mx-auto',
+                            active
+                              ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm ring-1 ring-emerald-500/20'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
+                          )}
+                        >
+                          <item.icon className={cn('h-4.5 w-4.5 shrink-0', active && 'text-emerald-400')} aria-hidden="true" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={12} className="font-medium text-xs z-50">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    )
+  }
+
   return (
     <nav aria-label="Main navigation" className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
       {NAV.map((group) => (
@@ -67,8 +116,12 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               return (
                 <li key={item.path}>
                   <a
-                    href={`#/${item.path}`}
-                    onClick={onNavigate}
+                    href={hrefFor(item.path)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      navigate(item.path)
+                      onNavigate?.()
+                    }}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
@@ -90,7 +143,25 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function Brand() {
+function Brand({ collapsed }: { collapsed?: boolean }) {
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <div className="flex justify-center pt-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm cursor-pointer hover:opacity-90">
+              <Landmark className="h-5 w-5" aria-hidden="true" />
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={12}>
+          <p className="font-semibold text-xs">InvoiceFlow</p>
+          <p className="text-[10px] opacity-80">Local-first v{APP_VERSION}</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2.5 px-4 pt-5">
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
@@ -104,9 +175,56 @@ function Brand() {
   )
 }
 
-function WorkspaceSwitcher() {
+function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
   const { activeWorkspace, workspaces, setActiveWorkspace } = useAppStore()
   if (!activeWorkspace) return null
+
+  if (collapsed) {
+    return (
+      <Tooltip delayDuration={0}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <TooltipTrigger asChild>
+              <button
+                className="mx-auto mt-4 flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent/50 transition-colors hover:bg-sidebar-accent"
+                aria-label="Switch workspace"
+              >
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-600 text-[10px] font-bold text-white">
+                  {activeWorkspace.name.slice(0, 1).toUpperCase()}
+                </div>
+              </button>
+            </TooltipTrigger>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="right" sideOffset={12} className="w-56">
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {workspaces.map((w) => (
+              <DropdownMenuItem
+                key={w.id}
+                onClick={() => {
+                  void (async () => {
+                    const { switchWorkspace } = await import('@/lib/db/repositories')
+                    await switchWorkspace(w.id)
+                    setActiveWorkspace(w)
+                    navigate('dashboard')
+                  })()
+                }}
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                <span className="truncate">{w.name}</span>
+                {w.id === activeWorkspace.id && <span className="ml-auto text-xs text-emerald-600">Active</span>}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <TooltipContent side="right" sideOffset={12}>
+          <p className="font-semibold text-xs">{activeWorkspace.name}</p>
+          <p className="text-[10px] opacity-80">{activeWorkspace.cloud_linked_at ? 'Cloud synced' : 'Local workspace'}</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -234,63 +352,122 @@ export function AppShell({ title, children }: { title: string; children: React.R
   const online = useAppStore((s) => s.sync.status)
   void online
   const isOffline = useAppStore((s) => s.sync.status === 'offline') || (typeof navigator !== 'undefined' && !navigator.onLine)
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const toggleSidebarCollapsed = useAppStore((s) => s.toggleSidebarCollapsed)
+
   useGlobalShortcuts()
   const { segments } = useHashRoute()
   // Re-keying on the first route segment replays the enter animation per view.
   const viewKey = segments[0] ?? 'dashboard'
+
   return (
-    <div className="flex min-h-screen">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
-        <Brand />
-        <WorkspaceSwitcher />
-        <SidebarNav />
-        <div className="border-t border-sidebar-border px-4 py-3 text-[10px] text-slate-500">
-          <p className="mb-1 hidden xl:block" title="Keyboard shortcuts — full list in the search palette (Ctrl K)">
-            Shortcuts: <Kbd>N</Kbd> invoice · <Kbd>⇧N</Kbd> quote · <Kbd>D</Kbd> dashboard
-          </p>
-          InvoiceFlow v{APP_VERSION} · Offline-first
-        </div>
-      </aside>
+    <TooltipProvider delayDuration={0}>
+      <div className="flex min-h-screen">
+        {/* Desktop sidebar */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out lg:flex',
+            sidebarCollapsed ? 'w-[68px]' : 'w-60'
+          )}
+        >
+          <Brand collapsed={sidebarCollapsed} />
+          <WorkspaceSwitcher collapsed={sidebarCollapsed} />
+          <SidebarNav collapsed={sidebarCollapsed} />
 
-      {/* Main column */}
-      <div className="flex min-h-screen w-full flex-col lg:pl-60">
-        <OfflineBanner show={isOffline} />
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6" role="banner">
-          <MobileSidebar />
-          <h1 className="truncate text-sm font-semibold md:text-base">{title}</h1>
-          {/* gap-1.5 below sm keeps the cluster inside 320px viewports (3px overflow at gap-2) */}
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            <SearchDialog />
-            <SyncPill />
-            <ThemeToggle />
-            <UserMenu />
+          {/* Desktop sidebar bottom footer & collapse toggle */}
+          <div className="border-t border-sidebar-border p-3 text-[10px] text-slate-500">
+            {sidebarCollapsed ? (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={toggleSidebarCollapsed}
+                    className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-sidebar-accent hover:text-white transition-colors"
+                    aria-label="Expand sidebar (Ctrl+B)"
+                  >
+                    <ChevronRight className="h-4.5 w-4.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={12}>
+                  Expand sidebar (Ctrl+B)
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  onClick={toggleSidebarCollapsed}
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-slate-400 hover:bg-sidebar-accent hover:text-white transition-colors"
+                  title="Collapse sidebar (Ctrl+B)"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <ChevronLeft className="h-4 w-4" />
+                    <span>Collapse sidebar</span>
+                  </span>
+                  <Kbd>Ctrl+B</Kbd>
+                </button>
+                <div>
+                  <p className="mb-0.5 hidden xl:block text-[10px] opacity-70" title="Keyboard shortcuts — full list in search palette (Ctrl K)">
+                    <Kbd>N</Kbd> invoice · <Kbd>⇧N</Kbd> quote · <Kbd>D</Kbd> dash
+                  </p>
+                  InvoiceFlow v{APP_VERSION}
+                </div>
+              </div>
+            )}
           </div>
-        </header>
+        </aside>
 
-        <main className="flex-1 px-4 py-6 md:px-6 lg:px-8" role="main">
-          {/* The boundary keeps the header/sidebar/footer mounted even if a view throws —
-              only the crashed view is replaced. Re-keying on the first route segment
-              both resets the boundary and replays the enter animation per view. */}
-          <ViewErrorBoundary resetKey={viewKey}>
-            <div key={viewKey} className="view-enter mx-auto w-full max-w-6xl">{children}</div>
-          </ViewErrorBoundary>
-        </main>
-
-        {/* Sticky footer: mt-auto pushes to bottom, min-h-screen root guarantees no gap */}
-        <footer className="mt-auto border-t bg-card/60 px-4 py-2.5 md:px-6" role="contentinfo">
-          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <p>
-              <span className="font-medium text-foreground">InvoiceFlow</span> v{APP_VERSION} — Local-first · Offline-ready · GST-aware
-            </p>
-            <div className="flex items-center gap-3">
-              <SyncPill compact />
-              <span aria-hidden="true">·</span>
-              <span>IndexedDB store</span>
+        {/* Main column */}
+        <div
+          className={cn(
+            'flex min-h-screen w-full flex-col transition-all duration-300 ease-in-out',
+            sidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-60'
+          )}
+        >
+          <OfflineBanner show={isOffline} />
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6" role="banner">
+            <MobileSidebar />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden lg:flex h-8 w-8 text-slate-400 hover:text-foreground"
+              onClick={toggleSidebarCollapsed}
+              title={sidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+            >
+              <PanelLeft className="h-4.5 w-4.5" />
+            </Button>
+            <h1 className="truncate text-sm font-semibold md:text-base">{title}</h1>
+            {/* gap-1.5 below sm keeps the cluster inside 320px viewports (3px overflow at gap-2) */}
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+              <SearchDialog />
+              <SyncPill />
+              <ThemeToggle />
+              <UserMenu />
             </div>
-          </div>
-        </footer>
+          </header>
+
+          <main className="flex-1 px-4 py-6 md:px-6 lg:px-8" role="main">
+            {/* The boundary keeps the header/sidebar/footer mounted even if a view throws —
+                only the crashed view is replaced. Re-keying on the first route segment
+                both resets the boundary and replays the enter animation per view. */}
+            <ViewErrorBoundary resetKey={viewKey}>
+              <div key={viewKey} className="view-enter mx-auto w-full max-w-6xl">{children}</div>
+            </ViewErrorBoundary>
+          </main>
+
+          {/* Sticky footer: mt-auto pushes to bottom, min-h-screen root guarantees no gap */}
+          <footer className="mt-auto border-t bg-card/60 px-4 py-2.5 md:px-6" role="contentinfo">
+            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground">InvoiceFlow</span> v{APP_VERSION} — Local-first · Offline-ready · GST-aware
+              </p>
+              <div className="flex items-center gap-3">
+                <SyncPill compact />
+                <span aria-hidden="true">·</span>
+                <span>IndexedDB store</span>
+              </div>
+            </div>
+          </footer>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }

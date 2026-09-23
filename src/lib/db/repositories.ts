@@ -178,6 +178,8 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         id: crypto.randomUUID(),
         workspace_id: workspaceId,
         business_type: null,
+        industry: null,
+        description: null,
         logo_data: null,
         address_line1: null,
         address_line2: null,

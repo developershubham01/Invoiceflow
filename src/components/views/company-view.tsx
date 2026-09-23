@@ -83,6 +83,8 @@ function PatternField(props: {
 interface FormState {
   name: string
   business_type: string
+  industry: string
+  description: string
   address_line1: string
   address_line2: string
   city: string
@@ -136,7 +138,10 @@ export function CompanyView() {
   useEffect(() => {
     if (!company || form) return
     setForm({
-      name: company.name, business_type: company.business_type ?? '',
+      name: company.name,
+      business_type: company.business_type ?? '',
+      industry: company.industry ?? '',
+      description: company.description ?? '',
       address_line1: company.address_line1 ?? '', address_line2: company.address_line2 ?? '',
       city: company.city ?? '', pincode: company.pincode ?? '', state_code: company.state_code ?? '',
       gstin: company.gstin ?? '', pan: company.pan ?? '', phone: company.phone ?? '', email: company.email ?? '',
@@ -247,6 +252,14 @@ export function CompanyView() {
             <div className="space-y-1.5">
               <Label htmlFor="co-type">Business type</Label>
               <Input id="co-type" value={form.business_type} onChange={(e) => set({ business_type: e.target.value })} placeholder="Pvt Ltd / LLP / Proprietor" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="co-industry">Industry</Label>
+              <Input id="co-industry" value={form.industry} onChange={(e) => set({ industry: e.target.value })} placeholder="IT / Retail / Services" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="co-desc">Company Description / Tagline</Label>
+              <Textarea id="co-desc" rows={2} value={form.description} onChange={(e) => set({ description: e.target.value })} placeholder="Brief summary of company business..." />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="co-gstin">GSTIN</Label>

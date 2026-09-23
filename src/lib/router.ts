@@ -1,6 +1,4 @@
-// InvoiceFlow — Hash router (CANON §2 / docs/32-ROUTES.md)
-// The sandbox preview serves only `/`, so the SPA uses hash-based navigation that
-// mirrors the production route table.
+// InvoiceFlow — Path router (HTML5 History API for clean URLs without # tags)
 
 import { useCallback, useEffect, useState } from 'react'
 
@@ -9,28 +7,66 @@ export interface Route {
   raw: string
 }
 
-function parseHash(): Route {
-  const raw = typeof window === 'undefined' ? '' : window.location.hash.replace(/^#\/?/, '')
+function parsePath(): Route {
+  if (typeof window === 'undefined') return { segments: ['dashboard'], raw: 'dashboard' }
+
+  // Support legacy hash links if navigated to directly, converting them smoothly
+  if (window.location.hash) {
+    const legacyHash = window.location.hash.replace(/^#\/?/, '')
+    if (legacyHash) {
+      window.history.replaceState({}, '', `/${legacyHash}`)
+    }
+  }
+
+  const path = window.location.pathname.replace(/^\/+/, '')
+  const raw = path || 'dashboard'
   return { segments: raw.split('/').filter(Boolean), raw }
 }
 
+function notifyLocationChange(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('locationchange'))
+  }
+}
+
 export function navigate(path: string): void {
+  if (typeof window === 'undefined') return
   const clean = path.replace(/^#/, '').replace(/^\/+/, '')
-  window.location.hash = clean ? `#/${clean}` : '#/dashboard'
+  const target = `/${clean || 'dashboard'}`
+  if (window.location.pathname !== target) {
+    window.history.pushState({}, '', target)
+    notifyLocationChange()
+  }
 }
 
 export function hrefFor(path: string): string {
   const clean = path.replace(/^#/, '').replace(/^\/+/, '')
-  return clean ? `#/${clean}` : '#/dashboard'
+  return `/${clean || 'dashboard'}`
 }
 
 export function useHashRoute(): Route {
-  const [route, setRoute] = useState<Route>(() => parseHash())
-  const sync = useCallback(() => setRoute(parseHash()), [])
+  const [route, setRoute] = useState<Route>(() => parsePath())
+
+  const sync = useCallback(() => setRoute(parsePath()), [])
+
   useEffect(() => {
-    window.addEventListener('hashchange', sync)
-    if (!window.location.hash) navigate('dashboard')
-    return () => window.removeEventListener('hashchange', sync)
+    const handlePopState = () => sync()
+    const handleCustomChange = () => sync()
+
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('locationchange', handleCustomChange)
+
+    // Automatically convert '/' to '/dashboard' cleanly
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+      window.history.replaceState({}, '', '/dashboard')
+      sync()
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('locationchange', handleCustomChange)
+    }
   }, [sync])
+
   return route
 }

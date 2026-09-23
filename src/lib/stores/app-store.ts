@@ -23,6 +23,7 @@ interface AppState {
   }
   /** One-shot cross-view hints (e.g. open invoices pre-filtered to OVERDUE). Consumed by the target view. */
   viewParams: ViewParams
+  sidebarCollapsed: boolean
 
   setBooted: (booted: boolean) => void
   setStorageAvailable: (ok: boolean) => void
@@ -33,6 +34,19 @@ interface AppState {
   setSyncState: (partial: Partial<AppState['sync']>) => void
   setViewParams: (params: ViewParams) => void
   consumeViewParam: (key: string) => string | undefined
+  setSidebarCollapsed: (collapsed: boolean) => void
+  toggleSidebarCollapsed: () => void
+}
+
+const SIDEBAR_STORAGE_KEY = 'invoiceflow_sidebar_collapsed'
+
+function getInitialSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -44,6 +58,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   workspaces: [],
   sync: { status: 'idle', lastSyncAt: null, lastError: null, pending: 0 },
   viewParams: {},
+  sidebarCollapsed: getInitialSidebarCollapsed(),
 
   setBooted: (booted) => set({ booted }),
   setStorageAvailable: (storageAvailable) => set({ storageAvailable }),
@@ -61,5 +76,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ viewParams: rest })
     }
     return value
+  },
+  setSidebarCollapsed: (collapsed) => {
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed))
+    } catch {}
+    set({ sidebarCollapsed: collapsed })
+  },
+  toggleSidebarCollapsed: () => {
+    const next = !get().sidebarCollapsed
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
+    } catch {}
+    set({ sidebarCollapsed: next })
   },
 }))

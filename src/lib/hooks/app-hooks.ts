@@ -30,26 +30,42 @@ export function useBoot(): void {
   const store = useAppStore()
   useEffect(() => {
     let cancelled = false
-    async function boot() {
-      const storageOk = await checkStorageAvailable()
-      if (cancelled) return
-      store.setStorageAvailable(storageOk)
-      if (!storageOk) {
+    // Safety max timeout safeguard: if storage/network hangs for 3s, force boot so app never locks up
+    const maxBootTimer = setTimeout(() => {
+      if (!cancelled && !useAppStore.getState().booted) {
+        console.warn('App boot timeout safeguard reached; forcing booted state.')
         store.setBooted(true)
-        return
       }
-      const ws = await getActiveWorkspace()
-      const all = await listWorkspaces()
-      const session = await apiSession().catch(() => ({ user: null }))
-      if (cancelled) return
-      store.setActiveWorkspace(ws)
-      store.setWorkspaces(all)
-      store.setUser(session.user)
-      store.setBooted(true)
+    }, 3000)
+
+    async function boot() {
+      try {
+        const storageOk = await checkStorageAvailable().catch(() => false)
+        if (cancelled) return
+        store.setStorageAvailable(storageOk)
+        if (!storageOk) return
+
+        const ws = await getActiveWorkspace().catch(() => null)
+        const all = await listWorkspaces().catch(() => [])
+        const session = await apiSession().catch(() => ({ user: null }))
+        if (cancelled) return
+
+        store.setActiveWorkspace(ws)
+        store.setWorkspaces(all)
+        store.setUser(session.user ?? null)
+      } catch (err) {
+        console.error('App boot error:', err)
+      } finally {
+        clearTimeout(maxBootTimer)
+        if (!cancelled) {
+          store.setBooted(true)
+        }
+      }
     }
     void boot()
     return () => {
       cancelled = true
+      clearTimeout(maxBootTimer)
     }
   }, [])
 }

@@ -22,11 +22,16 @@ import { registerIpcHandlers } from './ipc/handlers';
 import { startNetworkMonitoring, stopNetworkMonitoring } from './services/network-service';
 import { buildAppMenu } from './services/menu-service';
 
+// ── Application Identity for Windows Taskbar ─────────────────────────────────
+app.setAppUserModelId('com.abwcurious.invoiceflow');
+
+// ── Hardware Acceleration Control ────────────────────────────────────────────
+// Proven root cause fix: prevents Chromium GPU process crashes on Windows/VMs
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+
 // ── Renderer location modes (see loadRendererInto) ───────────────────────────
-//  1. dev      — ELECTRON_START_URL (e.g. http://localhost:3000), the Next dev server
-//  2. embedded — Next static/standalone export copied to <app>/renderer, loaded via file://
-//  3. remote   — packaged shell pointed at a hosted renderer (set APP_ORIGIN; useful for
-//                auto-updating the web layer independently of the shell)
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL ?? '';
 const EMBEDDED_RENDERER_INDEX = path.join(__dirname, '..', 'renderer', 'index.html');
 
@@ -113,12 +118,8 @@ function shouldInjectCsp(rawUrl: string): boolean {
 function configureSessionSecurity(): void {
   const ses = session.defaultSession;
 
-  // The renderer needs no powerful permissions today — deny everything by default
-  // (geolocation, notifications, media, …). Extend explicitly if ever required.
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
 
-  // Inject the CSP on app-origin (and embedded file://) responses. Third-party
-  // responses (none expected — no remote content) pass through untouched.
   ses.webRequest.onHeadersReceived((details, callback) => {
     if (!shouldInjectCsp(details.url)) {
       callback({});
@@ -133,14 +134,8 @@ function configureSessionSecurity(): void {
   });
 }
 
-/**
- * Defense-in-depth: guards apply to EVERY webContents (now and in the future),
- * not just the main window.
- */
 function installGlobalWebContentsGuards(): void {
   app.on('web-contents-created', (_event, contents) => {
-    // Strict navigation allow-list. In-app routing is hash-based (CANON §2) so it
-    // never fires here; this only intercepts real document loads.
     contents.on('will-navigate', (event, url) => {
       if (!isAllowedNavigationUrl(url)) {
         event.preventDefault();
@@ -148,7 +143,6 @@ function installGlobalWebContentsGuards(): void {
       }
     });
 
-    // Deny all window.open; hand https allow-listed links to the OS browser.
     contents.setWindowOpenHandler(({ url }) => {
       if (isAllowedExternalUrl(url)) {
         void shell.openExternal(url);
@@ -158,7 +152,6 @@ function installGlobalWebContentsGuards(): void {
       return { action: 'deny' };
     });
 
-    // No <webview> support in InvoiceFlow.
     contents.on('will-attach-webview', (event) => event.preventDefault());
   });
 }
@@ -166,28 +159,39 @@ function installGlobalWebContentsGuards(): void {
 // ── Window management ────────────────────────────────────────────────────────
 
 async function loadRendererInto(win: BrowserWindow): Promise<void> {
-  // 1. Dev / remote mode — Next.js served over HTTP(S).
-  if (DEV_SERVER_URL) {
-    await win.loadURL(DEV_SERVER_URL);
-    return;
-  }
-  // 2. Embedded mode — `next build` (output: 'export') copied to electron/renderer.
-  //    The exported SPA uses hash navigation, so file:// loading keeps all routes working.
-  if (existsSync(EMBEDDED_RENDERER_INDEX)) {
+  const targetUrl = DEV_SERVER_URL || 'http://localhost:3000';
+
+  // 1. Embedded mode — static export in electron/renderer/index.html
+  if (!DEV_SERVER_URL && existsSync(EMBEDDED_RENDERER_INDEX)) {
     await win.loadFile(EMBEDDED_RENDERER_INDEX);
     return;
   }
-  // 3. Un-packaged fallback (`electron .` without ELECTRON_START_URL) — local dev server.
-  await win.loadURL('http://localhost:3000');
+
+  // 2. Dev / HTTP mode — with retry backoff for dev server startup
+  const maxAttempts = 15;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await win.loadURL(targetUrl);
+      return;
+    } catch (error) {
+      if (attempt < maxAttempts) {
+        console.warn(`[main] Dev server at ${targetUrl} not ready yet (attempt ${attempt}/${maxAttempts}). Retrying in 1s...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } else {
+        throw error;
+      }
+    }
+  }
 }
 
 async function createMainWindow(): Promise<void> {
   const win = new BrowserWindow({
-    width: 1440,
+    width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    show: false, // avoid white flash; shown on ready-to-show
+    show: false,
+    skipTaskbar: false,
     title: 'InvoiceFlow',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -200,8 +204,11 @@ async function createMainWindow(): Promise<void> {
   mainWindow = win;
 
   win.once('ready-to-show', () => {
+    if (win.isMinimized()) win.restore();
     win.show();
-    win.maximize();
+    win.focus();
+    win.moveTop();
+    win.setSkipTaskbar(false);
   });
 
   win.on('closed', () => {
@@ -216,6 +223,13 @@ async function createMainWindow(): Promise<void> {
 
   try {
     await loadRendererInto(win);
+    if (!win.isVisible()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.moveTop();
+      win.setSkipTaskbar(false);
+    }
   } catch (error) {
     showError('Could not load the InvoiceFlow renderer', error);
   }
@@ -231,8 +245,6 @@ function bootstrap(): void {
   Menu.setApplicationMenu(
     buildAppMenu({
       isDev: isDevMode(),
-      // Menu actions that concern the UI are forwarded to the renderer, which owns
-      // the response (New Invoice → #/invoices/new, Export PDF → export flow).
       onNewInvoice: () => {
         mainWindow?.webContents.send(IPC_CHANNELS.MENU_NEW_INVOICE, { at: new Date().toISOString() });
       },
@@ -247,12 +259,17 @@ function bootstrap(): void {
 
   void createMainWindow();
 
-  // Authoritative connectivity (net.online + DNS of the app origin) pushed to the
-  // renderer as network:change — navigator.onLine alone misses captive portals.
   startNetworkMonitoring({ getWindow: () => mainWindow, probeHost: probeHost() });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createMainWindow();
+    } else if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.setSkipTaskbar(false);
+    }
   });
 }
 
@@ -266,7 +283,7 @@ function probeHost(): string | undefined {
       // unreachable: origins were validated at startup
     }
   }
-  return undefined; // embedded file:// mode — rely on net.online only
+  return undefined;
 }
 
 // ── Fatal error handling ─────────────────────────────────────────────────────
@@ -281,13 +298,15 @@ function showError(title: string, error: unknown): void {
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
-  // Another InvoiceFlow instance owns the lock — exit quietly.
   app.quit();
 } else {
   app.on('second-instance', () => {
     if (mainWindow === null) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
     mainWindow.focus();
+    mainWindow.moveTop();
+    mainWindow.setSkipTaskbar(false);
   });
 
   app.whenReady()
@@ -302,7 +321,6 @@ if (!gotSingleInstanceLock) {
     .catch((error) => showError('Failed to start', error));
 
   app.on('window-all-closed', () => {
-    // macOS convention: keep the app running; activate recreates the window.
     if (process.platform !== 'darwin') app.quit();
   });
 
