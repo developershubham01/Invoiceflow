@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
     ''
 
-  const host = req.headers.get('host') || 'localhost:3000'
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000'
   const protocol = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
   const redirectUri = `${protocol}://${host}/api/auth/google/callback`
 

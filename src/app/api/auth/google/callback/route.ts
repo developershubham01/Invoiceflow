@@ -55,10 +55,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Default fallback if offline or code exchange was unavailable in dev
+    // Require valid email from Google OAuth exchange
     if (!email || !email.includes('@')) {
-      email = 'user.google@gmail.com'
-      name = 'Google User'
+      console.warn('[Google OAuth] No valid email returned from Google token exchange. Redirecting to login.')
+      return NextResponse.redirect(`${baseUrl}/#/login?error=google_oauth_failed`)
     }
 
     // 3. Find or Create User in DB
