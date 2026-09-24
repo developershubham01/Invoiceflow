@@ -54,15 +54,18 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
   }
 
   const checkCompanyProfileAndRedirect = async (userId: string) => {
-    const { getCompanyByUserId, getActiveWorkspace, getCompany } = await import('@/lib/db/repositories')
+    const { getCompanyByUserId, getActiveWorkspace, getCompany, createWorkspace } = await import('@/lib/db/repositories')
     
+    let activeWs = await getActiveWorkspace()
+    if (!activeWs) {
+      activeWs = await createWorkspace('My Business Workspace')
+      useAppStore.getState().setActiveWorkspace(activeWs)
+    }
+
     // Check by user_id first in local DB
     let company = await getCompanyByUserId(userId)
-    if (!company) {
-      const activeWs = await getActiveWorkspace()
-      if (activeWs) {
-        company = await getCompany(activeWs.id)
-      }
+    if (!company && activeWs) {
+      company = await getCompany(activeWs.id)
     }
 
     if (company && company.name) {
@@ -93,9 +96,9 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data) {
+        throw new Error(data?.error || 'Authentication failed. Please try again.')
       }
       
       // Update global user state
@@ -119,12 +122,12 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: 'demo@company.com', password: 'Demo@12345' }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Demo login failed')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data) {
+        throw new Error(data?.error || 'Demo login failed. Please try again.')
       }
       store.setUser(data.user)
-      navigate('dashboard')
+      await checkCompanyProfileAndRedirect(data.user.id)
     } catch (err) {
       setErrorMsg((err as Error).message)
     } finally {
