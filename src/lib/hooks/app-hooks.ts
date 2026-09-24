@@ -52,7 +52,13 @@ export function useBoot(): void {
 
         store.setActiveWorkspace(ws)
         store.setWorkspaces(all)
-        store.setUser(session.user ?? null)
+        if (session.user && session.user.email === 'user.google@gmail.com') {
+          console.info('Clearing legacy placeholder user.google@gmail.com session.')
+          void apiLogout().catch(() => undefined)
+          store.setUser(null)
+        } else {
+          store.setUser(session.user ?? null)
+        }
       } catch (err) {
         console.error('App boot error:', err)
       } finally {

@@ -196,7 +196,18 @@ export function OnboardingView() {
                   <h2 className="text-lg font-bold">Company Profile Setup</h2>
                   <p className="text-xs text-muted-foreground">Provide details to generate branded invoices and compliant GST reports.</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => navigate('login')} className="text-xs text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    void (async () => {
+                      await import('@/lib/sync/client').then((m) => m.apiLogout())
+                      useAppStore.getState().setUser(null)
+                      navigate('login')
+                    })()
+                  }}
+                  className="text-xs text-muted-foreground"
+                >
                   Switch Account
                 </Button>
               </div>
