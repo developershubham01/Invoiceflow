@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { QuickCreateCustomer } from '@/components/app/quick-create-customer'
@@ -21,7 +20,7 @@ import { computeDocumentTotals, type DocItemInput } from '@/lib/domain/documents
 import { formatMoney, formatMoneyPlain, formatQty, parseAmountToPaise, parseQtyToMilli } from '@/lib/domain/money'
 import { INDIAN_STATES, STANDARD_GST_RATES_BPS, gstRateLabel, stateCodeFromGstin } from '@/lib/domain/gst'
 import { todayStr } from '@/lib/date'
-import type { CompanyProfile, Customer, DocCharge, Product } from '@/lib/domain/types'
+import type { Customer, DocCharge, Product } from '@/lib/domain/types'
 import { toast } from 'sonner'
 import { ArrowDown, ArrowUp, Package, Percent, Plus, Trash2, UserPlus } from 'lucide-react'
 

@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/stores/app-store'
 import { useNetworkOnline } from '@/lib/hooks/app-hooks'
 import { runSync } from '@/lib/sync/engine'
 import { cn } from '@/lib/utils'
-import { CloudOff, Cloud, RefreshCw, AlertTriangle, Loader2, UserX } from 'lucide-react'
+import { CloudOff, Cloud, AlertTriangle, Loader2, UserX } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
 export function SyncPill({ compact }: { compact?: boolean }) {

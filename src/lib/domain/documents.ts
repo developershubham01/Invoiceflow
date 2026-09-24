@@ -5,7 +5,7 @@
 
 import { roundHalfUp } from './money'
 import { isInterState, splitTax, taxOn } from './gst'
-import type { DocCharge, TaxMode } from './types'
+import type { TaxMode } from './types'
 
 export interface DocItemInput {
   id: string

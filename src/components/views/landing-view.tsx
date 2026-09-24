@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { APP_VERSION } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,17 +7,12 @@ import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
 import {
   ArrowRight,
-  CheckCircle2,
   Cloud,
   FileText,
-  Globe,
   Landmark,
-  Layers,
-  Loader2,
   Lock,
   Receipt,
   ShieldCheck,
-  Sparkles,
   Users,
   WifiOff,
   Zap,
@@ -27,29 +21,6 @@ import {
 export function LandingView() {
   const store = useAppStore()
   const user = store.user
-  const [demoBusy, setDemoBusy] = useState(false)
-
-  const handleDemoLogin = async () => {
-    setDemoBusy(true)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'demo@company.com', password: 'Demo@12345' }),
-      })
-      const data = await res.json()
-      if (res.ok && data.user) {
-        store.setUser(data.user)
-        navigate('dashboard')
-      } else {
-        navigate('login')
-      }
-    } catch {
-      navigate('login')
-    } finally {
-      setDemoBusy(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-emerald-500 selection:text-white">
@@ -86,15 +57,6 @@ export function LandingView() {
               </Button>
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  onClick={handleDemoLogin}
-                  disabled={demoBusy}
-                  className="hidden sm:inline-flex gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                >
-                  {demoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-emerald-500" />}
-                  <span>Demo Login</span>
-                </Button>
 
                 <Button
                   variant="ghost"
@@ -150,12 +112,10 @@ export function LandingView() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={handleDemoLogin}
-                disabled={demoBusy}
+                onClick={() => navigate('login')}
                 className="w-full sm:w-auto px-8 py-6 text-base font-semibold border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl gap-2"
               >
-                {demoBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5 text-emerald-500" />}
-                Try Live Demo (ABWcurious)
+                Sign In <ArrowRight className="h-5 w-5" />
               </Button>
             </div>
 
@@ -175,7 +135,7 @@ export function LandingView() {
                   <div className="h-3 w-3 rounded-full bg-red-500/80" />
                   <div className="h-3 w-3 rounded-full bg-amber-500/80" />
                   <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
-                  <span className="ml-2 text-xs font-mono text-slate-400">InvoiceFlow · ABWcurious (OPC) Pvt. Ltd.</span>
+                  <span className="ml-2 text-xs font-mono text-slate-400">InvoiceFlow · Your Company Name</span>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
                   <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -186,21 +146,21 @@ export function LandingView() {
               {/* Fake Dashboard Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="rounded-xl bg-slate-900/90 p-4 border border-slate-800 space-y-2">
-                  <p className="text-xs text-slate-400 font-medium">Total Billed (FY 2026-27)</p>
-                  <p className="text-2xl font-bold text-emerald-400">₹ 4,85,900.00</p>
-                  <p className="text-[11px] text-slate-500">18 Invoices · 100% GST Compliant</p>
+                  <p className="text-xs text-slate-400 font-medium">Total Billed</p>
+                  <p className="text-2xl font-bold text-emerald-400">Real-time data</p>
+                  <p className="text-[11px] text-slate-500">From your invoices · GST Compliant</p>
                 </div>
 
                 <div className="rounded-xl bg-slate-900/90 p-4 border border-slate-800 space-y-2">
-                  <p className="text-xs text-slate-400 font-medium">Outstanding Received</p>
-                  <p className="text-2xl font-bold text-cyan-400">₹ 4,10,000.00</p>
-                  <p className="text-[11px] text-slate-500">84.3% Realized</p>
+                  <p className="text-xs text-slate-400 font-medium">Collected Amount</p>
+                  <p className="text-2xl font-bold text-cyan-400">Live tracking</p>
+                  <p className="text-[11px] text-slate-500">Collection rate calculated automatically</p>
                 </div>
 
                 <div className="rounded-xl bg-slate-900/90 p-4 border border-slate-800 space-y-2">
                   <p className="text-xs text-slate-400 font-medium">Pending Quotations</p>
-                  <p className="text-2xl font-bold text-amber-400">₹ 75,900.00</p>
-                  <p className="text-[11px] text-slate-500">3 Ready to convert</p>
+                  <p className="text-2xl font-bold text-amber-400">Auto-tracked</p>
+                  <p className="text-[11px] text-slate-500">Convert to invoices in one click</p>
                 </div>
               </div>
 
@@ -213,17 +173,17 @@ export function LandingView() {
                 <div className="divide-y divide-slate-800/60">
                   <div className="px-4 py-3 flex items-center justify-between hover:bg-slate-800/30">
                     <div>
-                      <p className="font-semibold text-slate-200">INV-2026-0012 · Infosys Tech Ltd</p>
-                      <p className="text-[11px] text-slate-400">23 Sep 2026 · Software License & Cloud Support</p>
+                      <p className="font-semibold text-slate-200">INV-2026-0012 · Client Company</p>
+                      <p className="text-[11px] text-slate-400">23 Sep 2026 · Software License & Support</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-emerald-400">₹ 1,18,000.00</p>
+                      <p className="font-bold text-emerald-400">₹ X,XX,XXX.XX</p>
                       <span className="inline-block rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300">PAID</span>
                     </div>
                   </div>
                   <div className="px-4 py-3 flex items-center justify-between hover:bg-slate-800/30">
                     <div>
-                      <p className="font-semibold text-slate-200">QT-2026-0008 · Tata Consultancy Services</p>
+                      <p className="font-semibold text-slate-200">QT-2026-0008 · Partner Corp</p>
                       <p className="text-[11px] text-slate-400">22 Sep 2026 · Custom ERP Module Development</p>
                     </div>
                     <div className="text-right">
@@ -376,7 +336,6 @@ export function LandingView() {
           <div className="flex items-center gap-6">
             <button onClick={() => navigate('login')} className="hover:text-foreground">Sign In</button>
             <button onClick={() => navigate('signup')} className="hover:text-foreground">Sign Up</button>
-            <button onClick={handleDemoLogin} className="hover:text-foreground">Demo Account</button>
           </div>
         </div>
       </footer>

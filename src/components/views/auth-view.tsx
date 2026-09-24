@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { APP_VERSION } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
-import { ArrowLeft, Cloud, Landmark, Loader2, ShieldCheck, Sparkles, WifiOff } from 'lucide-react'
+import { ArrowLeft, Cloud, Landmark, Loader2, ShieldCheck, WifiOff } from 'lucide-react'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -43,26 +43,24 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [emailBusy, setEmailBusy] = useState(false)
-  const [demoBusy, setDemoBusy] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+  const [errorMsg, setErrorMsg] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
     const rawSearch = window.location.search || (window.location.hash.includes('?') ? window.location.hash.substring(window.location.hash.indexOf('?')) : '')
-    if (!rawSearch) return
+    if (!rawSearch) return null
     const params = new URLSearchParams(rawSearch)
     const err = params.get('error')
     if (err === 'google_oauth_failed') {
-      setErrorMsg('Google Sign-In failed. Please check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel settings or sign in with email.')
+      return 'Google Sign-In failed. Please check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel settings or sign in with email.'
     } else if (err) {
-      setErrorMsg(`Authentication note: ${err}`)
+      return `Authentication note: ${err}`
     }
-  }, [])
+    return null
+  })
 
   const handleGoogleClick = () => {
     setGoogleBusy(true)
     if (typeof window !== 'undefined') {
-      window.location.href = '/api/auth/google/login'
+      window.location.assign('/api/auth/google/login')
     }
   }
 
@@ -126,27 +124,7 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
     }
   }
 
-  const handleDemoAuth = async () => {
-    setDemoBusy(true)
-    setErrorMsg(null)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'demo@company.com', password: 'Demo@12345' }),
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data) {
-        throw new Error(data?.error || 'Demo login failed. Please try again.')
-      }
-      store.setUser(data.user)
-      await checkCompanyProfileAndRedirect(data.user.id)
-    } catch (err) {
-      setErrorMsg((err as Error).message)
-    } finally {
-      setDemoBusy(false)
-    }
-  }
+
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-emerald-50/60 to-background dark:from-emerald-950/20">
@@ -182,23 +160,7 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
                 : 'Register a new account to setup your company profile and workspace.'}
             </p>
 
-            {/* Quick Demo Option */}
-            <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Want to test without signing up?</p>
-                <p className="text-[11px] text-muted-foreground">Pre-loaded company & sample invoices</p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleDemoAuth}
-                disabled={demoBusy || emailBusy || googleBusy}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1 text-xs shadow-sm"
-              >
-                {demoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                Demo Login
-              </Button>
-            </div>
+
 
             {/* Google OAuth Option */}
             <div className="mt-4 space-y-3">
@@ -207,7 +169,7 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
                 variant="outline"
                 className="w-full gap-3 border-slate-300 dark:border-slate-800 bg-background hover:bg-slate-50 dark:hover:bg-slate-900 font-semibold py-5 text-sm shadow-sm transition-all"
                 onClick={handleGoogleClick}
-                disabled={googleBusy || emailBusy || demoBusy}
+                disabled={googleBusy || emailBusy}
               >
                 {googleBusy ? (
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
@@ -289,7 +251,7 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
                   />
                 </div>
 
-                <Button type="submit" className="w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90" disabled={emailBusy || googleBusy || demoBusy}>
+                <Button type="submit" className="w-full font-semibold bg-primary text-primary-foreground hover:bg-primary/90" disabled={emailBusy || googleBusy}>
                   {emailBusy ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : authMode === 'login' ? (

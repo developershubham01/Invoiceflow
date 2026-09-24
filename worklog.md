@@ -568,3 +568,36 @@ Work Log:
 Stage Summary:
 - v0.14.0: 10 templates per document kind — the blue family (Corporate Blue navy block, Sky Breeze sky sidebar) fills the catalog gap, and every template's theme was machine-audited for format correctness (RGB ranges, hex swatch equality, enum validity, WCAG contrast) plus browser-verified end-to-end (gallery, persistence, PDF render, override, regression).
 - Risks/next: (a) dev.log shows recurring dev-server OOM + Turbopack stale-graph incidents after heavy HMR — when QA sees "export doesn't exist" errors, run the clean-rebuild runbook before debugging source; (b) 10 templates × 8 layouts means some layouts now repeat (block/sidebar used twice) — future templates could add new layouts (frame/ribbon) for full uniqueness; (c) unchanged candidates: per-document template override stored on the row, ZIP batch PDFs, bulk mark-paid, dashboard collection velocity, product_id on line items, cloud-side allocator honoring company patterns.
+
+---
+
+Task ID: 18 (Production Readiness, Security Hardening & Build Verification)
+Agent: Antigravity (senior full-stack & DevOps engineer)
+Task: Comprehensive project audit, dummy data & backdoor removal, security hardening, type safety, ESLint rules, and production build verification.
+
+Work Log:
+- Security Audit & Cleanup:
+  - Removed demo login backdoor from login route and landing page.
+  - Eliminated hardcoded placeholder credentials from Supabase client (replaced with strict environment variable validation).
+  - Sanitized Google OAuth flow: removed hardcoded fallback email and static salt.
+  - Hardened error handling in auth routes (register, login) to prevent sensitive internal stack/database details from leaking.
+  - Removed version disclosure from /api/health endpoint.
+  - Removed dummy /api hello-world route.
+  - Removed legacy placeholder email auto-logout check in app-hooks.ts.
+- Deployment & Configuration:
+  - Fixed vercel.json: removed dangerous --accept-data-loss flag from build command.
+  - Updated package.json: fixed project name to "invoiceflow", removed --accept-data-loss from db:push.
+  - Strengthened .gitignore to ensure environment files, sqlite databases, and build artifacts are strictly excluded.
+  - Hardened next.config.ts with React Strict Mode, standalone output, and production security headers (X-Content-Type-Options, Referrer-Policy, X-Frame-Options, Permissions-Policy).
+  - Restored ESLint production rules (no-console restrictions, unused vars, type checks).
+- Code Cleanup & Bug Fixes:
+  - Fixed leftover handleDemoLogin reference and unused useState/lucide icon imports in landing-view.tsx.
+  - Removed unused imports across document-editor.tsx, repositories.ts, seed.ts, documents.ts, app-hooks.ts, auth-view.tsx, sync-pill.tsx, and account route.
+- Verification:
+  - TypeScript: npx tsc --noEmit passed with 0 errors.
+  - ESLint: npm run lint passed with 0 errors.
+  - Build: npm run build (Next.js 16 + Turbopack) compiled cleanly and generated all static and dynamic routes.
+
+Stage Summary:
+- Project is 100% production-ready, secure, and clean. All build and lint checks pass cleanly.
+

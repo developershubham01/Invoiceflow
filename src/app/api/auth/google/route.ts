@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db as prisma } from '@/lib/db'
-import { createSession, rateLimit, clientIp, sessionCookie } from '@/lib/server/auth'
-import crypto from 'node:crypto'
+import { createSession, hashPassword, rateLimit, clientIp, sessionCookie } from '@/lib/server/auth'
 
 export async function POST(req: NextRequest) {
   const ip = clientIp(req)
@@ -13,11 +12,10 @@ export async function POST(req: NextRequest) {
   const emailInput = body.email ? String(body.email).trim().toLowerCase() : ''
   const nameInput = body.name ? String(body.name).trim() : ''
 
-  // Fallback default email if triggered without explicit token payload in local/test env
-  const targetEmail = emailInput || body.googleUser?.email || 'user.google@invoiceflow.app'
-  const targetName = nameInput || body.googleUser?.name || 'Google User'
+  const targetEmail = emailInput || body.googleUser?.email || ''
+  const targetName = nameInput || body.googleUser?.name || ''
 
-  if (!targetEmail.includes('@')) {
+  if (!targetEmail || !targetEmail.includes('@')) {
     return NextResponse.json({ error: 'Invalid Google account email', code: 'invalid_email' }, { status: 400 })
   }
 
@@ -25,15 +23,13 @@ export async function POST(req: NextRequest) {
   let user = await prisma.user.findUnique({ where: { email: targetEmail } })
 
   if (!user) {
-    // Generate a secure random password hash for OAuth user accounts
-    const randomPass = crypto.randomBytes(32).toString('hex')
-    const passwordHash = crypto.scryptSync(randomPass, 'google-oauth-salt', 64).toString('hex')
-
+    // Use the proper hashPassword function (which generates a random salt) for OAuth accounts
+    const randomPassword = crypto.randomUUID() + crypto.randomUUID()
     user = await prisma.user.create({
       data: {
         email: targetEmail,
-        name: targetName,
-        passwordHash,
+        name: targetName || targetEmail.split('@')[0],
+        passwordHash: hashPassword(randomPassword),
       },
     })
   }

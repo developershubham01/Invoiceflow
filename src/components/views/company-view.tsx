@@ -137,7 +137,8 @@ export function CompanyView() {
 
   useEffect(() => {
     if (!company || form) return
-    setForm({
+    queueMicrotask(() => {
+      setForm({
       name: company.name,
       business_type: company.business_type ?? '',
       industry: company.industry ?? '',
@@ -157,6 +158,7 @@ export function CompanyView() {
       enable_round_off: company.enable_round_off,
       default_notes: company.default_notes ?? '', default_terms: company.default_terms ?? '',
       logo_data: company.logo_data, signature_data: company.signature_data,
+      })
     })
   }, [company, form])
 
@@ -166,7 +168,9 @@ export function CompanyView() {
     let alive = true
     const vpa = form?.upi_vpa?.trim() ?? ''
     if (!looksLikeVpa(vpa)) {
-      setUpiQrPreview(null)
+      queueMicrotask(() => {
+        if (alive) setUpiQrPreview(null)
+      })
       return
     }
     const uri = buildUpiUri({ vpa, payeeName: form?.name?.trim() || 'Merchant', amountPaise: 0 })

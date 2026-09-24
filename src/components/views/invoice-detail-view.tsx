@@ -70,7 +70,9 @@ export function InvoiceDetailView({ id }: { id: string }) {
   useEffect(() => {
     let alive = true
     if (!model) {
-      setQrModel(null)
+      queueMicrotask(() => {
+        if (alive) setQrModel(null)
+      })
       return
     }
     void withUpiQr(model).then((m) => {
@@ -91,7 +93,9 @@ export function InvoiceDetailView({ id }: { id: string }) {
   useEffect(() => {
     let alive = true
     if (!upiEligible || !upiVpa || !data) {
-      setDetailQr(null)
+      queueMicrotask(() => {
+        if (alive) setDetailQr(null)
+      })
       return
     }
     const uri = buildUpiUri({

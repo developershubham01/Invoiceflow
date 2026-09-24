@@ -3,7 +3,6 @@
 import { getDb } from './db'
 import { addAudit, enqueueOp, getCompany, saveCompany, saveCustomer, saveProduct } from './repositories'
 import { saveInvoiceDraft, finalizeInvoice, recordPayment, saveQuotationDraft, setQuotationStatus } from './repositories'
-import { getDeviceId } from '@/lib/device'
 import { todayStr, addDaysStr } from '@/lib/date'
 import { computeDocumentTotals, type DocItemInput } from '@/lib/domain/documents'
 import type { DocCharge, Payment } from '@/lib/domain/types'

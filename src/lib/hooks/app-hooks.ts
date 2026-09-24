@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { getActiveWorkspace, listWorkspaces, getSetting } from '@/lib/db/repositories'
-import { apiSession, apiLogout } from '@/lib/sync/client'
+import { apiSession } from '@/lib/sync/client'
 import { checkStorageAvailable } from '@/lib/db/db'
 import { useAppStore } from '@/lib/stores/app-store'
 
@@ -52,13 +52,7 @@ export function useBoot(): void {
 
         store.setActiveWorkspace(ws)
         store.setWorkspaces(all)
-        if (session.user && session.user.email === 'user.google@gmail.com') {
-          console.info('Clearing legacy placeholder user.google@gmail.com session.')
-          void apiLogout().catch(() => undefined)
-          store.setUser(null)
-        } else {
-          store.setUser(session.user ?? null)
-        }
+        store.setUser(session.user ?? null)
       } catch (err) {
         console.error('App boot error:', err)
       } finally {

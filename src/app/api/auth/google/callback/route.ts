@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db as prisma } from '@/lib/db'
-import { createSession, sessionCookie } from '@/lib/server/auth'
-import crypto from 'node:crypto'
+import { createSession, hashPassword, sessionCookie } from '@/lib/server/auth'
 
 export async function GET(req: NextRequest) {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000'
@@ -50,31 +49,29 @@ export async function GET(req: NextRequest) {
           name = userData.name ? String(userData.name) : ''
           avatarUrl = userData.picture ? String(userData.picture) : ''
         } else {
-          console.error('[Google OAuth Token Failure Response]', { status: tokenRes.status, tokenData })
+          console.error('[Google OAuth] Token exchange failed:', tokenRes.status)
         }
       } catch (err) {
-        console.error('[Google OAuth Token Error]', err)
+        console.error('[Google OAuth] Token exchange error:', err instanceof Error ? err.message : err)
       }
     }
 
     // Require valid email from Google OAuth exchange
     if (!email || !email.includes('@')) {
-      console.warn('[Google OAuth] No valid email returned from Google token exchange. Redirecting to login.')
       return NextResponse.redirect(`${baseUrl}/#/login?error=google_oauth_failed`)
     }
 
     // 3. Find or Create User in DB
     let user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
-      const randomPass = crypto.randomBytes(32).toString('hex')
-      const passwordHash = crypto.scryptSync(randomPass, 'google-oauth-salt', 64).toString('hex')
-
+      // Use proper hashPassword with random salt for OAuth accounts
+      const randomPassword = crypto.randomUUID() + crypto.randomUUID()
       user = await prisma.user.create({
         data: {
           email,
           name: name || email.split('@')[0],
           avatarUrl: avatarUrl || null,
-          passwordHash,
+          passwordHash: hashPassword(randomPassword),
         } as never,
       })
     } else {
@@ -101,7 +98,7 @@ export async function GET(req: NextRequest) {
     res.headers.set('Set-Cookie', sessionCookie(session.token, session.expiresAt))
     return res
   } catch (err) {
-    console.error('[Google Callback Fatal Error]', err)
+    console.error('[Google Callback Error]:', err instanceof Error ? err.message : err)
     return NextResponse.redirect(`${baseUrl}/#/login`)
   }
 }

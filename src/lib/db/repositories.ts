@@ -3,7 +3,7 @@
 // The UI updates from Dexie live queries immediately after commit.
 
 import { getDb } from './db'
-import { chargesFromJson, chargesToJson, type CompanyProfileRow, type InvoiceRow, type QuotationRow } from './row-types'
+import { chargesFromJson, chargesToJson, type InvoiceRow, type QuotationRow } from './row-types'
 import { getDeviceId } from '@/lib/device'
 import { nowIso, todayStr } from '@/lib/date'
 import { fiscalYearOf, formatCustomerCode, isProvisionalNumber, provisionalNumber, renderDocNumber, docPatternError, sequenceKey } from '@/lib/domain/numbering'
