@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/app/theme-toggle'
 import { SyncPill } from '@/components/app/sync-pill'
 import { SearchDialog } from '@/components/app/search-dialog'
@@ -280,6 +280,9 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Account menu">
           <Avatar className="h-8 w-8 border">
+            {user.avatarUrl ? (
+              <AvatarImage src={user.avatarUrl} alt={user.name ?? 'User profile'} />
+            ) : null}
             <AvatarFallback className="bg-accent text-xs font-semibold text-accent-foreground">{initials}</AvatarFallback>
           </Avatar>
         </button>

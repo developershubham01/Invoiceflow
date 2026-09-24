@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
 
     let email = ''
     let name = ''
+    let avatarUrl = ''
 
     if (code) {
       try {
@@ -47,13 +48,14 @@ export async function GET(req: NextRequest) {
           const userData = await userRes.json()
           email = userData.email ? String(userData.email).toLowerCase() : ''
           name = userData.name ? String(userData.name) : ''
+          avatarUrl = userData.picture ? String(userData.picture) : ''
         }
       } catch (err) {
         console.error('[Google OAuth Token Error]', err)
       }
     }
 
-    // Default fallback if offline or code exchange was unavailable
+    // Default fallback if offline or code exchange was unavailable in dev
     if (!email || !email.includes('@')) {
       email = 'user.google@gmail.com'
       name = 'Google User'
@@ -69,14 +71,28 @@ export async function GET(req: NextRequest) {
         data: {
           email,
           name: name || email.split('@')[0],
+          avatarUrl: avatarUrl || null,
           passwordHash,
+        },
+      })
+    } else if ((name && user.name !== name) || (avatarUrl && user.avatarUrl !== avatarUrl)) {
+      // Update existing user with latest Google profile info if updated
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name: name || user.name,
+          avatarUrl: avatarUrl || user.avatarUrl,
         },
       })
     }
 
-    // 4. Create Session and Set Cookie
+    // 4. Check if user has an existing company profile
+    const existingCompany = await prisma.companyProfile.findFirst({ where: { userId: user.id } })
+    const targetRoute = (existingCompany && existingCompany.name) ? '/#/dashboard' : '/#/company-profile'
+
+    // 5. Create Session and Set Cookie
     const session = await createSession(user.id)
-    const res = NextResponse.redirect(`${baseUrl}/#/dashboard`)
+    const res = NextResponse.redirect(`${baseUrl}${targetRoute}`)
     res.headers.set('Set-Cookie', sessionCookie(session.token, session.expiresAt))
     return res
   } catch (err) {
