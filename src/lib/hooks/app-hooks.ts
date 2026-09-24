@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getDb } from '@/lib/db/db'
 import { getActiveWorkspace, listWorkspaces, getSetting } from '@/lib/db/repositories'
-import { apiSession } from '@/lib/sync/client'
+import { apiSession, apiLogout } from '@/lib/sync/client'
 import { checkStorageAvailable } from '@/lib/db/db'
 import { useAppStore } from '@/lib/stores/app-store'
 

@@ -75,17 +75,20 @@ export async function GET(req: NextRequest) {
           name: name || email.split('@')[0],
           avatarUrl: avatarUrl || null,
           passwordHash,
-        },
+        } as never,
       })
-    } else if ((name && user.name !== name) || (avatarUrl && user.avatarUrl !== avatarUrl)) {
-      // Update existing user with latest Google profile info if updated
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          name: name || user.name,
-          avatarUrl: avatarUrl || user.avatarUrl,
-        },
-      })
+    } else {
+      const existingAvatar = (user as { avatarUrl?: string | null }).avatarUrl
+      if ((name && user.name !== name) || (avatarUrl && existingAvatar !== avatarUrl)) {
+        // Update existing user with latest Google profile info if updated
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            name: name || user.name,
+            avatarUrl: avatarUrl || existingAvatar,
+          } as never,
+        })
+      }
     }
 
     // 4. Check if user has an existing company profile
