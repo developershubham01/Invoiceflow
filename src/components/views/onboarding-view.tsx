@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { INDIAN_STATES, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
 import { companyProfileSchema } from '@/lib/domain/schemas'
-import { createWorkspace, getCompany, saveCompany } from '@/lib/db/repositories'
+import { createWorkspace, getActiveWorkspace, getCompany, saveCompany } from '@/lib/db/repositories'
 import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
 import { toast } from 'sonner'
@@ -142,7 +142,8 @@ export function OnboardingView() {
 
     setBusy(true)
     try {
-      const ws = await createWorkspace(name.trim() || 'My workspace')
+      const activeWs = await getActiveWorkspace()
+      const ws = activeWs ?? (await createWorkspace(name.trim() || 'My workspace'))
       await saveCompany(ws.id, {
         ...parsed.data,
         user_id: user.id,
@@ -371,8 +372,7 @@ export function OnboardingView() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-between border-t pt-4">
-                <Button variant="ghost" onClick={() => navigate('landing')}>Back to Home</Button>
+              <div className="flex items-center justify-end border-t pt-4">
                 <Button onClick={() => void createCompany()} disabled={busy || !name.trim()} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {busy ? 'Saving Profile…' : 'Complete Setup & Go to Dashboard'}

@@ -8,7 +8,7 @@ export interface Route {
 }
 
 function parsePath(): Route {
-  if (typeof window === 'undefined') return { segments: ['landing'], raw: 'landing' }
+  if (typeof window === 'undefined') return { segments: ['dashboard'], raw: 'dashboard' }
 
   // Support legacy hash links if navigated to directly, converting them smoothly
   if (window.location.hash) {
@@ -19,7 +19,7 @@ function parsePath(): Route {
   }
 
   const path = window.location.pathname.replace(/^\/+/, '')
-  const raw = path || 'landing'
+  const raw = path || 'dashboard'
   return { segments: raw.split('/').filter(Boolean), raw }
 }
 

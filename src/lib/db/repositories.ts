@@ -148,6 +148,29 @@ export async function switchWorkspace(id: string): Promise<void> {
   await setSetting('active_workspace_id', id)
 }
 
+export async function deleteWorkspace(id: string): Promise<Workspace[]> {
+  const db = getDb()
+  await db.workspaces.update(id, { deleted_at: nowIso() })
+  const activeId = await getSetting('active_workspace_id')
+  const remaining = await db.workspaces.filter((w) => !w.deleted_at).toArray()
+  if (activeId === id && remaining.length > 0) {
+    await switchWorkspace(remaining[0].id)
+  }
+  return remaining
+}
+
+export async function removeOtherWorkspaces(keepWorkspaceId: string): Promise<Workspace[]> {
+  const db = getDb()
+  const all = await db.workspaces.toArray()
+  for (const w of all) {
+    if (w.id !== keepWorkspaceId) {
+      await db.workspaces.update(w.id, { deleted_at: nowIso() })
+    }
+  }
+  await switchWorkspace(keepWorkspaceId)
+  return db.workspaces.filter((w) => !w.deleted_at).toArray()
+}
+
 // ---------- company profile ----------
 
 export async function getCompany(workspaceId: string): Promise<CompanyProfile | null> {
@@ -221,8 +244,14 @@ export async function saveCompany(workspaceId: string, input: Partial<CompanyPro
         ...baseMeta(deviceId),
         ...metaFields(),
       }
-  await db.transaction('rw', db.company_profiles, db.sync_operations, db.audit_logs, async () => {
+  await db.transaction('rw', db.company_profiles, db.workspaces, db.sync_operations, db.audit_logs, async () => {
     await db.company_profiles.put(record)
+    if (record.name) {
+      const ws = await db.workspaces.get(workspaceId)
+      if (ws && ws.name !== record.name) {
+        await db.workspaces.update(workspaceId, { name: record.name, updated_at: nowIso() })
+      }
+    }
     if (record.workspace_id) {
       await enqueueOp(db, workspaceId, 'company', record.id, 'upsert', existing?.version ?? 0, record)
       await addAudit(db, workspaceId, 'company', record.id, existing ? 'UPDATE' : 'CREATE')

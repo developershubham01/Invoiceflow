@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
-import { ArrowLeft, Cloud, Landmark, Loader2, ShieldCheck, WifiOff } from 'lucide-react'
+import { Cloud, Landmark, Loader2, ShieldCheck, WifiOff } from 'lucide-react'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -131,7 +131,7 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
       <div className="mx-auto grid w-full max-w-4xl flex-1 items-center gap-10 px-4 py-10 lg:grid-cols-2">
         {/* pitch panel */}
         <div className="hidden lg:block">
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('landing')}>
+          <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow">
               <Landmark className="h-5 w-5" aria-hidden="true" />
             </div>
@@ -148,9 +148,6 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
         {/* form card */}
         <Card className="py-0 shadow-lg border-emerald-500/10">
           <CardContent className="p-6">
-            <Button variant="ghost" size="sm" className="-ml-2 mb-3 gap-1.5 text-muted-foreground hover:text-foreground" onClick={() => navigate('landing')}>
-              <ArrowLeft className="h-4 w-4" /> Back to Home
-            </Button>
             <h1 className="text-2xl font-bold tracking-tight">
               {authMode === 'login' ? 'Sign In to InvoiceFlow' : 'Create your Account'}
             </h1>

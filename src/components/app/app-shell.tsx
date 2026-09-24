@@ -10,16 +10,17 @@ import { ThemeToggle } from '@/components/app/theme-toggle'
 import { SyncPill } from '@/components/app/sync-pill'
 import { SearchDialog } from '@/components/app/search-dialog'
 import { useAppStore } from '@/lib/stores/app-store'
-import { useUser } from '@/lib/hooks/app-hooks'
+import { useUser, useCompany } from '@/lib/hooks/app-hooks'
 import { useGlobalShortcuts } from '@/lib/hooks/use-shortcuts'
 import { ViewErrorBoundary } from '@/components/app/view-error-boundary'
 import { hrefFor, navigate, useHashRoute } from '@/lib/router'
 import { apiLogout } from '@/lib/sync/client'
 import { APP_VERSION } from '@/lib/version'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import {
   BarChart3, Building2, ChevronDown, ChevronLeft, ChevronRight, CircleUser, FileText,
-  Landmark, LayoutDashboard, LogOut, Menu, Package, PanelLeft, Receipt, Settings, UserRound,
+  Landmark, LayoutDashboard, LogOut, Menu, Package, PanelLeft, Receipt, Settings, Trash2, UserRound,
   Users, Wallet, X,
 } from 'lucide-react'
 
@@ -144,18 +145,26 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
 }
 
 function Brand({ collapsed }: { collapsed?: boolean }) {
+  const company = useCompany()
+  const logo = company?.logo_data
+  const brandName = company?.name || 'InvoiceFlow'
+
   if (collapsed) {
     return (
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
           <div className="flex justify-center pt-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm cursor-pointer hover:opacity-90">
-              <Landmark className="h-5 w-5" aria-hidden="true" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm cursor-pointer hover:opacity-90 overflow-hidden">
+              {logo ? (
+                <img src={logo} alt={brandName} className="h-full w-full object-contain p-0.5 bg-white rounded-lg" />
+              ) : (
+                <Landmark className="h-5 w-5" aria-hidden="true" />
+              )}
             </div>
           </div>
         </TooltipTrigger>
         <TooltipContent side="right" sideOffset={12}>
-          <p className="font-semibold text-xs">InvoiceFlow</p>
+          <p className="font-semibold text-xs">{brandName}</p>
           <p className="text-[10px] opacity-80">Local-first v{APP_VERSION}</p>
         </TooltipContent>
       </Tooltip>
@@ -164,11 +173,15 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
 
   return (
     <div className="flex items-center gap-2.5 px-4 pt-5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <Landmark className="h-4.5 w-4.5" aria-hidden="true" />
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm overflow-hidden shrink-0">
+        {logo ? (
+          <img src={logo} alt={brandName} className="h-full w-full object-contain p-0.5 bg-white rounded-lg" />
+        ) : (
+          <Landmark className="h-4.5 w-4.5" aria-hidden="true" />
+        )}
       </div>
-      <div>
-        <p className="text-sm font-semibold leading-tight text-white">InvoiceFlow</p>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold leading-tight text-white truncate">{brandName}</p>
         <p className="text-[10px] leading-tight text-slate-400">Local-first invoicing</p>
       </div>
     </div>
@@ -176,8 +189,43 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
 }
 
 function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
-  const { activeWorkspace, workspaces, setActiveWorkspace } = useAppStore()
+  const { activeWorkspace, workspaces, setActiveWorkspace, setWorkspaces } = useAppStore()
+  const company = useCompany()
   if (!activeWorkspace) return null
+
+  const logo = company?.logo_data
+  const orgName = company?.name || activeWorkspace.name
+  const isMulti = workspaces.length > 1
+
+  const handleKeepOnlyActive = async () => {
+    const { removeOtherWorkspaces } = await import('@/lib/db/repositories')
+    const remaining = await removeOtherWorkspaces(activeWorkspace.id)
+    setWorkspaces(remaining)
+    toast.success('Active organization kept. Other organization data removed.')
+  }
+
+  const handleDeleteWorkspace = async (wId: string, wName: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const { deleteWorkspace } = await import('@/lib/db/repositories')
+    const remaining = await deleteWorkspace(wId)
+    setWorkspaces(remaining)
+    toast.success(`Removed "${wName}" organization data`)
+  }
+
+  const renderLogo = (sizeClass: string, textClass: string) => {
+    if (logo) {
+      return (
+        <div className={cn(sizeClass, 'shrink-0 overflow-hidden rounded border border-white/10 bg-white flex items-center justify-center')}>
+          <img src={logo} alt={orgName} className="h-full w-full object-contain" />
+        </div>
+      )
+    }
+    return (
+      <div className={cn(sizeClass, 'shrink-0 items-center justify-center rounded bg-emerald-600 font-bold text-white flex', textClass)}>
+        {orgName.slice(0, 1).toUpperCase()}
+      </div>
+    )
+  }
 
   if (collapsed) {
     return (
@@ -186,40 +234,77 @@ function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
           <DropdownMenuTrigger asChild>
             <TooltipTrigger asChild>
               <button
-                className="mx-auto mt-4 flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent/50 transition-colors hover:bg-sidebar-accent"
+                className="mx-auto mt-4 flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent/50 transition-colors hover:bg-sidebar-accent overflow-hidden"
                 aria-label="Switch workspace"
               >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-600 text-[10px] font-bold text-white">
-                  {activeWorkspace.name.slice(0, 1).toUpperCase()}
-                </div>
+                {renderLogo('h-6 w-6', 'text-[10px]')}
               </button>
             </TooltipTrigger>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="right" sideOffset={12} className="w-56">
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+          <DropdownMenuContent align="start" side="right" sideOffset={12} className="w-64">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Organization</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {workspaces.map((w) => (
-              <DropdownMenuItem
-                key={w.id}
-                onClick={() => {
-                  void (async () => {
-                    const { switchWorkspace } = await import('@/lib/db/repositories')
-                    await switchWorkspace(w.id)
-                    setActiveWorkspace(w)
-                    navigate('dashboard')
-                  })()
-                }}
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                <span className="truncate">{w.name}</span>
-                {w.id === activeWorkspace.id && <span className="ml-auto text-xs text-emerald-600">Active</span>}
-              </DropdownMenuItem>
-            ))}
+            {workspaces.map((w) => {
+              const isActive = w.id === activeWorkspace.id
+              return (
+                <DropdownMenuItem
+                  key={w.id}
+                  className="flex items-center justify-between gap-2"
+                  onClick={() => {
+                    void (async () => {
+                      const { switchWorkspace } = await import('@/lib/db/repositories')
+                      await switchWorkspace(w.id)
+                      setActiveWorkspace(w)
+                      navigate('dashboard')
+                    })()
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {isActive && logo ? (
+                      <img src={logo} alt={w.name} className="h-4 w-4 object-contain rounded shrink-0" />
+                    ) : (
+                      <Building2 className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="truncate text-xs">{w.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isActive ? (
+                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Active</span>
+                    ) : (
+                      <button
+                        title="Delete organization"
+                        onClick={(e) => handleDeleteWorkspace(w.id, w.name, e)}
+                        className="text-muted-foreground hover:text-red-500 p-1 rounded transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              )
+            })}
+            {isMulti && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleKeepOnlyActive}
+                  className="text-xs text-red-500 focus:text-red-600 cursor-pointer"
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  <span>Remove other organization data</span>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('company-profile')} className="text-xs">
+              <Settings className="mr-2 h-3.5 w-3.5" />
+              <span>Company Profile & Logo</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <TooltipContent side="right" sideOffset={12}>
-          <p className="font-semibold text-xs">{activeWorkspace.name}</p>
-          <p className="text-[10px] opacity-80">{activeWorkspace.cloud_linked_at ? 'Cloud synced' : 'Local workspace'}</p>
+          <p className="font-semibold text-xs">{orgName}</p>
+          <p className="text-[10px] opacity-80">{activeWorkspace.cloud_linked_at ? 'Cloud synced' : 'Local organization'}</p>
         </TooltipContent>
       </Tooltip>
     )
@@ -229,36 +314,73 @@ function WorkspaceSwitcher({ collapsed }: { collapsed?: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="mx-3 mt-4 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/50 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-600 text-[10px] font-bold text-white">
-            {activeWorkspace.name.slice(0, 1).toUpperCase()}
-          </div>
+          {renderLogo('h-6 w-6', 'text-[10px]')}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-slate-200">{activeWorkspace.name}</p>
-            <p className="text-[10px] text-slate-500">{activeWorkspace.cloud_linked_at ? 'Cloud synced' : 'Local workspace'}</p>
+            <p className="truncate text-xs font-semibold text-slate-200">{orgName}</p>
+            <p className="text-[10px] text-slate-500">{activeWorkspace.cloud_linked_at ? 'Cloud synced' : 'Single Organization'}</p>
           </div>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Organization</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {workspaces.map((w) => (
-          <DropdownMenuItem
-            key={w.id}
-            onClick={() => {
-              void (async () => {
-                const { switchWorkspace } = await import('@/lib/db/repositories')
-                await switchWorkspace(w.id)
-                setActiveWorkspace(w)
-                navigate('dashboard')
-              })()
-            }}
-          >
-            <Building2 className="mr-2 h-4 w-4" />
-            <span className="truncate">{w.name}</span>
-            {w.id === activeWorkspace.id && <span className="ml-auto text-xs text-emerald-600">Active</span>}
-          </DropdownMenuItem>
-        ))}
+        {workspaces.map((w) => {
+          const isActive = w.id === activeWorkspace.id
+          return (
+            <DropdownMenuItem
+              key={w.id}
+              className="flex items-center justify-between gap-2"
+              onClick={() => {
+                void (async () => {
+                  const { switchWorkspace } = await import('@/lib/db/repositories')
+                  await switchWorkspace(w.id)
+                  setActiveWorkspace(w)
+                  navigate('dashboard')
+                })()
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {isActive && logo ? (
+                  <img src={logo} alt={w.name} className="h-4 w-4 object-contain rounded shrink-0" />
+                ) : (
+                  <Building2 className="h-4 w-4 shrink-0" />
+                )}
+                <span className="truncate text-xs">{w.name}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isActive ? (
+                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Active</span>
+                ) : (
+                  <button
+                    title="Delete organization"
+                    onClick={(e) => handleDeleteWorkspace(w.id, w.name, e)}
+                    className="text-muted-foreground hover:text-red-500 p-1 rounded transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </DropdownMenuItem>
+          )
+        })}
+        {isMulti && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleKeepOnlyActive}
+              className="text-xs text-red-500 focus:text-red-600 cursor-pointer"
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              <span>Remove other organization data</span>
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('company-profile')} className="text-xs">
+          <Settings className="mr-2 h-3.5 w-3.5" />
+          <span>Company Profile & Logo</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from 'react'
 import { AppShell } from '@/components/app/app-shell'
-import { LandingView } from '@/components/views/landing-view'
 import { DashboardView } from '@/components/views/dashboard-view'
 import { InvoicesView } from '@/components/views/invoices-view'
 import { InvoiceDetailView } from '@/components/views/invoice-detail-view'
@@ -81,9 +80,9 @@ export function AppRoot() {
     return stop
   }, [])
 
-  const currentSegment = route.segments[0] || 'landing'
+  const currentSegment = route.segments[0] || (user ? 'dashboard' : 'login')
 
-  const isPublicRoute = currentSegment === 'landing' || currentSegment === 'login' || currentSegment === 'signup'
+  const isPublicRoute = currentSegment === 'login' || currentSegment === 'signup'
   const isCompanyProfileRoute = currentSegment === 'company-profile' || currentSegment === 'onboarding'
 
   // Route protection redirect side effects
@@ -105,7 +104,6 @@ export function AppRoot() {
     if (!booted) return <Loader />
     if (!storageAvailable) return <ErrorFallback />
 
-    if (currentSegment === 'landing') return <LandingView />
     if (currentSegment === 'login') return <AuthView initialMode="login" />
     if (currentSegment === 'signup') return <AuthView initialMode="register" />
 
