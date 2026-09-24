@@ -46,6 +46,19 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
   const [demoBusy, setDemoBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const rawSearch = window.location.search || (window.location.hash.includes('?') ? window.location.hash.substring(window.location.hash.indexOf('?')) : '')
+    if (!rawSearch) return
+    const params = new URLSearchParams(rawSearch)
+    const err = params.get('error')
+    if (err === 'google_oauth_failed') {
+      setErrorMsg('Google Sign-In failed. Please check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel settings or sign in with email.')
+    } else if (err) {
+      setErrorMsg(`Authentication note: ${err}`)
+    }
+  }, [])
+
   const handleGoogleClick = () => {
     setGoogleBusy(true)
     if (typeof window !== 'undefined') {

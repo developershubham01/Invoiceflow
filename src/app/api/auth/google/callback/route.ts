@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
           email = userData.email ? String(userData.email).toLowerCase() : ''
           name = userData.name ? String(userData.name) : ''
           avatarUrl = userData.picture ? String(userData.picture) : ''
+        } else {
+          console.error('[Google OAuth Token Failure Response]', { status: tokenRes.status, tokenData })
         }
       } catch (err) {
         console.error('[Google OAuth Token Error]', err)
