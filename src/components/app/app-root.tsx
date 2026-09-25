@@ -96,6 +96,9 @@ export function AppRoot() {
       } else if (!activeWorkspace && !isCompanyProfileRoute) {
         // Authenticated user without company profile trying to access dashboard -> redirect to setup
         navigate('company-profile')
+      } else if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
+        // Convert clean root to /dashboard
+        navigate('dashboard')
       }
     }
   }, [booted, storageAvailable, user, activeWorkspace, isPublicRoute, isCompanyProfileRoute, currentSegment])

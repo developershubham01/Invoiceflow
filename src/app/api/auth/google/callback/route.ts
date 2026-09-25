@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     // Require valid email from Google OAuth exchange
     if (!email || !email.includes('@')) {
-      return NextResponse.redirect(`${baseUrl}/#/login?error=google_oauth_failed`)
+      return NextResponse.redirect(`${baseUrl}/login?error=google_oauth_failed`)
     }
 
     // 3. Resolve existing account or create new user (Account Linking & Uniqueness)
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     // 4. Check if user already has a company profile
     // DO NOT create a company profile here!
     const companyExists = await hasCompanyProfile(userId!)
-    const targetRoute = companyExists ? '/#/dashboard' : '/#/company-profile'
+    const targetRoute = companyExists ? '/dashboard' : '/company-profile'
 
     // 5. Create Session & Set Cookie
     const session = await createSession(userId!)
@@ -151,6 +151,6 @@ export async function GET(req: NextRequest) {
     return res
   } catch (err) {
     console.error('[Google Callback Error]:', err instanceof Error ? err.message : err)
-    return NextResponse.redirect(`${baseUrl}/#/login?error=google_auth_error`)
+    return NextResponse.redirect(`${baseUrl}/login?error=google_auth_error`)
   }
 }
