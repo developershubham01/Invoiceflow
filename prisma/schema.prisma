@@ -14,14 +14,18 @@ datasource db {
 }
 
 model User {
-  id           String            @id @default(uuid())
-  email        String            @unique
-  passwordHash String
-  name         String?
-  avatarUrl    String?
-  createdAt    DateTime          @default(now())
-  sessions     Session[]
-  workspaces   WorkspaceMember[]
+  id              String            @id @default(uuid())
+  email           String            @unique
+  passwordHash    String
+  name            String?
+  avatarUrl       String?
+  termsAccepted   Boolean           @default(false)
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+  createdAt       DateTime          @default(now())
+  sessions        Session[]
+  workspaces      WorkspaceMember[]
+  companyProfile  CompanyProfile?
 
   @@schema("public")
 }
@@ -70,9 +74,10 @@ model WorkspaceMember {
 model CompanyProfile {
   id                     String    @id
   workspaceId            String
-  userId                 String?
+  userId                 String?   @unique
   name                   String
   businessType           String?
+  user                   User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   logoData               String?
   addressLine1           String?
   addressLine2           String?
@@ -370,3 +375,31 @@ model ProcessedOp {
 
   @@schema("public")
 }
+
+model LoginAttempt {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  attempts      Int       @default(0)
+  lockedUntil   DateTime? @map("locked_until")
+  lastAttemptAt DateTime  @default(now()) @map("last_attempt_at")
+
+  @@map("login_attempts")
+  @@schema("public")
+}
+
+model PasswordReset {
+  id         String   @id @default(uuid())
+  email      String
+  otpHash    String   @map("otp_hash")
+  expiresAt  DateTime @map("expires_at")
+  used       Boolean  @default(false)
+  verified   Boolean  @default(false)
+  resetToken String?  @map("reset_token")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([resetToken])
+  @@map("password_resets")
+  @@schema("public")
+}
+

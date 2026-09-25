@@ -23,7 +23,7 @@ import { startNetworkMonitoring, stopNetworkMonitoring } from './services/networ
 import { buildAppMenu } from './services/menu-service';
 
 // ── Application Identity for Windows Taskbar ─────────────────────────────────
-app.setAppUserModelId('com.abwcurious.invoiceflow');
+app.setAppUserModelId('com.invoiceflow.app');
 
 // ── Hardware Acceleration Control ────────────────────────────────────────────
 // Proven root cause fix: prevents Chromium GPU process crashes on Windows/VMs
@@ -42,15 +42,15 @@ const EMBEDDED_RENDERER_INDEX = path.join(__dirname, '..', 'renderer', 'index.ht
  * triggers document navigation, so 'self' stays sufficient for script-src.
  */
 const CSP_BASE =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data: blob:; font-src 'self' data:; " +
-  "connect-src 'self' https:; frame-src 'self' blob:";
+  "default-src 'self' https: data: blob: 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; " +
+  "img-src 'self' data: blob: https:; font-src 'self' data: https:; " +
+  "connect-src 'self' https: wss:; frame-src 'self' blob: https:;";
 
 /**
  * Dev-only relaxation: the Next.js dev server compiles with eval-based source
  * maps / HMR, which require 'unsafe-eval'. Production keeps the strict policy.
  */
-const CSP_DEV = CSP_BASE.replace("script-src 'self'", "script-src 'self' 'unsafe-eval'");
+const CSP_DEV = CSP_BASE;
 
 /** Same-origin allow-list for navigation (derived from env; dev default localhost:3000). */
 const ALLOWED_ORIGINS = computeAllowedOrigins();
@@ -65,7 +65,7 @@ function isDevMode(): boolean {
 
 function computeAllowedOrigins(): string[] {
   const origins = new Set<string>();
-  for (const candidate of [DEV_SERVER_URL, process.env.APP_ORIGIN]) {
+  for (const candidate of [DEV_SERVER_URL, process.env.APP_ORIGIN, 'https://invoiceflow-nu-ashy.vercel.app']) {
     if (!candidate) continue;
     try {
       origins.add(new URL(candidate).origin);
@@ -73,7 +73,8 @@ function computeAllowedOrigins(): string[] {
       console.warn(`[main] ignoring malformed origin in environment: ${candidate}`);
     }
   }
-  if (origins.size === 0) origins.add('http://localhost:3000'); // un-packaged dev default
+  origins.add('http://localhost:3000');
+  origins.add('https://invoiceflow-nu-ashy.vercel.app');
   return [...origins];
 }
 
@@ -159,15 +160,15 @@ function installGlobalWebContentsGuards(): void {
 // ── Window management ────────────────────────────────────────────────────────
 
 async function loadRendererInto(win: BrowserWindow): Promise<void> {
-  const targetUrl = DEV_SERVER_URL || 'http://localhost:3000';
-
   // 1. Embedded mode — static export in electron/renderer/index.html
   if (!DEV_SERVER_URL && existsSync(EMBEDDED_RENDERER_INDEX)) {
     await win.loadFile(EMBEDDED_RENDERER_INDEX);
     return;
   }
 
-  // 2. Dev / HTTP mode — with retry backoff for dev server startup
+  const targetUrl = DEV_SERVER_URL || process.env.APP_ORIGIN || 'https://invoiceflow-nu-ashy.vercel.app';
+
+  // 2. Dev / HTTP mode — with retry backoff for server startup
   const maxAttempts = 15;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -175,7 +176,7 @@ async function loadRendererInto(win: BrowserWindow): Promise<void> {
       return;
     } catch (error) {
       if (attempt < maxAttempts) {
-        console.warn(`[main] Dev server at ${targetUrl} not ready yet (attempt ${attempt}/${maxAttempts}). Retrying in 1s...`);
+        console.warn(`[main] Server at ${targetUrl} not ready yet (attempt ${attempt}/${maxAttempts}). Retrying in 1s...`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else {
         throw error;

@@ -1,33 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db as prisma } from '@/lib/db'
-import { loginSchema } from '@/lib/domain/schemas'
-import { createSession, rateLimit, clientIp, sessionCookie, verifyPassword } from '@/lib/server/auth'
+import {
+  findUserByEmail,
+  verifyUserPassword,
+  checkLoginLockout,
+  recordFailedLogin,
+  resetLoginAttempts,
+  hasCompanyProfile,
+} from '@/lib/server/auth-service'
+import { createSession, sessionCookie } from '@/lib/server/auth'
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = clientIp(req)
-    if (!rateLimit(`login:${ip}`)) {
-      return NextResponse.json({ error: 'Too many attempts. Try again in a minute.', code: 'rate_limited' }, { status: 429 })
-    }
     const body = await req.json().catch(() => null)
-    const parsed = loginSchema.safeParse(body)
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input', code: 'validation' }, { status: 400 })
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request body', code: 'bad_request' }, { status: 400 })
     }
 
-    const emailLower = parsed.data.email.toLowerCase()
-    const user = await prisma.user.findUnique({ where: { email: emailLower } })
+    const email = String(body.email || '').trim().toLowerCase()
+    const password = String(body.password || '')
 
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Please enter both email and password.', code: 'validation' }, { status: 400 })
+    }
+
+    // 1. Check server-side 10-minute lockout
+    const lockStatus = await checkLoginLockout(email)
+    if (lockStatus.locked) {
+      return NextResponse.json({
+        error: 'Too many failed login attempts. Please try again after 10 minutes.',
+        code: 'account_locked',
+        remainingSeconds: lockStatus.remainingSeconds,
+      }, { status: 423 })
+    }
+
+    // 2. Find user
+    const user = await findUserByEmail(email)
     if (!user) {
-      return NextResponse.json({ error: 'No account found with this email. Please Sign Up first.', code: 'invalid_credentials' }, { status: 401 })
-    }
-    if (!verifyPassword(parsed.data.password, user.passwordHash)) {
-      return NextResponse.json({ error: 'Invalid password. Please try again.', code: 'invalid_credentials' }, { status: 401 })
+      // Record failed attempt for existing or non-existing accounts to thwart enumeration
+      const failStatus = await recordFailedLogin(email)
+      if (failStatus.locked) {
+        return NextResponse.json({
+          error: 'Too many failed login attempts. Please try again after 10 minutes.',
+          code: 'account_locked',
+          remainingSeconds: failStatus.remainingSeconds,
+        }, { status: 423 })
+      }
+      return NextResponse.json({
+        error: 'Invalid email or password.',
+        code: 'invalid_credentials',
+        remainingAttempts: failStatus.remainingAttempts,
+      }, { status: 401 })
     }
 
+    // 3. Verify password
+    const passwordValid = await verifyUserPassword(user, password)
+    if (!passwordValid) {
+      const failStatus = await recordFailedLogin(email)
+      if (failStatus.locked) {
+        return NextResponse.json({
+          error: 'Too many failed login attempts. Please try again after 10 minutes.',
+          code: 'account_locked',
+          remainingSeconds: failStatus.remainingSeconds,
+        }, { status: 423 })
+      }
+      return NextResponse.json({
+        error: 'Invalid email or password.',
+        code: 'invalid_credentials',
+        remainingAttempts: failStatus.remainingAttempts,
+      }, { status: 401 })
+    }
+
+    // 4. Successful login: reset failed attempt counter and lockout
+    await resetLoginAttempts(email)
+
+    // 5. Check if company profile exists (NEVER create during login)
+    const hasCompany = await hasCompanyProfile(user.id)
+
+    // 6. Create session & set cookie
     const session = await createSession(user.id)
-    const u = user as { id: string; email: string; name: string | null; avatarUrl?: string | null }
-    const res = NextResponse.json({ user: { id: u.id, email: u.email, name: u.name, avatarUrl: u.avatarUrl ?? null } })
+    const res = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl ?? null,
+      },
+      hasCompanyProfile: hasCompany,
+    })
     res.headers.set('Set-Cookie', sessionCookie(session.token, session.expiresAt))
     return res
   } catch (err) {

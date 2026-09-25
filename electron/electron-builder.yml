@@ -44,6 +44,5 @@ linux:
     - deb
   category: Office
 
-# Release channel — GitHub Releases; pairs with the Phase 8 electron-updater plan.
-publish:
-  provider: github
+# publish:
+#   provider: github

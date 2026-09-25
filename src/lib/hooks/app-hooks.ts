@@ -47,10 +47,11 @@ export function useBoot(): void {
 
         const ws = await getActiveWorkspace().catch(() => null)
         const all = await listWorkspaces().catch(() => [])
-        const session = await apiSession().catch(() => ({ user: null }))
+        const session = await apiSession().catch(() => ({ user: null, hasCompanyProfile: false }))
         if (cancelled) return
 
-        store.setActiveWorkspace(ws)
+        const resolvedWs = ws || (all.length > 0 ? all[0] : null)
+        store.setActiveWorkspace(resolvedWs)
         store.setWorkspaces(all)
         store.setUser(session.user ?? null)
       } catch (err) {

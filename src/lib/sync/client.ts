@@ -15,20 +15,58 @@ async function parse<T>(res: Response): Promise<T> {
 
 // ---------- auth ----------
 
-export async function apiRegister(name: string, email: string, password: string): Promise<{ user: SessionUser }> {
+export async function apiRegister(
+  name: string,
+  email: string,
+  password: string,
+  termsAccepted: boolean = true,
+  termsVersion: string = 'v1.0'
+): Promise<{ user: SessionUser; hasCompanyProfile?: boolean }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, termsAccepted, termsVersion }),
   })
   return parse(res)
 }
 
-export async function apiLogin(email: string, password: string): Promise<{ user: SessionUser }> {
+export async function apiLogin(email: string, password: string): Promise<{ user: SessionUser; hasCompanyProfile?: boolean; remainingSeconds?: number; remainingAttempts?: number }> {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+  })
+  return parse(res)
+}
+
+export async function apiForgotPassword(email: string): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  return parse(res)
+}
+
+export async function apiVerifyOtp(email: string, otp: string): Promise<{ success: boolean; resetToken: string; message?: string }> {
+  const res = await fetch('/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  })
+  return parse(res)
+}
+
+export async function apiResetPassword(
+  email: string,
+  resetToken: string,
+  newPassword: string,
+  confirmPassword: string
+): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, resetToken, newPassword, confirmPassword }),
   })
   return parse(res)
 }
@@ -46,7 +84,7 @@ export async function apiLogout(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST' })
 }
 
-export async function apiSession(): Promise<{ user: SessionUser | null }> {
+export async function apiSession(): Promise<{ user: SessionUser | null; hasCompanyProfile?: boolean }> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 2500)
@@ -54,7 +92,7 @@ export async function apiSession(): Promise<{ user: SessionUser | null }> {
     clearTimeout(timeout)
     return await parse(res)
   } catch {
-    return { user: null }
+    return { user: null, hasCompanyProfile: false }
   }
 }
 

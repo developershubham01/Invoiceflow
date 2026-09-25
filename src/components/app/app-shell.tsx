@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/app/theme-toggle'
-import { SyncPill } from '@/components/app/sync-pill'
 import { SearchDialog } from '@/components/app/search-dialog'
 import { useAppStore } from '@/lib/stores/app-store'
 import { useUser, useCompany } from '@/lib/hooks/app-hooks'
@@ -563,7 +562,6 @@ export function AppShell({ title, children }: { title: string; children: React.R
             {/* gap-1.5 below sm keeps the cluster inside 320px viewports (3px overflow at gap-2) */}
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
               <SearchDialog />
-              <SyncPill />
               <ThemeToggle />
               <UserMenu />
             </div>
@@ -584,11 +582,6 @@ export function AppShell({ title, children }: { title: string; children: React.R
               <p>
                 <span className="font-medium text-foreground">InvoiceFlow</span> v{APP_VERSION} — Local-first · Offline-ready · GST-aware
               </p>
-              <div className="flex items-center gap-3">
-                <SyncPill compact />
-                <span aria-hidden="true">·</span>
-                <span>IndexedDB store</span>
-              </div>
             </div>
           </footer>
         </div>

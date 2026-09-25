@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "InvoiceFlow desktop shell — security-hardened Electron main/preload/IPC around the Next.js renderer (CANON §2: apps/desktop).",
+  "author": "InvoiceFlow",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/developershubham01/Invoiceflow.git"
+  },
   "license": "UNLICENSED",
   "main": "dist/main.js",
   "scripts": {

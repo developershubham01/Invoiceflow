@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { APP_VERSION } from '@/lib/version'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { INDIAN_STATES, stateByCode, stateCodeFromGstin } from '@/lib/domain/gst'
 import { companyProfileSchema } from '@/lib/domain/schemas'
-import { createWorkspace, getActiveWorkspace, getCompany, saveCompany } from '@/lib/db/repositories'
+import { createWorkspace, getActiveWorkspace, getCompany, getCompanyByUserId, saveCompany } from '@/lib/db/repositories'
 import { navigate } from '@/lib/router'
 import { useAppStore } from '@/lib/stores/app-store'
 import { toast } from 'sonner'
@@ -46,6 +46,27 @@ export function OnboardingView() {
   const [busy, setBusy] = useState(false)
   const store = useAppStore()
   const user = store.user
+
+  // Check if company profile already exists on mount
+  useEffect(() => {
+    let cancelled = false
+    async function checkExisting() {
+      if (!user) return
+      try {
+        const existing = await getCompanyByUserId(user.id)
+        if (!cancelled && existing && existing.name) {
+          toast.info('Your company profile already exists. Redirecting to dashboard...')
+          navigate('dashboard')
+        }
+      } catch {
+        // ignore
+      }
+    }
+    void checkExisting()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   // Form State - Company Profile Setup
   const [name, setName] = useState('')
@@ -142,6 +163,14 @@ export function OnboardingView() {
 
     setBusy(true)
     try {
+      // Check if user already has a company profile (1 User = 1 Company Profile)
+      const existing = await getCompanyByUserId(user.id)
+      if (existing && existing.name) {
+        toast.info('Your company profile already exists. Redirecting to dashboard...')
+        await finish(existing.workspace_id)
+        return
+      }
+
       const activeWs = await getActiveWorkspace()
       const ws = activeWs ?? (await createWorkspace(name.trim() || 'My workspace'))
       await saveCompany(ws.id, {
@@ -154,7 +183,13 @@ export function OnboardingView() {
       toast.success('Company profile created successfully!')
       await finish(ws.id)
     } catch (err) {
-      toast.error('Could not create company profile', { description: (err as Error).message })
+      const msg = (err as Error).message || ''
+      if (msg.includes('UNIQUE') || msg.includes('already exists') || msg.includes('duplicate')) {
+        toast.info('Your company profile already exists. Redirecting to dashboard...')
+        setTimeout(() => navigate('dashboard'), 1200)
+      } else {
+        toast.error('Could not create company profile', { description: msg })
+      }
       setBusy(false)
     }
   }

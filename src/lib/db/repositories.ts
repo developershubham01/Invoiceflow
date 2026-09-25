@@ -199,7 +199,10 @@ function withoutBlankId<T extends { id?: string | null }>(input: T): Omit<T, 'id
 export async function saveCompany(workspaceId: string, input: Partial<CompanyProfile> & { name: string }): Promise<CompanyProfile> {
   const db = getDb()
   const deviceId = getDeviceId()
-  const existing = await getCompany(workspaceId)
+  let existing = await getCompany(workspaceId)
+  if (!existing && input.user_id) {
+    existing = await getCompanyByUserId(input.user_id)
+  }
   const record: CompanyProfile = existing
     ? { ...existing, ...withoutBlankId(input), ...metaFields(existing) }
     : {
