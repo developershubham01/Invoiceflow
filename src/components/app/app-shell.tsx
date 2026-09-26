@@ -22,6 +22,7 @@ import {
   Landmark, LayoutDashboard, LogOut, Menu, Package, PanelLeft, Receipt, Settings, Trash2, UserRound,
   Users, Wallet, X,
 } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n'
 
 const NAV = [
   {
@@ -56,6 +57,7 @@ const NAV = [
 function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const route = useHashRoute()
   const section = route.segments[0] ?? 'dashboard'
+  const { t } = useLanguage()
 
   if (collapsed) {
     return (
@@ -78,7 +80,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
                             onNavigate?.()
                           }}
                           aria-current={active ? 'page' : undefined}
-                          aria-label={item.label}
+                          aria-label={t('nav.' + item.path, item.label)}
                           className={cn(
                             'flex h-10 w-10 items-center justify-center rounded-lg transition-colors mx-auto',
                             active
@@ -90,7 +92,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
                         </a>
                       </TooltipTrigger>
                       <TooltipContent side="right" sideOffset={12} className="font-medium text-xs z-50">
-                        {item.label}
+                        {t('nav.' + item.path, item.label)}
                       </TooltipContent>
                     </Tooltip>
                   </li>
@@ -108,7 +110,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
       {NAV.map((group) => (
         <div key={group.heading}>
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
-            {group.heading}
+            {t('group.' + group.heading.toLowerCase(), group.heading)}
           </p>
           <ul className="space-y-0.5">
             {group.items.map((item) => {
@@ -131,7 +133,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed?: boolean; onNavigate
                     )}
                   >
                     <item.icon className={cn('h-4 w-4 shrink-0', active && 'text-emerald-400')} aria-hidden="true" />
-                    {item.label}
+                    {t('nav.' + item.path, item.label)}
                   </a>
                 </li>
               )
@@ -461,6 +463,7 @@ function MobileSidebar({
 function MobileBottomNav({ onOpenMenu }: { onOpenMenu: () => void }) {
   const route = useHashRoute()
   const section = route.segments[0] ?? 'dashboard'
+  const { t } = useLanguage()
 
   const items = [
     { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -495,7 +498,7 @@ function MobileBottomNav({ onOpenMenu }: { onOpenMenu: () => void }) {
             )}
           >
             <item.icon className={cn('h-5 w-5', active && 'stroke-[2.25] text-emerald-600 dark:text-emerald-400')} aria-hidden="true" />
-            <span className="truncate max-w-[64px]">{item.label}</span>
+            <span className="truncate max-w-[64px]">{t('nav.' + item.path, item.label)}</span>
           </a>
         )
       })}

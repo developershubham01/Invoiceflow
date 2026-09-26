@@ -23,6 +23,8 @@ files:
 win:
   target: nsis
   icon: build/icon.ico
+  publisherName: "ABWcurious"
+  legalTrademarks: "InvoiceFlow product of ABWcurious"
 
 nsis:
   oneClick: false

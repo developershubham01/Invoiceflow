@@ -24,6 +24,7 @@ import {
   Download,
   FileText,
   HardDrive,
+  Languages,
   Loader2,
   LogIn,
   LogOut,
@@ -79,6 +80,7 @@ import {
 import { apiDeleteAccount, apiLogout } from '@/lib/sync/client'
 import type { SyncOpStatus, SyncOperation } from '@/lib/domain/types'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/lib/i18n'
 
 const BACKUP_FORMAT_VERSION = 1
 const OUTBOX_RENDER_LIMIT = 100
@@ -186,8 +188,55 @@ function PreferencesTab() {
     }
   }
 
+  const { lang, setLang, languages, t } = useLanguage()
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Languages className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            {t('settings.language', 'Language')} / भाषा निवडा
+          </CardTitle>
+          <CardDescription className="text-xs">
+            {t('settings.language_desc', 'Choose your preferred language for the interface and billing workflows.')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={lang}
+            onValueChange={(val) => {
+              setLang(val)
+              const selected = languages.find((l) => l.code === val)
+              toast.success(`Language set to ${selected?.nativeName} (${selected?.name})`)
+            }}
+            className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+            aria-label="Language selection"
+          >
+            {languages.map((l) => (
+              <Label
+                key={l.code}
+                htmlFor={`lang-${l.code}`}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/40 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-accent/50"
+              >
+                <RadioGroupItem id={`lang-${l.code}`} value={l.code} className="mt-0.5" />
+                <span className="grid gap-0.5">
+                  <span className="text-sm font-semibold leading-tight">
+                    {l.nativeName}
+                  </span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {l.name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/70">
+                    {l.region}
+                  </span>
+                </span>
+              </Label>
+            ))}
+          </RadioGroup>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
