@@ -403,3 +403,17 @@ model PasswordReset {
   @@schema("public")
 }
 
+model DesktopAuthTicket {
+  id        String   @id @default(uuid())
+  ticket    String   @unique
+  token     String?
+  userId    String?
+  claimed   Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticket])
+  @@map("desktop_auth_tickets")
+  @@schema("public")
+}
+

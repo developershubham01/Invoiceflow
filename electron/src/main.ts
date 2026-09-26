@@ -24,6 +24,7 @@ import { buildAppMenu } from './services/menu-service';
 
 // ── Application Identity for Windows Taskbar ─────────────────────────────────
 app.setAppUserModelId('com.invoiceflow.app');
+app.setAsDefaultProtocolClient('invoiceflow');
 
 // ── Hardware Acceleration Control ────────────────────────────────────────────
 // Proven root cause fix: prevents Chromium GPU process crashes on Windows/VMs
@@ -345,19 +346,51 @@ function showError(title: string, error: unknown): void {
   console.error(`[main] ${title}:`, error);
 }
 
+function handleDeepLink(rawUrl: string): void {
+  try {
+    const url = new URL(rawUrl);
+    const token = url.searchParams.get('token');
+    if (token && mainWindow) {
+      const cookie = {
+        url: 'https://invoiceflow-nu-ashy.vercel.app',
+        name: 'if_session',
+        value: token,
+        path: '/',
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax' as const,
+      };
+      void session.defaultSession.cookies.set(cookie).then(() => {
+        void mainWindow?.loadURL('https://invoiceflow-nu-ashy.vercel.app/dashboard');
+      });
+    }
+  } catch (e) {
+    console.warn('[deep-link] error handling URL:', rawUrl, e);
+  }
+}
+
 // ── App lifecycle ────────────────────────────────────────────────────────────
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, commandLine) => {
     if (mainWindow === null) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
     mainWindow.moveTop();
     mainWindow.setSkipTaskbar(false);
+
+    const deepLinkUrl = commandLine.find((arg) => arg.startsWith('invoiceflow://'));
+    if (deepLinkUrl) {
+      handleDeepLink(deepLinkUrl);
+    }
+  });
+
+  app.on('open-url', (_event, url) => {
+    handleDeepLink(url);
   });
 
   app.whenReady()

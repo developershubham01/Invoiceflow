@@ -43,6 +43,8 @@ const EXTERNAL_HOST_ALLOWLIST: readonly string[] = [
   'supabase.com',
   '*.supabase.co',
   'invoiceflow.app',
+  'invoiceflow-nu-ashy.vercel.app',
+  '*.vercel.app',
   'accounts.google.com',
   '*.google.com',
   'policies.google.com',

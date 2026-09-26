@@ -146,6 +146,103 @@ export async function GET(req: NextRequest) {
 
     // 5. Create Session & Set Cookie
     const session = await createSession(userId!)
+
+    const ticket = url.searchParams.get('state')
+    if (ticket) {
+      await prisma.desktopAuthTicket.updateMany({
+        where: { ticket, expiresAt: { gt: new Date() } },
+        data: {
+          claimed: true,
+          token: session.token,
+          userId: userId!,
+        },
+      }).catch((e) => console.warn('[Google OAuth] Could not update desktop ticket:', e))
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signed In — InvoiceFlow</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 32px 24px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    .icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #ecfdf5;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 16px;
+    }
+    h1 { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+    p { font-size: 14px; color: #64748b; margin: 0 0 24px; line-height: 1.5; }
+    .btn {
+      display: inline-block;
+      background: #059669;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #047857; }
+    .note { margin-top: 16px; font-size: 12px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✓</div>
+    <h1>Signed in successfully!</h1>
+    <p>You have signed in to InvoiceFlow. You may now close this browser tab and return to the InvoiceFlow desktop app.</p>
+    <a href="invoiceflow://auth/callback?token=${session.token}" class="btn">Open InvoiceFlow App</a>
+    <p class="note">If the app did not open automatically, click the button above.</p>
+  </div>
+  <script>
+    try {
+      window.location.href = "invoiceflow://auth/callback?token=${session.token}";
+    } catch (e) {}
+    setTimeout(function() {
+      try { window.close(); } catch(e) {}
+    }, 2000);
+  </script>
+</body>
+</html>`
+
+      const res = new NextResponse(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Set-Cookie': sessionCookie(session.token, session.expiresAt),
+        },
+      })
+      return res
+    }
+
     const res = NextResponse.redirect(`${baseUrl}${targetRoute}`)
     res.headers.set('Set-Cookie', sessionCookie(session.token, session.expiresAt))
     return res

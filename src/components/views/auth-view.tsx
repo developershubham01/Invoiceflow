@@ -152,11 +152,79 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
   }
 
-  const handleGoogleClick = () => {
-    setGoogleBusy(true)
-    if (typeof window !== 'undefined') {
-      window.location.assign('/api/auth/google/login')
+  const [desktopWaiting, setDesktopWaiting] = useState(false)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
     }
+  }, [])
+
+  const cancelDesktopAuth = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    setDesktopWaiting(false)
+    setGoogleBusy(false)
+  }
+
+  const handleGoogleClick = async () => {
+    if (typeof window === 'undefined') return
+    setGoogleBusy(true)
+
+    const desktop = (window as unknown as { invoiceflow?: { openExternal?: (url: string) => Promise<{ ok: boolean }> } }).invoiceflow
+    if (desktop && typeof desktop.openExternal === 'function') {
+      try {
+        // 1. Request a secure one-time auth ticket from the server
+        const ticketRes = await fetch('/api/auth/google/ticket', { method: 'POST' })
+        const ticketData = await ticketRes.json()
+        if (!ticketData.ticket) {
+          throw new Error(ticketData.error || 'Failed to initialize desktop authentication')
+        }
+
+        const ticket = ticketData.ticket
+        setDesktopWaiting(true)
+
+        // 2. Open Google OAuth in the system default browser (Chrome/Edge/Firefox)
+        const baseUrl = window.location.origin.includes('localhost') ? window.location.origin : 'https://invoiceflow-nu-ashy.vercel.app'
+        const loginUrl = `${baseUrl}/api/auth/google/login?ticket=${encodeURIComponent(ticket)}`
+        await desktop.openExternal(loginUrl)
+
+        // 3. Poll for sign-in completion in background
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/auth/google/poll?ticket=${encodeURIComponent(ticket)}`)
+            if (pollRes.ok) {
+              const pollData = await pollRes.json()
+              if (pollData.claimed && pollData.user) {
+                if (pollIntervalRef.current) {
+                  clearInterval(pollIntervalRef.current)
+                  pollIntervalRef.current = null
+                }
+                setDesktopWaiting(false)
+                setGoogleBusy(false)
+                await handleAuthSuccess(pollData.user, pollData.hasCompanyProfile)
+              }
+            } else if (pollRes.status === 410 || pollRes.status === 404) {
+              cancelDesktopAuth()
+              toast.error('Google Sign-In session expired. Please try again.')
+            }
+          } catch {
+            // Transient polling error, continue waiting
+          }
+        }, 1500)
+      } catch (err) {
+        cancelDesktopAuth()
+        toast.error('Could not start Google Sign-In', { description: (err as Error).message })
+      }
+      return
+    }
+
+    // Standard web browser fallback
+    window.location.assign('/api/auth/google/login')
   }
 
   // Handle post-authentication redirection based on server profile status
@@ -388,20 +456,35 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
             {authMode !== 'forgot-password' && (
               <div className="mt-5 space-y-4">
                 {/* Google Sign-In */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-3 border-slate-300 dark:border-slate-800 bg-background hover:bg-slate-50 dark:hover:bg-slate-900 font-semibold py-5 text-sm shadow-xs transition-all"
-                  onClick={handleGoogleClick}
-                  disabled={googleBusy || busy || lockoutSeconds > 0}
-                >
-                  {googleBusy ? (
-                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <GoogleIcon className="h-5 w-5 shrink-0" />
-                  )}
-                  <span>Continue with Google</span>
-                </Button>
+                {desktopWaiting ? (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-4 text-center space-y-2.5 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Completing Google Sign-In in your browser…</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Please select your Google account in the browser window that just opened. You will be signed in here automatically.
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={cancelDesktopAuth} className="text-xs h-8">
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-3 border-slate-300 dark:border-slate-800 bg-background hover:bg-slate-50 dark:hover:bg-slate-900 font-semibold py-5 text-sm shadow-xs transition-all"
+                    onClick={handleGoogleClick}
+                    disabled={googleBusy || busy || lockoutSeconds > 0}
+                  >
+                    {googleBusy ? (
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <GoogleIcon className="h-5 w-5 shrink-0" />
+                    )}
+                    <span>Continue with Google</span>
+                  </Button>
+                )}
 
                 <div className="relative my-3 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">

@@ -10,12 +10,18 @@ export async function GET(req: NextRequest) {
   const protocol = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
   const redirectUri = `${protocol}://${host}/api/auth/google/callback`
 
+  const url = new URL(req.url)
+  const ticket = url.searchParams.get('ticket') || url.searchParams.get('state') || ''
+
   const googleOAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   googleOAuthUrl.searchParams.set('client_id', clientId)
   googleOAuthUrl.searchParams.set('redirect_uri', redirectUri)
   googleOAuthUrl.searchParams.set('response_type', 'code')
   googleOAuthUrl.searchParams.set('scope', 'openid email profile')
   googleOAuthUrl.searchParams.set('prompt', 'select_account')
+  if (ticket) {
+    googleOAuthUrl.searchParams.set('state', ticket)
+  }
 
   return NextResponse.redirect(googleOAuthUrl.toString())
 }
