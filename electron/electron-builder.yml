@@ -13,18 +13,22 @@ copyright: Copyright © 2025 InvoiceFlow
 
 directories:
   output: release
+  buildResources: build
 
 files:
   - dist/**/*
-  # - renderer/**/*   # uncomment when embedding the exported Next.js renderer
+  - build/**/*
 
 # Windows — NSIS assisted installer (users pick the install directory).
 win:
   target: nsis
+  icon: build/icon.ico
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
 
 # macOS — DMG. hardenedRuntime is required for notarization.
 mac:

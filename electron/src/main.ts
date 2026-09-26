@@ -224,6 +224,7 @@ async function loadRendererInto(win: BrowserWindow): Promise<void> {
 }
 
 async function createMainWindow(): Promise<void> {
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -232,6 +233,7 @@ async function createMainWindow(): Promise<void> {
     show: false,
     skipTaskbar: false,
     title: 'InvoiceFlow',
+    icon: existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, // CANON §16 — renderer isolated from Node
