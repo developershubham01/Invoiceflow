@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Resolve existing account or create new user (Account Linking & Uniqueness)
-    let user = await findUserByEmail(email)
+    const user = await findUserByEmail(email)
     let userId = user?.id
 
     if (!user) {

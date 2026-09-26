@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. Account linking: Find existing user or create a new user account for Google Sign-In
-  let user = await findUserByEmail(targetEmail)
+  const user = await findUserByEmail(targetEmail)
   let userId = user?.id
 
   if (!user) {

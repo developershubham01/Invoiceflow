@@ -29,7 +29,6 @@ import {
   Loader2,
   Lock,
   Mail,
-  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   User,
@@ -92,7 +91,6 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
 
   // Lockout countdown state (server-side enforced 10-minute lock)
   const [lockoutSeconds, setLockoutSeconds] = useState(0)
-  const [lockoutMessage, setLockoutMessage] = useState<string | null>(null)
 
   // Modals for Terms & Privacy
   const [termsModalOpen, setTermsModalOpen] = useState(false)
@@ -122,13 +120,11 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
   // Lockout countdown timer
   useEffect(() => {
     if (lockoutSeconds <= 0) {
-      setLockoutMessage(null)
       return
     }
     const timer = setInterval(() => {
       setLockoutSeconds((prev) => {
         if (prev <= 1) {
-          setLockoutMessage(null)
           return 0
         }
         return prev - 1
@@ -287,7 +283,6 @@ export function AuthView({ initialMode = 'login' }: AuthViewProps) {
       if (errorObj.status === 423 || errorObj.code === 'account_locked') {
         const secs = errorObj.remainingSeconds || 600
         setLockoutSeconds(secs)
-        setLockoutMessage('Too many failed login attempts. Please try again after 10 minutes.')
         setErrorMsg(`Too many failed login attempts. Please try again after ${formatCountdown(secs)}.`)
       } else {
         setErrorMsg(errorObj.message || 'Authentication failed. Please check your credentials.')
