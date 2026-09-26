@@ -120,17 +120,19 @@ export function QuotationDetailView({ id }: { id: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('quotations')}>
-          <ArrowLeft className="h-4 w-4" /> Quotations
-        </Button>
-        <span className="text-muted-foreground">/</span>
-        <h2 className="text-sm font-semibold">{q.number}</h2>
-        <StatusBadge status={q.status} className="ml-1" />
-        {q.sync_state === 'pending' && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">Pending sync</span>}
-        {q.sync_state === 'synced' && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">Synced</span>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('quotations')}>
+            <ArrowLeft className="h-4 w-4" /> Quotations
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <h2 className="text-sm font-semibold">{q.number}</h2>
+          <StatusBadge status={q.status} className="ml-1" />
+          {q.sync_state === 'pending' && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">Pending sync</span>}
+          {q.sync_state === 'synced' && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">Synced</span>}
+        </div>
 
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {isDraft && (
             <>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`quotations/edit/${q.id}`)}>
@@ -204,8 +206,8 @@ export function QuotationDetailView({ id }: { id: string }) {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm" aria-label="Quotation line items">
+            <div className="overflow-x-auto rounded-lg border scrollbar-thin">
+              <table className="w-full min-w-[560px] text-sm" aria-label="Quotation line items">
                 <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Description</th>

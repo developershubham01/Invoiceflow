@@ -428,40 +428,70 @@ export function DashboardView() {
           {!recent.length ? (
             <EmptyState icon={Receipt} title="No transactions yet" description="Invoices and quotations will appear here." className="border-0 bg-transparent py-8" />
           ) : (
-            <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Document</th>
-                    <th className="px-3 py-2 font-medium">Party</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">Date</th>
-                    <th className="px-3 py-2 font-medium">Status</th>
-                    <th className="px-3 py-2 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((r) => (
-                    <tr
-                      key={r.id}
-                      tabIndex={0}
-                      className="cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
-                      onClick={() => navigate(r.path)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') navigate(r.path) }}
-                      aria-label={`Open ${r.number}`}
-                    >
-                      <td className="px-3 py-2.5">
-                        <span className="font-medium">{r.number}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{r.kind}</span>
-                      </td>
-                      <td className="max-w-40 truncate px-3 py-2.5 text-muted-foreground">{r.party}</td>
-                      <td className="hidden whitespace-nowrap px-3 py-2.5 text-muted-foreground sm:table-cell">{formatDateDisplay(r.date)}</td>
-                      <td className="px-3 py-2.5"><StatusBadge status={r.status} overdue={r.overdue} /></td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">{formatMoney(r.amount)}</td>
+            <>
+              {/* Mobile list (< sm) */}
+              <div className="space-y-2 sm:hidden">
+                {recent.map((r) => (
+                  <div
+                    key={r.id}
+                    tabIndex={0}
+                    className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3 cursor-pointer active:scale-[0.99] transition-all hover:border-primary/40"
+                    onClick={() => navigate(r.path)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(r.path) }}
+                    aria-label={`Open ${r.number}`}
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-sm truncate">{r.number}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">({r.kind})</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{r.party || '—'}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatDateDisplay(r.date)}</p>
+                    </div>
+                    <div className="text-right shrink-0 space-y-1">
+                      <p className="text-sm font-bold tabular-nums">{formatMoney(r.amount)}</p>
+                      <StatusBadge status={r.status} overdue={r.overdue} className="scale-90 origin-right" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table (>= sm) */}
+              <div className="hidden sm:block overflow-x-auto rounded-lg border scrollbar-thin">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Document</th>
+                      <th className="px-3 py-2 font-medium">Party</th>
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-2 text-right font-medium">Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {recent.map((r) => (
+                      <tr
+                        key={r.id}
+                        tabIndex={0}
+                        className="cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40"
+                        onClick={() => navigate(r.path)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(r.path) }}
+                        aria-label={`Open ${r.number}`}
+                      >
+                        <td className="px-3 py-2.5">
+                          <span className="font-medium">{r.number}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{r.kind}</span>
+                        </td>
+                        <td className="max-w-40 truncate px-3 py-2.5 text-muted-foreground">{r.party}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{formatDateDisplay(r.date)}</td>
+                        <td className="px-3 py-2.5"><StatusBadge status={r.status} overdue={r.overdue} /></td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">{formatMoney(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

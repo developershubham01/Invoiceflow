@@ -492,55 +492,61 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
   return (
     <Card>
       <CardContent className="p-0">
-        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-          <h3 className="text-sm font-semibold">Account statement</h3>
-          <Badge variant="outline" className="text-[10px]">Debits & credits</Badge>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => setFrom(e.target.value)}
-              aria-label="Statement from date"
-              className="h-8 w-36 text-xs"
-            />
-            <span className="text-xs text-muted-foreground">to</span>
-            <Input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(e) => setTo(e.target.value)}
-              aria-label="Statement to date"
-              className="h-8 w-36 text-xs"
-            />
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadStatementPdf} disabled={!entries || entries.length === 0 || !company}>
-              <FileDown className="h-3.5 w-3.5" /> PDF
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={exportCsv} disabled={!entries || entries.length === 0}>
-              <Download className="h-3.5 w-3.5" /> Export CSV
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" disabled={!entries || entries.length === 0}>
-                  <MessageCircle className="h-3.5 w-3.5" /> Share
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
-                <DropdownMenuLabel className="text-xs">Share statement summary</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => void doWhatsAppStatement()} className="gap-2">
-                  <MessageSquareText className="h-4 w-4 text-emerald-600" />
-                  <span>Open in WhatsApp{customerPhone ? ' (has number)' : ''}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void doCopyStatement()} className="gap-2">
-                  <Copy className="h-4 w-4" /> Copy summary text
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled className="gap-2 text-xs text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5" /> {customerPhone ? `To: ${customerPhone}` : 'No phone saved for customer'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Account statement</h3>
+            <Badge variant="outline" className="text-[10px]">Debits & credits</Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="date"
+                value={from}
+                max={to}
+                onChange={(e) => setFrom(e.target.value)}
+                aria-label="Statement from date"
+                className="h-8 w-32 sm:w-36 text-xs"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={to}
+                min={from}
+                onChange={(e) => setTo(e.target.value)}
+                aria-label="Statement to date"
+                className="h-8 w-32 sm:w-36 text-xs"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={downloadStatementPdf} disabled={!entries || entries.length === 0 || !company}>
+                <FileDown className="h-3.5 w-3.5" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={exportCsv} disabled={!entries || entries.length === 0}>
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5" disabled={!entries || entries.length === 0}>
+                    <MessageCircle className="h-3.5 w-3.5" /> Share
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuLabel className="text-xs">Share statement summary</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => void doWhatsAppStatement()} className="gap-2">
+                    <MessageSquareText className="h-4 w-4 text-emerald-600" />
+                    <span>Open in WhatsApp{customerPhone ? ' (has number)' : ''}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void doCopyStatement()} className="gap-2">
+                    <Copy className="h-4 w-4" /> Copy summary text
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled className="gap-2 text-xs text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" /> {customerPhone ? `To: ${customerPhone}` : 'No phone saved for customer'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -550,7 +556,7 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
           </p>
         )}
 
-        <div className="grid grid-cols-3 divide-x border-b text-sm">
+        <div className="grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-y-0 sm:divide-x border-b text-sm">
           <div className="px-4 py-2.5">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Invoiced</p>
             <p className="font-semibold tabular-nums">{formatMoney(totals.invoiced)}</p>
@@ -572,8 +578,8 @@ function CustomerStatement({ customerId, customerName, customerCode, customerGst
         ) : entries.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">No invoices or payments in this period.</p>
         ) : (
-          <div className="max-h-96 overflow-y-auto scrollbar-thin">
-            <table className="w-full text-sm">
+          <div className="max-h-96 overflow-x-auto overflow-y-auto scrollbar-thin">
+            <table className="w-full min-w-[500px] text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <th className="px-4 py-2 font-semibold">Date</th>

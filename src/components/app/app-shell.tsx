@@ -432,12 +432,17 @@ function UserMenu() {
   )
 }
 
-function MobileSidebar() {
-  const [open, setOpen] = useState(false)
+function MobileSidebar({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8 lg:hidden" aria-label="Open navigation menu">
+        <Button variant="outline" size="icon" className="h-8 w-8 shrink-0 lg:hidden" aria-label="Open navigation menu">
           <Menu className="h-4.5 w-4.5" aria-hidden="true" />
         </Button>
       </SheetTrigger>
@@ -446,19 +451,78 @@ function MobileSidebar() {
         <SheetDescription className="sr-only">Open the main navigation menu</SheetDescription>
         <Brand />
         <WorkspaceSwitcher />
-        <SidebarNav onNavigate={() => setOpen(false)} />
+        <SidebarNav onNavigate={() => onOpenChange(false)} />
         <div className="px-4 pb-4 text-[10px] text-slate-500">InvoiceFlow v{APP_VERSION}</div>
       </SheetContent>
     </Sheet>
   )
 }
 
+function MobileBottomNav({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const route = useHashRoute()
+  const section = route.segments[0] ?? 'dashboard'
+
+  const items = [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: 'invoices', label: 'Invoices', icon: Receipt },
+    { path: 'quotations', label: 'Quotes', icon: FileText },
+    { path: 'reports', label: 'Reports', icon: BarChart3 },
+  ]
+
+  const isMoreActive = !['dashboard', 'invoices', 'quotations', 'reports'].includes(section)
+
+  return (
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t border-border/80 bg-background/95 backdrop-blur-md px-1 pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
+    >
+      {items.map((item) => {
+        const active = section === item.path
+        return (
+          <a
+            key={item.path}
+            href={hrefFor(item.path)}
+            onClick={(e) => {
+              e.preventDefault()
+              navigate(item.path)
+            }}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium transition-colors select-none',
+              active
+                ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <item.icon className={cn('h-5 w-5', active && 'stroke-[2.25] text-emerald-600 dark:text-emerald-400')} aria-hidden="true" />
+            <span className="truncate max-w-[64px]">{item.label}</span>
+          </a>
+        )
+      })}
+      <button
+        type="button"
+        onClick={onOpenMenu}
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[10px] font-medium transition-colors select-none',
+          isMoreActive
+            ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+        aria-label="Open menu for more options"
+      >
+        <Menu className={cn('h-5 w-5', isMoreActive && 'stroke-[2.25] text-emerald-600 dark:text-emerald-400')} aria-hidden="true" />
+        <span>More</span>
+      </button>
+    </nav>
+  )
+}
+
 function OfflineBanner({ show }: { show: boolean }) {
   if (!show) return null
   return (
-    <div className="flex items-center justify-center gap-2 bg-amber-100 px-4 py-1.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
+    <div className="flex items-center justify-center gap-2 bg-amber-100 px-3 py-1.5 text-center text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
       <X className="hidden" aria-hidden="true" />
-      You are offline — everything keeps working locally. Changes will sync when you reconnect.
+      <span>You are offline — everything keeps working locally. Changes will sync when you reconnect.</span>
     </div>
   )
 }
@@ -478,6 +542,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
   const isOffline = useAppStore((s) => s.sync.status === 'offline') || (typeof navigator !== 'undefined' && !navigator.onLine)
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
   const toggleSidebarCollapsed = useAppStore((s) => s.toggleSidebarCollapsed)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useGlobalShortcuts()
   const { segments } = useHashRoute()
@@ -547,8 +612,8 @@ export function AppShell({ title, children }: { title: string; children: React.R
           )}
         >
           <OfflineBanner show={isOffline} />
-          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6" role="banner">
-            <MobileSidebar />
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur md:gap-3 md:px-6" role="banner">
+            <MobileSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
             <Button
               variant="ghost"
               size="icon"
@@ -558,16 +623,15 @@ export function AppShell({ title, children }: { title: string; children: React.R
             >
               <PanelLeft className="h-4.5 w-4.5" />
             </Button>
-            <h1 className="truncate text-sm font-semibold md:text-base">{title}</h1>
-            {/* gap-1.5 below sm keeps the cluster inside 320px viewports (3px overflow at gap-2) */}
-            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold md:text-base">{title}</h1>
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
               <SearchDialog />
               <ThemeToggle />
               <UserMenu />
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 md:px-6 lg:px-8" role="main">
+          <main className="flex-1 px-3 py-4 pb-24 md:px-6 md:py-6 lg:px-8 lg:pb-8" role="main">
             {/* The boundary keeps the header/sidebar/footer mounted even if a view throws —
                 only the crashed view is replaced. Re-keying on the first route segment
                 both resets the boundary and replays the enter animation per view. */}
@@ -576,14 +640,17 @@ export function AppShell({ title, children }: { title: string; children: React.R
             </ViewErrorBoundary>
           </main>
 
-          {/* Sticky footer: mt-auto pushes to bottom, min-h-screen root guarantees no gap */}
-          <footer className="mt-auto border-t bg-card/60 px-4 py-2.5 md:px-6" role="contentinfo">
+          {/* Sticky footer for tablet & desktop */}
+          <footer className="mt-auto hidden border-t bg-card/60 px-4 py-2.5 md:block md:px-6" role="contentinfo">
             <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <p>
                 <span className="font-medium text-foreground">InvoiceFlow</span> v{APP_VERSION} — Local-first · Offline-ready · GST-aware
               </p>
             </div>
           </footer>
+
+          {/* Mobile Bottom Navigation */}
+          <MobileBottomNav onOpenMenu={() => setMobileMenuOpen(true)} />
         </div>
       </div>
     </TooltipProvider>

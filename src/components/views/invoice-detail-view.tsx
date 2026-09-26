@@ -222,18 +222,20 @@ export function InvoiceDetailView({ id }: { id: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('invoices')}>
-          <ArrowLeft className="h-4 w-4" /> Invoices
-        </Button>
-        <span className="text-muted-foreground">/</span>
-        <h2 className="text-sm font-semibold">{inv.number}</h2>
-        <StatusBadge status={inv.status} overdue={overdue} className="ml-1" />
-        {inv.sync_state === 'pending' && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">Pending sync</span>}
-        {inv.sync_state === 'synced' && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">Synced</span>}
-        {inv.sync_state === 'conflict' && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">Conflict — resolve in Settings</span>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('invoices')}>
+            <ArrowLeft className="h-4 w-4" /> Invoices
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <h2 className="text-sm font-semibold">{inv.number}</h2>
+          <StatusBadge status={inv.status} overdue={overdue} className="ml-1" />
+          {inv.sync_state === 'pending' && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">Pending sync</span>}
+          {inv.sync_state === 'synced' && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">Synced</span>}
+          {inv.sync_state === 'conflict' && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-950 dark:text-orange-400">Conflict — resolve in Settings</span>}
+        </div>
 
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {isDraft && (
             <>
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`invoices/edit/${inv.id}`)}>

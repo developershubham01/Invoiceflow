@@ -23,6 +23,7 @@ import { formatDateDisplay, todayStr } from '@/lib/date'
 import { finalizeInvoice, softDeleteInvoiceDraft } from '@/lib/db/repositories'
 import { buildPaymentReminderText, isInvoiceOverdue, openWhatsAppReminder } from '@/lib/reminder'
 import { toCsv, downloadCsv } from '@/lib/csv'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   AlertTriangle, BadgeCheck, ChevronLeft, ChevronRight, ChevronRight as RowChevron,
@@ -253,8 +254,8 @@ export function InvoicesView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-52">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             value={query}
@@ -264,21 +265,23 @@ export function InvoicesView() {
             aria-label="Search invoices"
           />
         </div>
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0) }}>
-          <SelectTrigger className="w-40" aria-label="Filter by status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All statuses</SelectItem>
-            <SelectItem value="OVERDUE">Overdue{counts ? ` (${counts.OVERDUE})` : ''}</SelectItem>
-            {STATUS_ORDER.map((s) => (
-              <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}{counts ? ` (${counts[s]})` : ''}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button onClick={() => navigate('invoices/new')} className="gap-1.5">
-          <Plus className="h-4 w-4" /> New invoice
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0) }}>
+            <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              <SelectItem value="OVERDUE">Overdue{counts ? ` (${counts.OVERDUE})` : ''}</SelectItem>
+              {STATUS_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}{counts ? ` (${counts[s]})` : ''}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => navigate('invoices/new')} className="gap-1.5 shrink-0">
+            <Plus className="h-4 w-4" /> <span className="inline">New invoice</span>
+          </Button>
+        </div>
       </div>
 
       {!invoices ? (
@@ -293,76 +296,139 @@ export function InvoicesView() {
           action={{ label: 'Create invoice', onClick: () => navigate('invoices/new') }}
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="max-h-[64vh] overflow-auto scrollbar-thin">
-            <table className="w-full text-sm" aria-label="Invoices list">
-              <thead className="sticky top-0 z-10 bg-muted/95 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
-                <tr>
-                  <th className="w-10 px-3 py-2.5">
-                    <Checkbox
-                      checked={pageAllSelected ? true : pageSomeSelected ? 'indeterminate' : false}
-                      onCheckedChange={togglePage}
-                      aria-label={pageAllSelected ? 'Deselect all on this page' : 'Select all on this page'}
-                      className="align-middle"
-                    />
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">Invoice</th>
-                  <th className="px-4 py-2.5 font-medium">Customer</th>
-                  <th className="hidden px-4 py-2.5 font-medium md:table-cell">Dates</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Total</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Balance</th>
-                  <th className="w-8 px-2 py-2.5" aria-hidden="true" />
-                </tr>
-              </thead>
-              <tbody>
-                {pageRows.map((inv) => {
-                  const overdue = isInvoiceOverdue(inv, today)
-                  const provisional = inv.number.startsWith('DRAFT-')
-                  const isSelected = selected.has(inv.id)
-                  return (
-                    <tr
-                      key={inv.id}
-                      tabIndex={0}
-                      className={`group cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 ${isSelected ? 'bg-emerald-500/[0.07] hover:bg-emerald-500/10 dark:bg-emerald-500/[0.12] dark:hover:bg-emerald-500/[0.15]' : ''}`}
-                      onClick={() => navigate(`invoices/${inv.id}`)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') navigate(`invoices/${inv.id}`) }}
-                      aria-label={`Open invoice ${inv.number}`}
-                      aria-selected={isSelected}
-                    >
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div className="space-y-3">
+          {/* Mobile Card List (screens < md) */}
+          <div className="space-y-2 md:hidden">
+            {pageRows.map((inv) => {
+              const overdue = isInvoiceOverdue(inv, today)
+              const provisional = inv.number.startsWith('DRAFT-')
+              const isSelected = selected.has(inv.id)
+              const balance = inv.status === 'DRAFT' || inv.status === 'CANCELLED' ? 0 : Math.max(0, inv.grand_total_paise - inv.paid_total_paise)
+              return (
+                <div
+                  key={inv.id}
+                  tabIndex={0}
+                  onClick={() => navigate(`invoices/${inv.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`invoices/${inv.id}`) }}
+                  className={cn(
+                    'relative flex flex-col gap-2 rounded-xl border bg-card p-3.5 transition-colors cursor-pointer active:scale-[0.99]',
+                    isSelected
+                      ? 'border-emerald-500/50 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.12]'
+                      : 'hover:border-primary/40'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleRow(inv.id)}
                           aria-label={`Select invoice ${inv.number}`}
                         />
-                      </td>
-                      <td className="px-4 py-3 font-medium">
-                        {inv.number}
-                        {provisional && <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">provisional</span>}
-                      </td>
-                      <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{inv.customer_name_snapshot}</td>
-                      <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">
-                        {formatDateDisplay(inv.invoice_date)}
-                        {inv.due_date ? <span className="mx-1">→</span> : null}
-                        {inv.due_date ? formatDateDisplay(inv.due_date) : ''}
-                      </td>
-                      <td className="px-4 py-3"><StatusBadge status={inv.status} overdue={overdue} /></td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(inv.grand_total_paise)}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
-                        {inv.status === 'DRAFT' || inv.status === 'CANCELLED' ? '—' : formatMoney(Math.max(0, inv.grand_total_paise - inv.paid_total_paise))}
-                      </td>
-                      <td className="px-2 py-3 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" aria-hidden="true">
-                        <RowChevron className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-sm text-foreground block truncate">{inv.number}</span>
+                        {provisional && <span className="text-[10px] text-muted-foreground">Draft</span>}
+                      </div>
+                    </div>
+                    <StatusBadge status={inv.status} overdue={overdue} />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
+                    <span className="truncate max-w-[180px] font-medium text-foreground/80">{inv.customer_name_snapshot}</span>
+                    <span className="tabular-nums">{formatDateDisplay(inv.invoice_date)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-muted-foreground">
+                      {balance > 0 ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Bal: {formatMoney(balance)}</span>
+                      ) : inv.status === 'PAID' ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Fully Paid</span>
+                      ) : (
+                        '—'
+                      )}
+                    </span>
+                    <span className="text-sm font-bold tabular-nums text-foreground">{formatMoney(inv.grand_total_paise)}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
+
+          {/* Desktop Table (screens >= md) */}
+          <div className="hidden md:block overflow-hidden rounded-xl border bg-card">
+            <div className="max-h-[64vh] overflow-auto scrollbar-thin">
+              <table className="w-full text-sm" aria-label="Invoices list">
+                <thead className="sticky top-0 z-10 bg-muted/95 text-left text-xs uppercase tracking-wide text-muted-foreground backdrop-blur">
+                  <tr>
+                    <th className="w-10 px-3 py-2.5">
+                      <Checkbox
+                        checked={pageAllSelected ? true : pageSomeSelected ? 'indeterminate' : false}
+                        onCheckedChange={togglePage}
+                        aria-label={pageAllSelected ? 'Deselect all on this page' : 'Select all on this page'}
+                        className="align-middle"
+                      />
+                    </th>
+                    <th className="px-4 py-2.5 font-medium">Invoice</th>
+                    <th className="px-4 py-2.5 font-medium">Customer</th>
+                    <th className="hidden px-4 py-2.5 font-medium md:table-cell">Dates</th>
+                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Total</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Balance</th>
+                    <th className="w-8 px-2 py-2.5" aria-hidden="true" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((inv) => {
+                    const overdue = isInvoiceOverdue(inv, today)
+                    const provisional = inv.number.startsWith('DRAFT-')
+                    const isSelected = selected.has(inv.id)
+                    return (
+                      <tr
+                        key={inv.id}
+                        tabIndex={0}
+                        className={`group cursor-pointer border-t transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 ${isSelected ? 'bg-emerald-500/[0.07] hover:bg-emerald-500/10 dark:bg-emerald-500/[0.12] dark:hover:bg-emerald-500/[0.15]' : ''}`}
+                        onClick={() => navigate(`invoices/${inv.id}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`invoices/${inv.id}`) }}
+                        aria-label={`Open invoice ${inv.number}`}
+                        aria-selected={isSelected}
+                      >
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleRow(inv.id)}
+                            aria-label={`Select invoice ${inv.number}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          {inv.number}
+                          {provisional && <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">provisional</span>}
+                        </td>
+                        <td className="max-w-48 truncate px-4 py-3 text-muted-foreground">{inv.customer_name_snapshot}</td>
+                        <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-muted-foreground md:table-cell">
+                          {formatDateDisplay(inv.invoice_date)}
+                          {inv.due_date ? <span className="mx-1">→</span> : null}
+                          {inv.due_date ? formatDateDisplay(inv.due_date) : ''}
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={inv.status} overdue={overdue} /></td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">{formatMoney(inv.grand_total_paise)}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
+                          {inv.status === 'DRAFT' || inv.status === 'CANCELLED' ? '—' : formatMoney(Math.max(0, inv.grand_total_paise - inv.paid_total_paise))}
+                        </td>
+                        <td className="px-2 py-3 text-muted-foreground/40 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" aria-hidden="true">
+                          <RowChevron className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {pages > 1 && (
-            <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-2.5 text-xs text-muted-foreground">
               <span>{filtered.length} invoices · page {page + 1} of {pages}</span>
               <div className="flex gap-1">
                 <Button variant="outline" size="icon" className="h-7 w-7" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
@@ -379,15 +445,15 @@ export function InvoicesView() {
 
       {selectedRows.length === 0 && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-          Invoices past their due date with a balance are marked overdue. Tip: select rows to finalize drafts, export PDFs or CSV in bulk.
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" aria-hidden="true" />
+          <span>Invoices past their due date with a balance are marked overdue. Tip: select rows to finalize drafts, export PDFs or CSV in bulk.</span>
         </p>
       )}
 
       {/* bulk action bar */}
       {selectedRows.length > 0 && (
         <div
-          className="bulk-bar sticky bottom-3 z-20 rounded-xl border border-emerald-500/30 bg-popover/95 p-3 shadow-lg shadow-emerald-950/10 backdrop-blur"
+          className="bulk-bar sticky bottom-20 lg:bottom-4 z-20 rounded-xl border border-emerald-500/30 bg-popover/95 p-3 shadow-lg shadow-emerald-950/10 backdrop-blur"
           role="toolbar"
           aria-label={`Bulk actions for ${selectedRows.length} selected invoices`}
         >
@@ -401,7 +467,7 @@ export function InvoicesView() {
                 · {draftSelected.length} draft{draftSelected.length === 1 ? '' : 's'} ready to finalize
               </span>
             )}
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-2 pt-1 sm:pt-0">
               {remindable.length > 0 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

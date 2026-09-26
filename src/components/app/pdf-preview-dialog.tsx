@@ -80,15 +80,15 @@ export function PdfPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] max-w-3xl flex-col sm:max-w-3xl">
+      <DialogContent className="flex h-[92vh] w-[95vw] max-w-3xl flex-col p-4 sm:p-6 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Document preview — {model?.number}</DialogTitle>
           <DialogDescription>Generated locally on this device (offline-capable).</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <Label htmlFor="pdf-template" className="text-xs text-muted-foreground">Template</Label>
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+          <Label htmlFor="pdf-template" className="text-xs text-muted-foreground shrink-0">Template</Label>
           <Select value={override} onValueChange={(v) => setOverride(v === 'company' ? '' : v)}>
-            <SelectTrigger id="pdf-template" className="h-8 w-[260px] text-xs">
+            <SelectTrigger id="pdf-template" className="h-8 w-full sm:w-[260px] text-xs">
               <SelectValue placeholder={`Company default — ${getDocTemplate(companyTemplate || DEFAULT_TEMPLATE_ID).name}`} />
             </SelectTrigger>
             <SelectContent>
@@ -115,9 +115,9 @@ export function PdfPreviewDialog({
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={download} disabled={!model || Boolean(error)}>Download PDF</Button>
+        <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Close</Button>
+          <Button onClick={download} disabled={!model || Boolean(error)} className="w-full sm:w-auto">Download PDF</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

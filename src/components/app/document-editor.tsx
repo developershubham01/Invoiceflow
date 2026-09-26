@@ -393,33 +393,53 @@ export function DocumentEditor({
           <div className="hidden gap-2 px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:grid lg:grid-cols-[28px_2fr_1fr_64px_64px_96px_88px_72px_32px]">
             <span /><span>Product / description</span><span>HSN/SAC</span><span>Qty</span><span>Unit</span><span>Rate (Rs.)</span><span>Disc.</span><span>GST</span><span />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {items.map((item, idx) => (
               <div
                 key={item.id}
-                className="group grid gap-2 rounded-lg border bg-card p-2 transition-colors focus-within:border-emerald-300 lg:grid-cols-[28px_2fr_1fr_64px_64px_96px_88px_72px_32px] lg:items-center lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:hover:bg-emerald-500/[0.04] dark:lg:hover:bg-emerald-500/[0.06]"
+                className="group rounded-xl border bg-card p-3 shadow-xs transition-colors focus-within:border-emerald-500/50 lg:grid lg:grid-cols-[28px_2fr_1fr_64px_64px_96px_88px_72px_32px] lg:items-center lg:gap-2 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:hover:bg-emerald-500/[0.04] dark:lg:hover:bg-emerald-500/[0.06]"
               >
-                {/* mobile reorder controls (always visible on touch) */}
-                <div className="flex items-center gap-0.5 lg:hidden">
-                  <button
-                    type="button"
-                    className="flex h-8 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-                    onClick={() => moveItem(idx, idx - 1)}
-                    disabled={idx === 0}
-                    aria-label={`Move item ${idx + 1} up`}
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-8 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-                    onClick={() => moveItem(idx, idx + 1)}
-                    disabled={idx === items.length - 1}
-                    aria-label={`Move item ${idx + 1} down`}
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </button>
+                {/* Mobile item header: Item number, product picker, reorder & delete */}
+                <div className="flex items-center justify-between gap-1 pb-2 border-b border-border/50 lg:hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">
+                      {idx + 1}
+                    </span>
+                    <ProductPicker products={products ?? []} onPick={(pid) => void applyProduct(item.id, pid)} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+                      onClick={() => moveItem(idx, idx - 1)}
+                      disabled={idx === 0}
+                      aria-label={`Move item ${idx + 1} up`}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
+                      onClick={() => moveItem(idx, idx + 1)}
+                      disabled={idx === items.length - 1}
+                      aria-label={`Move item ${idx + 1} down`}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setItems((l) => (l.length > 1 ? l.filter((x) => x.id !== item.id) : l))}
+                      disabled={items.length <= 1}
+                      aria-label={`Remove item ${idx + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
+
                 {/* desktop reorder stack: hover-revealed arrows around the row number */}
                 <div className="hidden flex-col items-center lg:flex">
                   <button
@@ -444,8 +464,13 @@ export function DocumentEditor({
                     <ArrowDown className="h-3 w-3" />
                   </button>
                 </div>
-                <div className="space-y-1">
-                  <ProductPicker products={products ?? []} onPick={(pid) => void applyProduct(item.id, pid)} />
+
+                {/* Description & desktop catalog picker */}
+                <div className="pt-2 lg:pt-0 space-y-1">
+                  <div className="hidden lg:block">
+                    <ProductPicker products={products ?? []} onPick={(pid) => void applyProduct(item.id, pid)} />
+                  </div>
+                  <Label className="text-[11px] text-muted-foreground lg:hidden">Product description *</Label>
                   <Input
                     value={item.description}
                     onChange={(e) => updateItem(item.id, { description: e.target.value })}
@@ -453,34 +478,68 @@ export function DocumentEditor({
                     aria-label={`Item ${idx + 1} description`}
                   />
                 </div>
-                <Input value={item.hsn_sac} onChange={(e) => updateItem(item.id, { hsn_sac: e.target.value })} placeholder="HSN/SAC" aria-label={`Item ${idx + 1} HSN/SAC`} />
-                <div className="grid grid-cols-2 gap-2 lg:contents">
-                  <Input inputMode="decimal" value={item.qty} onChange={(e) => updateItem(item.id, { qty: e.target.value })} placeholder="Qty" aria-label={`Item ${idx + 1} quantity`} className="tabular-nums" />
-                  <Input value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="Unit" aria-label={`Item ${idx + 1} unit`} />
+
+                {/* HSN and Unit on mobile in 2 cols */}
+                <div className="grid grid-cols-2 gap-2 pt-1 lg:pt-0 lg:contents">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground lg:hidden">HSN/SAC</Label>
+                    <Input value={item.hsn_sac} onChange={(e) => updateItem(item.id, { hsn_sac: e.target.value })} placeholder="HSN/SAC" aria-label={`Item ${idx + 1} HSN/SAC`} />
+                  </div>
+                  <div className="space-y-1 lg:hidden">
+                    <Label className="text-[11px] text-muted-foreground">Unit</Label>
+                    <Input value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="NOS" aria-label={`Item ${idx + 1} unit`} />
+                  </div>
                 </div>
-                <Input inputMode="decimal" value={item.unit_price} onChange={(e) => updateItem(item.id, { unit_price: e.target.value })} placeholder="Rate" aria-label={`Item ${idx + 1} rate in rupees`} className="tabular-nums" />
-                <Select value={String(item.discount_bps)} onValueChange={(v) => updateItem(item.id, { discount_bps: Number(v) })}>
-                  <SelectTrigger aria-label={`Item ${idx + 1} discount`}><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[0, 250, 500, 1000, 1500, 2000, 2500].map((b) => (
-                      <SelectItem key={b} value={String(b)}>{b === 0 ? 'No disc.' : `${b / 100}%`}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={String(item.gst_rate_bps)} onValueChange={(v) => updateItem(item.id, { gst_rate_bps: Number(v) })}>
-                  <SelectTrigger aria-label={`Item ${idx + 1} GST rate`}><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STANDARD_GST_RATES_BPS.map((b) => (
-                      <SelectItem key={b} value={String(b)}>{gstRateLabel(b)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+                {/* Qty and Rate */}
+                <div className="grid grid-cols-2 gap-2 pt-1 lg:pt-0 lg:contents">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground lg:hidden">Quantity</Label>
+                    <Input inputMode="decimal" value={item.qty} onChange={(e) => updateItem(item.id, { qty: e.target.value })} placeholder="Qty" aria-label={`Item ${idx + 1} quantity`} className="tabular-nums" />
+                  </div>
+                  <div className="hidden lg:block">
+                    <Input value={item.unit} onChange={(e) => updateItem(item.id, { unit: e.target.value })} placeholder="Unit" aria-label={`Item ${idx + 1} unit`} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground lg:hidden">Rate (₹)</Label>
+                    <Input inputMode="decimal" value={item.unit_price} onChange={(e) => updateItem(item.id, { unit_price: e.target.value })} placeholder="Rate" aria-label={`Item ${idx + 1} rate in rupees`} className="tabular-nums" />
+                  </div>
+                </div>
+
+                {/* Discount and GST */}
+                <div className="grid grid-cols-2 gap-2 pt-1 lg:pt-0 lg:contents">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground lg:hidden">Discount</Label>
+                    <Select value={String(item.discount_bps)} onValueChange={(v) => updateItem(item.id, { discount_bps: Number(v) })}>
+                      <SelectTrigger aria-label={`Item ${idx + 1} discount`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0, 250, 500, 1000, 1500, 2000, 2500].map((b) => (
+                          <SelectItem key={b} value={String(b)}>{b === 0 ? 'No disc.' : `${b / 100}%`}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground lg:hidden">GST</Label>
+                    <Select value={String(item.gst_rate_bps)} onValueChange={(v) => updateItem(item.id, { gst_rate_bps: Number(v) })}>
+                      <SelectTrigger aria-label={`Item ${idx + 1} GST rate`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STANDARD_GST_RATES_BPS.map((b) => (
+                          <SelectItem key={b} value={String(b)}>{gstRateLabel(b)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Desktop trash button */}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground opacity-100 transition-opacity hover:text-destructive lg:opacity-0 lg:group-hover:opacity-100"
+                  className="hidden lg:flex h-8 w-8 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                   onClick={() => setItems((l) => (l.length > 1 ? l.filter((x) => x.id !== item.id) : l))}
+                  disabled={items.length <= 1}
                   aria-label={`Remove item ${idx + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -504,15 +563,17 @@ export function DocumentEditor({
             </div>
             {charges.length === 0 && <p className="text-xs text-muted-foreground">No additional charges (e.g. freight, packing).</p>}
             {charges.map((charge, i) => (
-              <div key={charge.id} className="flex flex-wrap items-center gap-2">
-                <Input className="w-40" value={charge.label} onChange={(e) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, label: e.target.value } : c)))} placeholder="Label" aria-label={`Charge ${i + 1} label`} />
-                <Input className="w-28" inputMode="decimal" value={charge.amount} onChange={(e) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, amount: e.target.value } : c)))} placeholder="Rs." aria-label={`Charge ${i + 1} amount`} />
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Switch checked={charge.taxable} onCheckedChange={(v) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, taxable: v } : c)))} aria-label={`Charge ${i + 1} taxable`} /> Taxable
-                </label>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setCharges((l) => l.filter((c) => c.id !== charge.id))} aria-label={`Remove charge ${i + 1}`}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div key={charge.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-lg border bg-muted/20 sm:border-0 sm:bg-transparent sm:p-0">
+                <Input className="w-full sm:w-40" value={charge.label} onChange={(e) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, label: e.target.value } : c)))} placeholder="Charge label (e.g. Delivery)" aria-label={`Charge ${i + 1} label`} />
+                <div className="flex items-center gap-2">
+                  <Input className="flex-1 sm:w-28" inputMode="decimal" value={charge.amount} onChange={(e) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, amount: e.target.value } : c)))} placeholder="Rs." aria-label={`Charge ${i + 1} amount`} />
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer">
+                    <Switch checked={charge.taxable} onCheckedChange={(v) => setCharges((l) => l.map((c) => (c.id === charge.id ? { ...c, taxable: v } : c)))} aria-label={`Charge ${i + 1} taxable`} /> Taxable
+                  </label>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0" onClick={() => setCharges((l) => l.filter((c) => c.id !== charge.id))} aria-label={`Remove charge ${i + 1}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -566,12 +627,12 @@ export function DocumentEditor({
       </div>
 
       {/* actions */}
-      <div className="flex flex-wrap items-center justify-end gap-2 pb-2">
-        <Button variant="outline" onClick={() => history.back()}>Cancel</Button>
-        <Button variant="secondary" disabled={saving} onClick={() => void handleSave(false)}>
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pb-2">
+        <Button variant="outline" onClick={() => history.back()} className="w-full sm:w-auto">Cancel</Button>
+        <Button variant="secondary" disabled={saving} onClick={() => void handleSave(false)} className="w-full sm:w-auto">
           Save draft
         </Button>
-        <Button disabled={saving} onClick={() => void handleSave(true)} className="gap-1.5">
+        <Button disabled={saving} onClick={() => void handleSave(true)} className="gap-1.5 w-full sm:w-auto">
           <Percent className="h-4 w-4" aria-hidden="true" />
           {kind === 'invoice' ? 'Save & finalize' : 'Save & mark sent'}
         </Button>
