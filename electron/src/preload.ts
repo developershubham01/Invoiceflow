@@ -43,6 +43,10 @@ const EXTERNAL_HOST_ALLOWLIST: readonly string[] = [
   'supabase.com',
   '*.supabase.co',
   'invoiceflow.app',
+  'accounts.google.com',
+  '*.google.com',
+  'policies.google.com',
+  'support.google.com',
 ];
 
 /** Same https + allow-list rule as channels.ts; duplicated for the preload sandbox. */

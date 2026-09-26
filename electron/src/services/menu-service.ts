@@ -41,6 +41,21 @@ export function buildAppMenu(options: AppMenuOptions): Menu {
   ];
 
   const viewSubmenu: MenuItemConstructorOptions[] = [
+    {
+      label: 'Back',
+      accelerator: 'Alt+Left',
+      click: (_item, focusedWindow) => {
+        if (focusedWindow && 'webContents' in focusedWindow) {
+          const win = focusedWindow as unknown as { webContents: { canGoBack: () => boolean; goBack: () => void } };
+          if (win.webContents.canGoBack()) {
+            win.webContents.goBack();
+          }
+        }
+      },
+    },
+    { role: 'reload' },
+    { role: 'forceReload' },
+    { type: 'separator' },
     { role: 'resetZoom' },
     { role: 'zoomIn' },
     { role: 'zoomOut' },

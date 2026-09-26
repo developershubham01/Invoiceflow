@@ -154,6 +154,10 @@ export const EXTERNAL_HOST_ALLOWLIST: readonly string[] = [
   'supabase.com',
   '*.supabase.co',
   'invoiceflow.app',
+  'accounts.google.com',
+  '*.google.com',
+  'policies.google.com',
+  'support.google.com',
 ];
 
 /** True only for https: URLs whose (optionally wildcard) host is allow-listed. */

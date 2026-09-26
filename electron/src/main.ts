@@ -82,12 +82,29 @@ function cspHeader(): string {
   return DEV_SERVER_URL ? CSP_DEV : CSP_BASE;
 }
 
-/** True when the URL is same-origin with the allow-list or the embedded bundle. */
+function isGoogleAuthUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (
+    host === 'accounts.google.com' ||
+    host.endsWith('.accounts.google.com') ||
+    host === 'accounts.youtube.com' ||
+    host === 'ssl.gstatic.com' ||
+    host === 'oauth2.googleapis.com' ||
+    host === 'myaccount.google.com' ||
+    host.endsWith('.google.com') ||
+    host.endsWith('.googleusercontent.com') ||
+    host.endsWith('.gstatic.com')
+  );
+}
+
+/** True when the URL is same-origin with the allow-list, Google Auth, or the embedded bundle. */
 function isAllowedNavigationUrl(rawUrl: string): boolean {
   try {
     const url = new URL(rawUrl);
     if (url.protocol === 'file:') return isInsideEmbeddedBundle(url);
-    return ALLOWED_ORIGINS.includes(url.origin);
+    if (ALLOWED_ORIGINS.includes(url.origin)) return true;
+    if (isGoogleAuthUrl(url)) return true;
+    return false;
   } catch {
     return false;
   }
@@ -119,7 +136,28 @@ function shouldInjectCsp(rawUrl: string): boolean {
 function configureSessionSecurity(): void {
   const ses = session.defaultSession;
 
+  // Sanitize User-Agent across the entire session: Google blocks OAuth when 'Electron' is present
+  const rawUa = ses.getUserAgent();
+  const cleanUa = rawUa
+    .replace(/Electron\/\S+\s?/, '')
+    .replace(/InvoiceFlow\/\S+\s?/, '')
+    .replace(/@invoiceflow\/desktop\/\S+\s?/, '')
+    .trim();
+
+  ses.setUserAgent(cleanUa);
+  app.userAgentFallback = cleanUa;
+
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+
+  // Ensure outbound requests to Google endpoints use the sanitized User-Agent
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = { ...details.requestHeaders };
+    const url = details.url.toLowerCase();
+    if (url.includes('google.com') || url.includes('googleapis.com') || url.includes('gstatic.com')) {
+      headers['User-Agent'] = cleanUa;
+    }
+    callback({ requestHeaders: headers });
+  });
 
   ses.webRequest.onHeadersReceived((details, callback) => {
     if (!shouldInjectCsp(details.url)) {
@@ -203,6 +241,16 @@ async function createMainWindow(): Promise<void> {
     },
   });
   mainWindow = win;
+
+  // Enable keyboard navigation back (e.g. if returning from Google OAuth without logging in)
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && ((input.alt && input.key === 'ArrowLeft') || input.key === 'BrowserBack')) {
+      if (win.webContents.canGoBack()) {
+        win.webContents.goBack();
+        event.preventDefault();
+      }
+    }
+  });
 
   win.once('ready-to-show', () => {
     if (win.isMinimized()) win.restore();
